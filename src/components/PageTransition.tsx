@@ -37,20 +37,3 @@ export function PageTransition({
     </div>
   );
 }
-
-export function PageTransitionGroup({
-  isLoading,
-  children,
-}: {
-  isLoading?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={cn(
-      'transition-opacity duration-300',
-      isLoading && 'opacity-50 pointer-events-none'
-    )}>
-      {children}
-    </div>
-  );
-}

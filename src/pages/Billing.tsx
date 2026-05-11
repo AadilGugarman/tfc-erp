@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
 import { Input, Select, TextArea } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { formatCurrency, formatDate, todayStr } from '@/utils/formatters';
 import * as db from '@/db/db';
 import type { BillItem } from '@/db/schema';
@@ -21,506 +22,272 @@ interface BillLineItem {
   lotNo: string;
 }
 
-function createEmptyItem(id = '1'): BillLineItem {
-  return {
-    id,
-    fruitName: '',
-    grade: 'A',
-    boxCount: 0,
-    weightPerBox: 0,
-    totalWeight: 0,
-    rate: 0,
-    amount: 0,
-    lotNo: '',
-  };
-}
-
 export function BillingPage() {
   const { t } = useTranslation();
-  const tx = (key: string, fallback: string) => t(key, { defaultValue: fallback });
   const { parties, loadParties, loadBills, settings, showNotification } = useAppStore();
-
   const [showForm, setShowForm] = useState(false);
   const [billSearch, setBillSearch] = useState('');
-
   const [selectedParty, setSelectedParty] = useState('');
   const [billDate, setBillDate] = useState(todayStr());
-  const [items, setItems] = useState<BillLineItem[]>([createEmptyItem()]);
+  const [items, setItems] = useState<BillLineItem[]>([{ id: '1', fruitName: '', grade: 'A', boxCount: 0, weightPerBox: 0, totalWeight: 0, rate: 0, amount: 0, lotNo: '' }]);
   const [billNotes, setBillNotes] = useState('');
   const [advancePayment, setAdvancePayment] = useState(0);
-
   const bills = db.getBills();
 
-  useEffect(() => {
-    loadParties();
-    loadBills();
-  }, []);
+  useEffect(() => { loadParties(); loadBills(); }, []);
 
   const addItem = () => {
-    setItems(prev => [...prev, createEmptyItem(Date.now().toString())]);
+    setItems([...items, { id: Date.now().toString(), fruitName: '', grade: 'A', boxCount: 0, weightPerBox: 0, totalWeight: 0, rate: 0, amount: 0, lotNo: '' }]);
   };
 
   const removeItem = (id: string) => {
-    setItems(prev => (prev.length > 1 ? prev.filter(item => item.id !== id) : prev));
+    if (items.length > 1) setItems(items.filter(i => i.id !== id));
   };
 
   const updateItem = (id: string, field: keyof BillLineItem, value: string | number) => {
-    setItems(prev => prev.map(item => {
+    setItems(items.map(item => {
       if (item.id !== id) return item;
       const updated = { ...item, [field]: value };
       if (field === 'boxCount' || field === 'weightPerBox') {
         updated.totalWeight = updated.boxCount * updated.weightPerBox;
+        updated.amount = updated.totalWeight * updated.rate;
       }
-      if (field === 'boxCount' || field === 'weightPerBox' || field === 'rate') {
+      if (field === 'rate') {
         updated.amount = updated.totalWeight * updated.rate;
       }
       return updated;
     }));
   };
 
-  const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+  const subtotal = items.reduce((s, i) => s + i.amount, 0);
   const commission = subtotal * (settings.commissionPercent / 100);
   const taxAmount = subtotal * (settings.taxPercent / 100);
   const total = subtotal - commission + taxAmount;
   const netBalance = total - advancePayment;
 
-  const filteredBills = useMemo(() => {
-    const q = billSearch.toLowerCase();
-    return bills
-      .filter(bill =>
-        bill.billNo.toLowerCase().includes(q) ||
-        bill.partyName.toLowerCase().includes(q)
-      )
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [bills, billSearch]);
-
-  const totalSales = filteredBills.reduce((sum, bill) => sum + bill.total, 0);
-  const totalReceived = filteredBills.reduce((sum, bill) => sum + bill.paidAmount, 0);
-  const totalBalance = filteredBills.reduce((sum, bill) => sum + bill.netBalance, 0);
-
-  const resetForm = () => {
-    setSelectedParty('');
-    setBillDate(todayStr());
-    setBillNotes('');
-    setAdvancePayment(0);
-    setItems([createEmptyItem()]);
-  };
+  const filteredBills = bills.filter(b =>
+    b.billNo.toLowerCase().includes(billSearch.toLowerCase()) ||
+    b.partyName.toLowerCase().includes(billSearch.toLowerCase())
+  ).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   const saveBill = () => {
-    if (!selectedParty) {
-      showNotification(tx('validation.selectParty', 'Please select a party'), 'error');
-      return;
-    }
-    if (items.some(item => !item.fruitName || item.amount <= 0)) {
-      showNotification(tx('messages.fillAllItems', 'Please fill all items'), 'error');
-      return;
-    }
+    if (!selectedParty) { showNotification('Please select a party', 'error'); return; }
+    if (items.some(i => !i.fruitName || i.amount <= 0)) { showNotification('Please fill all items', 'error'); return; }
 
     const party = parties.find(p => p.id === selectedParty);
     if (!party) return;
 
-    const billItems: BillItem[] = items.map(item => ({ ...item }));
-    const status: 'paid' | 'partial' | 'unpaid' =
-      advancePayment >= total ? 'paid' : advancePayment > 0 ? 'partial' : 'unpaid';
+    const billItems: BillItem[] = items.map(i => ({ ...i, id: i.id }));
+    const status: 'paid' | 'partial' | 'unpaid' = advancePayment >= total ? 'paid' : advancePayment > 0 ? 'partial' : 'unpaid';
 
     const result = db.createBill({
-      date: billDate,
-      partyId: selectedParty,
-      partyName: party.name,
-      items: billItems,
-      subtotal,
-      commission,
-      taxAmount,
-      taxPercent: settings.taxPercent,
-      total,
-      previousBalance: 0,
-      paidAmount: advancePayment,
-      netBalance,
-      notes: billNotes,
-      status,
+      date: billDate, partyId: selectedParty, partyName: party.name,
+      items: billItems, subtotal, commission, taxAmount, taxPercent: settings.taxPercent,
+      total, previousBalance: 0, paidAmount: advancePayment, netBalance, notes: billNotes, status,
     });
 
-    showNotification(`${tx('messages.billCreated', 'Bill created!')} ${result.bill.billNo}`, 'success');
+    showNotification(`Bill ${result.bill.billNo} created!`, 'success');
     setShowForm(false);
-    resetForm();
+    setSelectedParty(''); setBillDate(todayStr()); setBillNotes(''); setAdvancePayment(0);
+    setItems([{ id: '1', fruitName: '', grade: 'A', boxCount: 0, weightPerBox: 0, totalWeight: 0, rate: 0, amount: 0, lotNo: '' }]);
     loadBills();
   };
 
   const printBill = (bill: typeof bills[0]) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-
     printWindow.document.write(`
-      <!DOCTYPE html><html><head><title>${tx('billing.title', 'Billing')} ${bill.billNo}</title>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <!DOCTYPE html><html><head><title>Bill ${bill.billNo}</title>
       <style>
-        :root {
-          --ink: #0f172a;
-          --muted: #475569;
-          --line: #cbd5e1;
-          --soft: #f8fafc;
-          --brand: #0f766e;
-        }
-        * { box-sizing: border-box; }
-        body {
-          margin: 0;
-          background: #e2e8f0;
-          color: var(--ink);
-          font-family: 'Segoe UI', 'Inter', sans-serif;
-          padding: 24px;
-        }
-        .sheet {
-          max-width: 900px;
-          margin: 0 auto;
-          background: #fff;
-          border: 1px solid var(--line);
-          border-radius: 14px;
-          overflow: hidden;
-        }
-        .head {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 20px;
-          padding: 22px 24px;
-          background: linear-gradient(135deg, #f0fdfa 0%, #ecfeff 100%);
-          border-bottom: 1px solid var(--line);
-        }
-        .brand h1 { margin: 0; font-size: 24px; letter-spacing: 0.2px; }
-        .brand p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
-        .doc { text-align: right; }
-        .doc .label {
-          display: inline-block;
-          border: 1px solid #99f6e4;
-          background: #ccfbf1;
-          color: #115e59;
-          border-radius: 999px;
-          padding: 4px 10px;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-        }
-        .doc h2 { margin: 10px 0 0; font-size: 20px; }
-        .meta {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 14px;
-          padding: 18px 24px;
-        }
-        .meta .card {
-          border: 1px solid var(--line);
-          border-radius: 10px;
-          padding: 12px;
-          background: var(--soft);
-        }
-        .meta .ttl {
-          margin: 0 0 8px;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          color: var(--muted);
-        }
-        .meta p { margin: 4px 0; font-size: 13px; }
-        table {
-          width: calc(100% - 48px);
-          margin: 0 24px 20px;
-          border-collapse: collapse;
-        }
-        thead th {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          color: var(--muted);
-          background: #f1f5f9;
-          border-top: 1px solid var(--line);
-          border-bottom: 1px solid var(--line);
-          padding: 9px 8px;
-          text-align: left;
-        }
-        tbody td {
-          border-bottom: 1px solid #e2e8f0;
-          padding: 10px 8px;
-          font-size: 13px;
-        }
-        tbody tr:nth-child(even) td { background: #fcfdff; }
-        .num { text-align: right; white-space: nowrap; }
-        .summary {
-          display: flex;
-          justify-content: flex-end;
-          padding: 0 24px 24px;
-        }
-        .summary-box {
-          width: min(380px, 100%);
-          border: 1px solid var(--line);
-          border-radius: 10px;
-          padding: 12px;
-          background: var(--soft);
-        }
-        .summary-row {
-          display: flex;
-          justify-content: space-between;
-          margin: 6px 0;
-          font-size: 13px;
-        }
-        .summary-row.total {
-          margin-top: 10px;
-          padding-top: 10px;
-          border-top: 1px dashed var(--line);
-          font-size: 18px;
-          font-weight: 700;
-          color: #0f766e;
-        }
-        .footer {
-          text-align: center;
-          margin: 0 24px 20px;
-          color: var(--muted);
-          font-size: 12px;
-          border-top: 1px solid var(--line);
-          padding-top: 10px;
-        }
-        @media print {
-          body { background: #fff; padding: 0; }
-          .sheet { border: 0; border-radius: 0; max-width: none; }
-        }
+        body { font-family: 'Courier New', monospace; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
+        .header h1 { margin: 0; font-size: 20px; }
+        .header p { margin: 2px 0; font-size: 12px; }
+        .bill-info { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        th, td { border: 1px solid #333; padding: 6px 8px; font-size: 11px; text-align: left; }
+        th { background: #f0f0f0; }
+        .totals { text-align: right; font-size: 12px; }
+        .totals p { margin: 2px 0; }
+        .totals .grand { font-size: 16px; font-weight: bold; border-top: 2px solid #333; padding-top: 5px; }
+        .footer { text-align: center; margin-top: 30px; font-size: 10px; border-top: 1px solid #ccc; padding-top: 10px; }
+        @media print { body { padding: 0; } }
       </style></head><body>
-      <section class="sheet">
-        <header class="head">
-          <div class="brand">
-            <h1>${settings.businessName}</h1>
-            <p>${settings.businessAddress}, ${settings.city}, ${settings.state}</p>
-            <p>Phone: ${settings.phone} | GSTIN: ${settings.gstin || '-'}</p>
-          </div>
-          <div class="doc">
-            <span class="label">${tx('billing.saleInvoice', 'Sale Invoice')}</span>
-            <h2>${bill.billNo}</h2>
-          </div>
-        </header>
-
-        <section class="meta">
-          <div class="card">
-            <p class="ttl">${tx('billing.billDetails', 'Bill Details')}</p>
-            <p><strong>${tx('billing.billNo', 'Bill No')}:</strong> ${bill.billNo}</p>
-            <p><strong>${tx('tableHeaders.date', 'Date')}:</strong> ${formatDate(bill.date)}</p>
-            <p><strong>${tx('billing.status', 'Status')}:</strong> ${tx(`statuses.${bill.status}`, bill.status)}</p>
-          </div>
-          <div class="card">
-            <p class="ttl">${tx('billing.customer', 'Customer')}</p>
-            <p><strong>${tx('billing.name', 'Name')}:</strong> ${bill.partyName}</p>
-            <p><strong>${tx('billing.items', 'Items')}:</strong> ${bill.items.length}</p>
-            <p><strong>${tx('billing.tax', 'Tax')}:</strong> ${bill.taxPercent}%</p>
-          </div>
-        </section>
-
-        <table>
-          <thead><tr><th>#</th><th>${tx('tableHeaders.itemName', 'Item')}</th><th>${tx('tableHeaders.grade', 'Grade')}</th><th>${tx('billing.lot', 'Lot')}</th><th>${tx('billing.boxes', 'Boxes')}</th><th>${tx('billing.weightPerBox', 'Wt/Box')}</th><th>${tx('billing.totalWeight', 'Total Wt')}</th><th class="num">${tx('tableHeaders.rate', 'Rate')}</th><th class="num">${tx('tableHeaders.amount', 'Amount')}</th></tr></thead>
-          <tbody>
-            ${bill.items.map((item, index) => `<tr>
-              <td>${index + 1}</td><td>${item.fruitName}</td><td>${item.grade}</td><td>${item.lotNo || '-'}</td>
-              <td>${item.boxCount}</td><td>${item.weightPerBox}</td><td>${item.totalWeight.toFixed(2)} kg</td>
-              <td class="num">${formatCurrency(item.rate)}</td><td class="num">${formatCurrency(item.amount)}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-
-        <section class="summary">
-          <div class="summary-box">
-            <div class="summary-row"><span>${tx('billing.subtotal', 'Subtotal')}</span><strong>${formatCurrency(bill.subtotal)}</strong></div>
-            <div class="summary-row"><span>${tx('billing.commission', 'Commission')} (${settings.commissionPercent}%)</span><strong>- ${formatCurrency(bill.commission)}</strong></div>
-            <div class="summary-row"><span>${tx('billing.tax', 'Tax')} (${bill.taxPercent}%)</span><strong>+ ${formatCurrency(bill.taxAmount)}</strong></div>
-            ${bill.paidAmount > 0 ? `<div class="summary-row"><span>${tx('billing.advance', 'Advance Paid')}</span><strong>- ${formatCurrency(bill.paidAmount)}</strong></div>` : ''}
-            ${bill.paidAmount > 0 ? `<div class="summary-row"><span>${tx('billing.netBalance', 'Net Balance')}</span><strong>${formatCurrency(bill.netBalance)}</strong></div>` : ''}
-            <div class="summary-row total"><span>${tx('billing.total', 'Total')}</span><span>${formatCurrency(bill.total)}</span></div>
-          </div>
-        </section>
-
-        ${bill.notes ? `<p style="margin-top:15px;font-size:11px;"><strong>${tx('common.notes', 'Notes')}:</strong> ${bill.notes}</p>` : ''}
-        <div class="footer">
-          <p>${tx('billing.thankYou', 'Thank you for your business!')}</p>
-          <p>${tx('billing.generatedBill', 'This is a computer generated bill.')}</p>
-        </div>
-      </section>
+      <div class="header">
+        <h1>${settings.businessName}</h1>
+        <p>${settings.businessAddress}, ${settings.city}, ${settings.state}</p>
+        <p>Phone: ${settings.phone} | GSTIN: ${settings.gstin}</p>
+      </div>
+      <div class="bill-info">
+        <div><strong>Bill No:</strong> ${bill.billNo}<br><strong>Date:</strong> ${formatDate(bill.date)}</div>
+        <div><strong>Party:</strong> ${bill.partyName}<br><strong>Status:</strong> ${bill.status.toUpperCase()}</div>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Item</th><th>Grade</th><th>Lot</th><th>Boxes</th><th>Wt/Box</th><th>Total Wt</th><th>Rate</th><th>Amount</th></tr></thead>
+        <tbody>
+          ${bill.items.map((item) => `<tr>
+            <td>${bill.items.indexOf(item) + 1}</td><td>${item.fruitName}</td><td>${item.grade}</td><td>${item.lotNo}</td>
+            <td>${item.boxCount}</td><td>${item.weightPerBox}</td><td>${item.totalWeight.toFixed(2)}</td>
+            <td>${formatCurrency(item.rate)}</td><td>${formatCurrency(item.amount)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="totals">
+        <p>Subtotal: ${formatCurrency(bill.subtotal)}</p>
+        <p>Commission (${settings.commissionPercent}%): -${formatCurrency(bill.commission)}</p>
+        <p>Tax (${bill.taxPercent}%): +${formatCurrency(bill.taxAmount)}</p>
+        <p class="grand">Total: ${formatCurrency(bill.total)}</p>
+        ${bill.paidAmount > 0 ? `<p>Advance Paid: -${formatCurrency(bill.paidAmount)}</p><p class="grand">Net Balance: ${formatCurrency(bill.netBalance)}</p>` : ''}
+      </div>
+      ${bill.notes ? `<p style="margin-top:15px;font-size:11px;"><strong>Notes:</strong> ${bill.notes}</p>` : ''}
+      <div class="footer">
+        <p>Thank you for your business! / વ્યવસાર બદલ આભાર!</p>
+        <p>This is a computer generated bill.</p>
+      </div>
       <script>window.onload = function() { window.print(); }</script>
       </body></html>
     `);
-
     printWindow.document.close();
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-[15px] font-semibold text-slate-900 dark:text-white">{tx('billing.title', 'Billing')}</h1>
-        <Button size="sm" onClick={() => setShowForm(v => !v)}>
-          <FileText className="h-3.5 w-3.5" />
-          {showForm ? tx('buttons.viewBills', 'View Bills') : tx('buttons.addBill', 'New Bill')}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Billing / બિલિંગ</h1>
+        </div>
+        <Button onClick={() => setShowForm(!showForm)} className="gap-2">
+          <FileText className="h-4 w-4" /> {showForm ? 'View Bills' : 'New Bill'}
         </Button>
       </div>
 
       {showForm ? (
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
-          <div className="space-y-4">
-            <div className="bg-white dark:bg-[#111318] border border-slate-200 dark:border-[#1e2330] rounded-lg p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Select
-                  label={tx('billing.party', 'Party')}
-                  value={selectedParty}
-                  onChange={e => setSelectedParty(e.target.value)}
-                  options={[{ value: '', label: tx('placeholders.selectParty', 'Select party...') }, ...parties.map(p => ({ value: p.id, label: p.name }))]}
-                />
-                <Input label={tx('billing.billDate', 'Bill Date')} type="date" value={billDate} onChange={e => setBillDate(e.target.value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <Input label={tx('billing.billNo', 'Bill No')} value={db.getNextBillNo()} disabled />
-                <Input
-                  label={tx('billing.advance', 'Advance')}
-                  type="number"
-                  value={advancePayment}
-                  onChange={e => setAdvancePayment(parseFloat(e.target.value) || 0)}
-                  prefix="Rs"
-                />
-              </div>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Bill Form */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardHeader><CardTitle>{t('billing.title')}</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Select label={`${t('billing.party')} *`} value={selectedParty} onChange={e => setSelectedParty(e.target.value)}
+                    options={[{ value: '', label: t('placeholders.selectPartyPlaceholder') }, ...parties.map(p => ({ value: p.id, label: p.name }))]} />
+                  <Input label={t('billing.billDate')} type="date" value={billDate} onChange={e => setBillDate(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label={t('billing.billNumber')} value={db.getNextBillNo()} disabled />
+                  <Input label="Advance Payment" type="number" value={advancePayment} onChange={e => setAdvancePayment(parseFloat(e.target.value) || 0)} prefix="₹" />
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="bg-white dark:bg-[#111318] border border-slate-200 dark:border-[#1e2330] rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{tx('billing.billItems', 'Bill Items')}</h3>
-                <Button variant="outline" size="sm" onClick={addItem}>
-                  <Plus className="h-3.5 w-3.5" /> {tx('buttons.addItem', 'Add Item')}
-                </Button>
-              </div>
-
-              <div className="hidden md:grid grid-cols-12 gap-2 mb-2 px-1">
-                <span className="col-span-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-slate-600">{tx('tableHeaders.itemName', 'Item')}</span>
-                <span className="col-span-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-slate-600">{tx('tableHeaders.grade', 'Grade')}</span>
-                <span className="col-span-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-slate-600">{tx('billing.lot', 'Lot')}</span>
-                <span className="col-span-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-slate-600">{tx('billing.boxes', 'Boxes')}</span>
-                <span className="col-span-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-slate-600">{tx('billing.weightPerBox', 'Wt/Box')}</span>
-                <span className="col-span-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-slate-600">{tx('billing.totalWeight', 'Wt')}</span>
-                <span className="col-span-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-slate-600">{tx('tableHeaders.rate', 'Rate')}</span>
-                <span className="col-span-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-slate-600">{tx('tableHeaders.amount', 'Amount')}</span>
-                <span className="col-span-1" />
-              </div>
-
-              <div className="space-y-2">
-                {items.map(item => (
-                  <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end p-2 rounded-md border border-slate-100 dark:border-[#1a1f2e] bg-slate-50 dark:bg-[#0e1017]">
-                    <div className="md:col-span-3"><Input value={item.fruitName} onChange={e => updateItem(item.id, 'fruitName', e.target.value)} placeholder={tx('placeholders.enterFruitName', 'Fruit')} /></div>
-                    <div className="md:col-span-1"><Input value={item.grade} onChange={e => updateItem(item.id, 'grade', e.target.value)} /></div>
-                    <div className="md:col-span-1"><Input value={item.lotNo} onChange={e => updateItem(item.id, 'lotNo', e.target.value)} /></div>
-                    <div className="md:col-span-1"><Input type="number" value={item.boxCount || ''} onChange={e => updateItem(item.id, 'boxCount', parseFloat(e.target.value) || 0)} /></div>
-                    <div className="md:col-span-1"><Input type="number" value={item.weightPerBox || ''} onChange={e => updateItem(item.id, 'weightPerBox', parseFloat(e.target.value) || 0)} /></div>
-                    <div className="md:col-span-1"><Input type="number" value={item.totalWeight || ''} readOnly /></div>
-                    <div className="md:col-span-1"><Input type="number" value={item.rate || ''} onChange={e => updateItem(item.id, 'rate', parseFloat(e.target.value) || 0)} /></div>
-                    <div className="md:col-span-2 py-2 text-[12px] font-semibold tabnum text-slate-800 dark:text-slate-200">{formatCurrency(item.amount)}</div>
-                    <div className="md:col-span-1">
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="h-8 w-8 inline-flex items-center justify-center rounded border border-red-100 dark:border-red-900/30 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+            {/* Line Items */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Bill Items / બિલ આઇટમ્સ</CardTitle>
+                <Button variant="outline" size="sm" onClick={addItem} className="gap-1"><Plus className="h-3.5 w-3.5" /> Add Item</Button>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-semibold text-slate-500 uppercase">
+                    <div className="col-span-2">Fruit</div>
+                    <div className="col-span-1">Grade</div>
+                    <div className="col-span-1">Lot</div>
+                    <div className="col-span-1">Boxes</div>
+                    <div className="col-span-1">Wt/Box</div>
+                    <div className="col-span-1">Total Wt</div>
+                    <div className="col-span-1">Rate</div>
+                    <div className="col-span-2">Amount</div>
+                    <div className="col-span-1"></div>
                   </div>
-                ))}
-              </div>
-
-              <div className="mt-4">
-                <TextArea label={tx('common.notes', 'Notes')} value={billNotes} onChange={e => setBillNotes(e.target.value)} />
-              </div>
-            </div>
+                  {items.map((item) => (
+                    <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                      <div className="md:col-span-2"><Input value={item.fruitName} onChange={e => updateItem(item.id, 'fruitName', e.target.value)} placeholder="ફળ" /></div>
+                      <div className="md:col-span-1"><Input value={item.grade} onChange={e => updateItem(item.id, 'grade', e.target.value)} placeholder="Grade" /></div>
+                      <div className="md:col-span-1"><Input value={item.lotNo} onChange={e => updateItem(item.id, 'lotNo', e.target.value)} placeholder="Lot" /></div>
+                      <div className="md:col-span-1"><Input type="number" value={item.boxCount || ''} onChange={e => updateItem(item.id, 'boxCount', parseFloat(e.target.value) || 0)} /></div>
+                      <div className="md:col-span-1"><Input type="number" value={item.weightPerBox || ''} onChange={e => updateItem(item.id, 'weightPerBox', parseFloat(e.target.value) || 0)} /></div>
+                      <div className="md:col-span-1"><Input type="number" value={item.totalWeight || ''} onChange={e => updateItem(item.id, 'totalWeight', parseFloat(e.target.value) || 0)} readOnly /></div>
+                      <div className="md:col-span-1"><Input type="number" value={item.rate || ''} onChange={e => updateItem(item.id, 'rate', parseFloat(e.target.value) || 0)} /></div>
+                      <div className="md:col-span-2"><p className="text-lg font-bold text-slate-900 dark:text-white py-2">{formatCurrency(item.amount)}</p></div>
+                      <div className="md:col-span-1"><Button variant="ghost" size="sm" className="p-1.5 h-auto text-red-500" onClick={() => removeItem(item.id)}><Trash2 className="h-4 w-4" /></Button></div>
+                    </div>
+                  ))}
+                </div>
+                <TextArea label="Notes" value={billNotes} onChange={e => setBillNotes(e.target.value)} className="mt-4" />
+              </CardContent>
+            </Card>
           </div>
 
-          <div className="bg-white dark:bg-[#111318] border border-slate-200 dark:border-[#1e2330] rounded-lg p-4 h-fit">
-            <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-200 mb-3">{tx('billing.summary', 'Summary')}</h3>
-            <div className="space-y-2 text-[12px]">
-              <div className="flex justify-between"><span className="text-slate-500">{tx('billing.subtotal', 'Subtotal')}</span><span className="tabnum">{formatCurrency(subtotal)}</span></div>
-              <div className="flex justify-between text-emerald-600 dark:text-emerald-400"><span>{tx('billing.commission', 'Commission')} ({settings.commissionPercent}%)</span><span className="tabnum">- {formatCurrency(commission)}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">{tx('billing.tax', 'Tax')} ({settings.taxPercent}%)</span><span className="tabnum">+ {formatCurrency(taxAmount)}</span></div>
-              <div className="border-t border-slate-200 dark:border-[#1e2330] pt-2 flex justify-between font-semibold"><span>{tx('billing.total', 'Total')}</span><span className="tabnum">{formatCurrency(total)}</span></div>
-              {advancePayment > 0 && (
-                <div className="flex justify-between"><span className="text-slate-500">{tx('billing.advance', 'Advance')}</span><span className="tabnum">- {formatCurrency(advancePayment)}</span></div>
-              )}
-              <div className="border-t border-slate-200 dark:border-[#1e2330] pt-2 flex justify-between font-semibold text-[#3b5bdb] dark:text-[#8ba4f9]"><span>{tx('billing.netBalance', 'Net Balance')}</span><span className="tabnum">{formatCurrency(netBalance)}</span></div>
-            </div>
-            <Button size="sm" className="w-full mt-4" onClick={saveBill}>{tx('buttons.saveBill', 'Save Bill')}</Button>
+          {/* Summary */}
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-5 space-y-3">
+                <h3 className="font-bold text-slate-900 dark:text-white text-lg">Bill Summary</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
+                  <div className="flex justify-between text-emerald-600"><span>Commission ({settings.commissionPercent}%)</span><span>- {formatCurrency(commission)}</span></div>
+                  <div className="flex justify-between"><span>Tax ({settings.taxPercent}%)</span><span>+ {formatCurrency(taxAmount)}</span></div>
+                  <div className="border-t pt-2 flex justify-between font-bold text-lg"><span>Total</span><span>{formatCurrency(total)}</span></div>
+                  {advancePayment > 0 && (
+                    <div className="flex justify-between text-emerald-600"><span>Advance</span><span>- {formatCurrency(advancePayment)}</span></div>
+                  )}
+                  <div className="border-t-2 pt-2 flex justify-between font-bold text-xl text-emerald-600"><span>Net Balance</span><span>{formatCurrency(netBalance)}</span></div>
+                </div>
+                <div className="pt-4 space-y-2">
+                  <Button onClick={saveBill} className="w-full">Save Bill / સાચવો</Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       ) : (
         <>
           <div className="flex items-center gap-3">
-            <div className="relative w-72">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
-              <input
-                type="text"
-                placeholder={tx('placeholders.searchBill', 'Search bills...')}
-                value={billSearch}
-                onChange={e => setBillSearch(e.target.value)}
-                className="w-full pl-7 pr-3 py-1.5 text-[12px] border border-slate-200 dark:border-[#1e2330] rounded-md bg-white dark:bg-[#111318] text-slate-800 dark:text-[#e8edf5] focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]/30 focus:border-[#3b5bdb]"
-              />
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input type="text" placeholder="Search bills..." value={billSearch} onChange={e => setBillSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
-            <span className="text-[12px] text-slate-500 dark:text-slate-500">{filteredBills.length} {tx('common.bills', 'bills')}</span>
+            <span className="text-sm text-slate-500">{filteredBills.length} bills</span>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="bg-white dark:bg-[#111318] border border-slate-200 dark:border-[#1e2330] rounded-lg px-4 py-2 flex items-center gap-3">
-              <span className="text-[11px] text-slate-500 uppercase tracking-[0.06em]">{tx('dashboard.totalSales', 'Sales')}</span>
-              <span className="text-[14px] font-semibold tabnum text-emerald-600 dark:text-emerald-400">{formatCurrency(totalSales)}</span>
-            </div>
-            <div className="bg-white dark:bg-[#111318] border border-slate-200 dark:border-[#1e2330] rounded-lg px-4 py-2 flex items-center gap-3">
-              <span className="text-[11px] text-slate-500 uppercase tracking-[0.06em]">{tx('payments.received', 'Received')}</span>
-              <span className="text-[14px] font-semibold tabnum text-[#3b5bdb] dark:text-[#8ba4f9]">{formatCurrency(totalReceived)}</span>
-            </div>
-            <div className="bg-white dark:bg-[#111318] border border-slate-200 dark:border-[#1e2330] rounded-lg px-4 py-2 flex items-center gap-3">
-              <span className="text-[11px] text-slate-500 uppercase tracking-[0.06em]">{tx('common.balance', 'Balance')}</span>
-              <span className="text-[14px] font-semibold tabnum text-amber-600 dark:text-amber-400">{formatCurrency(totalBalance)}</span>
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-[#1e2330] bg-white dark:bg-[#111318]">
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-[#0e1017] border-b border-slate-200 dark:border-[#1e2330]">
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em]">{tx('billing.billNo', 'Bill No')}</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em]">{tx('tableHeaders.date', 'Date')}</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em]">{tx('billing.party', 'Party')}</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em]">{tx('billing.items', 'Items')}</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em]">{tx('tableHeaders.total', 'Total')}</th>
-                    <th className="px-4 py-2.5 text-center text-[10px] font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em]">{tx('tableHeaders.status', 'Status')}</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em]">{tx('tableHeaders.actions', 'Actions')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-[#1a1f2e]">
-                  {filteredBills.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center text-slate-400">{tx('emptyStates.noBills', 'No bills found')}</td>
-                    </tr>
-                  ) : (
-                    filteredBills.map(bill => (
-                      <tr key={bill.id} className="hover:bg-slate-50 dark:hover:bg-[#0e1017] transition-colors">
-                        <td className="px-4 py-2.5 tabnum font-semibold text-slate-800 dark:text-slate-200">{bill.billNo}</td>
-                        <td className="px-4 py-2.5 text-slate-500">{formatDate(bill.date)}</td>
-                        <td className="px-4 py-2.5 text-slate-800 dark:text-slate-200">{bill.partyName}</td>
-                        <td className="px-4 py-2.5 text-right tabnum text-slate-500">{bill.items.length}</td>
-                        <td className="px-4 py-2.5 text-right tabnum font-semibold text-slate-800 dark:text-slate-200">{formatCurrency(bill.total)}</td>
-                        <td className="px-4 py-2.5 text-center">
-                          <Badge variant={bill.status === 'paid' ? 'success' : bill.status === 'partial' ? 'warning' : 'danger'}>{tx(`statuses.${bill.status}`, bill.status)}</Badge>
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <button
-                            onClick={() => printBill(bill)}
-                            className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#1a1f2e] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                          >
-                            <Printer className="h-3.5 w-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <div className="space-y-3">
+            {filteredBills.map(bill => (
+              <Card key={bill.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <h3 className="font-bold text-slate-900 dark:text-white">{bill.billNo}</h3>
+                        <p className="text-sm text-slate-500">{bill.partyName} • {formatDate(bill.date)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-slate-900 dark:text-white">{formatCurrency(bill.total)}</p>
+                        <Badge variant={bill.status === 'paid' ? 'success' : bill.status === 'partial' ? 'warning' : 'danger'}>{bill.status}</Badge>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" className="p-2 h-auto" onClick={() => printBill(bill)}><Printer className="h-4 w-4" /></Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400 flex gap-4">
+                    <span>{bill.items.length} items</span>
+                    <span>Comm: {formatCurrency(bill.commission)}</span>
+                    <span>Tax: {formatCurrency(bill.taxAmount)}</span>
+                    {bill.paidAmount > 0 && <span>Paid: {formatCurrency(bill.paidAmount)}</span>}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {filteredBills.length === 0 && (
+              <div className="text-center py-12 text-slate-400">
+                <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="text-lg">No bills found</p>
+                <Button className="mt-3" onClick={() => setShowForm(true)}>Create First Bill</Button>
+              </div>
+            )}
           </div>
         </>
       )}

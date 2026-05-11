@@ -2,18 +2,30 @@ import { create } from 'zustand';
 import type { Settings, Party, Supplier, Bill, Purchase, Payment, InventoryItem, Company } from '@/db/schema';
 import * as db from '@/db/db';
 
-interface AppState {
-  // Navigation
-  currentPage: string;
-  setCurrentPage: (page: string) => void;
+export type PageId =
+  | 'dashboard'
+  | 'vehicle-register'
+  | 'parties'
+  | 'suppliers'
+  | 'ledger'
+  | 'transactions'
+  | 'billing'
+  | 'purchases'
+  | 'inventory'
+  | 'payments'
+  | 'reports'
+  | 'search'
+  | 'settings';
 
-  // Session
+interface AppState {
+  currentPage: PageId;
+  setCurrentPage: (page: PageId) => void;
+
   authenticated: boolean;
   userId: string;
   login: (userId: string) => void;
   logout: () => void;
 
-  // Company Management
   companies: Company[];
   currentCompany: Company | null;
   loadCompanies: () => void;
@@ -22,60 +34,48 @@ interface AppState {
   updateCompany: (company: Company) => void;
   deleteCompany: (companyId: string) => void;
 
-  // Language
   language: 'english' | 'gujarati' | 'hindi';
   setLanguage: (lang: 'english' | 'gujarati' | 'hindi') => void;
 
-  // Settings
   settings: Settings;
   loadSettings: () => void;
   updateSettings: (data: Partial<Settings>) => void;
   setDarkMode: (dark: boolean) => void;
 
-  // Parties
   parties: Party[];
   loadParties: () => void;
   searchParties: (query: string) => Party[];
 
-  // Suppliers
   suppliers: Supplier[];
   loadSuppliers: () => void;
   searchSuppliers: (query: string) => Supplier[];
 
-  // Inventory
   inventoryItems: InventoryItem[];
   loadInventory: () => void;
 
-  // Bills
   bills: Bill[];
   loadBills: () => void;
 
-  // Purchases
   purchases: Purchase[];
   loadPurchases: () => void;
 
-  // Payments
   payments: Payment[];
   loadPayments: () => void;
 
-  // UI
   sidebarOpen: boolean;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
 
-  // Modal/Dialog
   modalOpen: boolean;
   modalContent: string;
   modalData: Record<string, unknown>;
   openModal: (content: string, data?: Record<string, unknown>) => void;
   closeModal: () => void;
 
-  // Notifications
   notification: { message: string; type: 'success' | 'error' | 'info' } | null;
   showNotification: (message: string, type: 'success' | 'error' | 'info') => void;
   clearNotification: () => void;
 
-  // Keyboard shortcuts
   shortcutsEnabled: boolean;
   toggleShortcuts: () => void;
 }
@@ -108,8 +108,8 @@ const getStoredCompanies = (): Company[] => {
   try {
     const stored = localStorage.getItem('fruit-market-erp-companies');
     if (stored) return JSON.parse(stored);
-  } catch (e) {
-    console.error('Error loading companies:', e);
+  } catch {
+    return [DEFAULT_COMPANY];
   }
   return [DEFAULT_COMPANY];
 };
@@ -120,7 +120,7 @@ const saveCompanies = (companies: Company[]) => {
 
 export const useAppStore = create<AppState>((set, get) => ({
   currentPage: 'dashboard',
-  setCurrentPage: (page: string) => set({ currentPage: page }),
+  setCurrentPage: (page) => set({ currentPage: page }),
 
   authenticated: localStorage.getItem('fruit-market-erp-session') === 'true',
   userId: localStorage.getItem('fruit-market-erp-user') || 'admin',
@@ -176,8 +176,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const i18nLang = lang === 'gujarati' ? 'gu' : lang === 'hindi' ? 'hi' : 'en';
     localStorage.setItem('appLanguage', i18nLang);
     set({ language: lang });
-    // Update i18n language
-    const i18n = (window as any).__i18n;
+    const i18n = window.__i18n;
     if (i18n) {
       i18n.changeLanguage(i18nLang);
     }

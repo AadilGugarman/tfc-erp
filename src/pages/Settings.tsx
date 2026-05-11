@@ -5,8 +5,25 @@ import { Button } from '@/components/ui/Button';
 import { Input, Select, TextArea } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import * as db from '@/db/db';
-import type { Company } from '@/db/schema';
+import type { Company, Settings } from '@/db/schema';
 import { Save, RefreshCw, Trash2, Moon, Sun, Globe, Building2, Percent, Plus, Edit, X } from 'lucide-react';
+
+type AppLanguage = Settings['language'];
+type CompanyLanguage = Company['language'];
+
+const languageOptions = [
+  { value: 'english', label: 'English' },
+  { value: 'gujarati', label: 'ગુજરાતી' },
+  { value: 'hindi', label: 'Hindi' },
+] as const satisfies readonly { value: AppLanguage; label: string }[];
+
+const companyLanguageOptions = languageOptions;
+
+const normalizeCompanyLanguage = (value: string): CompanyLanguage => {
+  if (value === 'gujarati') return 'gujarati';
+  if (value === 'hindi') return 'hindi';
+  return 'english';
+};
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -218,7 +235,6 @@ export function SettingsPage() {
     <div className="space-y-4 animate-fade-in">
       <h1 className="text-[15px] font-semibold text-slate-900 dark:text-white">{tx('settings.title', 'Settings')}</h1>
 
-      {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-[#1e2330]">
         {tabs.map(tab => (
           <button
@@ -235,7 +251,6 @@ export function SettingsPage() {
         ))}
       </div>
 
-      {/* Basic Settings */}
       {activeTab === 'basic' && (
         <div className={`${card} max-w-xl space-y-4`}>
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#1a1f2e]">
@@ -283,7 +298,6 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Company Management */}
       {activeTab === 'company' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
@@ -334,7 +348,6 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Billing Configuration */}
       {activeTab === 'billing' && (
         <div className={`${card} max-w-xl space-y-4`}>
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#1a1f2e]">
@@ -375,7 +388,6 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Language Settings */}
       {activeTab === 'language' && (
         <div className={`${card} max-w-xl space-y-4`}>
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#1a1f2e]">
@@ -383,13 +395,10 @@ export function SettingsPage() {
             <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{t('settings.selectLanguage')}</span>
           </div>
           <div className="space-y-3">
-            {[
-              { value: 'english', label: t('settings.english') },
-              { value: 'gujarati', label: t('settings.gujarati') },
-            ].map(lang => (
+            {languageOptions.map(lang => (
               <button
                 key={lang.value}
-                onClick={() => setForm(f => ({ ...f, language: lang.value as any }))}
+                onClick={() => setForm(f => ({ ...f, language: lang.value }))}
                 className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg border-2 transition-all text-left ${
                   form.language === lang.value
                     ? 'border-[#3b5bdb] bg-[#eef2ff] dark:bg-[#1a1f2e]'
@@ -408,7 +417,6 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Theme Settings */}
       {activeTab === 'theme' && (
         <div className={`${card} max-w-xl space-y-4`}>
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#1a1f2e]">
@@ -445,7 +453,6 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Backup & Restore */}
       {activeTab === 'backup' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className={`${card} space-y-3`}>
@@ -532,7 +539,6 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Save Button */}
       <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-[#1e2330]">
         <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
           {t('common.cancel')}
@@ -543,7 +549,6 @@ export function SettingsPage() {
         </Button>
       </div>
 
-      {/* Company Management Modal */}
       <Modal
         open={showCompanyModal}
         onClose={() => { setShowCompanyModal(false); setEditingCompany(null); }}
@@ -563,11 +568,11 @@ export function SettingsPage() {
           <Select
             label={t('settings.language')}
             value={companyForm.language}
-            onChange={e => setCompanyForm(f => ({ ...f, language: e.target.value as any }))}
-            options={[
-              { value: 'english', label: t('settings.english') },
-              { value: 'gujarati', label: t('settings.gujarati') },
-            ]}
+            onChange={e => setCompanyForm(f => ({ ...f, language: normalizeCompanyLanguage(e.target.value) }))}
+            options={companyLanguageOptions.map(lang => ({
+              value: lang.value,
+              label: t(`settings.${lang.value}`, lang.label),
+            }))}
           />
           <div className="flex gap-3 justify-end pt-4">
             <Button variant="outline" size="sm" onClick={() => { setShowCompanyModal(false); setEditingCompany(null); }}>
@@ -578,7 +583,6 @@ export function SettingsPage() {
         </div>
       </Modal>
 
-      {/* Reset Confirmation Modal */}
       <Modal open={showReset} onClose={() => setShowReset(false)} title={tx('settings.resetAllData', 'Reset All Data')} size="sm">
         <p className="text-[12px] text-slate-600 dark:text-slate-300 mb-4">
           {tx('settings.resetWarning', 'This will permanently delete all parties, suppliers, bills, payments, inventory, and settings. This action cannot be undone.')}

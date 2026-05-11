@@ -61,6 +61,17 @@ import guValidation from '../locales/gu/validation.json';
 import guVehicle from '../locales/gu/vehicle.json';
 import guVehicleRegister from '../locales/gu/vehicleRegister.json';
 
+type LocaleNamespaceBundle = Record<string, unknown>;
+type LocaleResources = Record<string, LocaleNamespaceBundle>;
+
+declare global {
+  interface Window {
+    __i18n?: {
+      changeLanguage: (lng: string) => Promise<unknown>;
+    };
+  }
+}
+
 const namespaces = [
   'app',
   'common',
@@ -157,10 +168,10 @@ const guTranslations = {
   vehicleRegister: guVehicleRegister,
 };
 
-function buildResources(translations: Record<string, any>) {
+function buildResources(translations: LocaleResources) {
   const scoped = Object.fromEntries(
     namespaces.map((ns) => [ns, translations[ns] || {}])
-  );
+  ) as LocaleResources;
 
   return {
     translation: translations,
@@ -185,8 +196,8 @@ i18n
   .use(initReactI18next)
   .init({
     resources: {
-      en: buildResources(enTranslations as Record<string, any>),
-      gu: buildResources(guTranslations as Record<string, any>),
+      en: buildResources(enTranslations),
+      gu: buildResources(guTranslations),
     },
     lng: currentLng,
     fallbackLng: 'en',
@@ -208,6 +219,6 @@ i18n.on('languageChanged', (lng) => {
   document.documentElement.lang = lng;
 });
 
-(window as any).__i18n = i18n;
+window.__i18n = i18n;
 
 export default i18n;

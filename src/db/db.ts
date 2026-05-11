@@ -86,8 +86,8 @@ function readLocalDb(): Database | null {
     if (data) {
       return normalizeDb(JSON.parse(data));
     }
-  } catch (e) {
-    console.error('Failed to load local database:', e);
+  } catch {
+    return null;
   }
   return null;
 }
@@ -112,10 +112,7 @@ async function getTauriInvoke(): Promise<((cmd: string, args?: Record<string, un
   if (!tauriInvokePromise) {
     tauriInvokePromise = import('@tauri-apps/api/core')
       .then((mod) => mod.invoke)
-      .catch((error) => {
-        console.warn('Tauri invoke unavailable, using local storage fallback:', error);
-        return null;
-      });
+      .catch(() => null);
   }
 
   return tauriInvokePromise;
@@ -133,8 +130,7 @@ async function loadFromBackend(): Promise<Database | null> {
       return null;
     }
     return normalizeDb(JSON.parse(payload));
-  } catch (error) {
-    console.error('Failed to load app state from backend:', error);
+  } catch {
     return null;
   }
 }
@@ -147,8 +143,8 @@ async function persistToBackend(db: Database): Promise<void> {
 
   try {
     await invoke('save_app_state', { data: JSON.stringify(db) });
-  } catch (error) {
-    console.error('Failed to persist app state to backend:', error);
+  } catch {
+    return;
   }
 }
 
@@ -199,7 +195,6 @@ function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }
 
-// ===== PARTY OPERATIONS =====
 export function getParties(): Party[] {
   return getDb().parties;
 }
@@ -257,7 +252,6 @@ export function deleteParty(id: string): boolean {
   return true;
 }
 
-// ===== SUPPLIER OPERATIONS =====
 export function getSuppliers(): Supplier[] {
   return getDb().suppliers;
 }
@@ -313,7 +307,6 @@ export function deleteSupplier(id: string): boolean {
   return true;
 }
 
-// ===== VEHICLE REGISTER OPERATIONS =====
 export function getVehicleRegisters(): VehicleRegister[] {
   return getDb().vehicleRegisters;
 }
@@ -432,7 +425,6 @@ export function deleteVehicleRegister(id: string): boolean {
   return true;
 }
 
-// ===== LEDGER OPERATIONS =====
 export function getLedgerEntries(partyId?: string): LedgerEntry[] {
   const db = getDb();
   if (partyId) {
@@ -485,7 +477,6 @@ export function getPartyBalance(partyId: string): { balance: number; type: 'rece
   };
 }
 
-// ===== BILL OPERATIONS =====
 export function getBills(): Bill[] {
   return getDb().bills;
 }
@@ -604,7 +595,6 @@ export function deleteBill(id: string): boolean {
   return true;
 }
 
-// ===== INVENTORY OPERATIONS =====
 export function getInventoryItems(): InventoryItem[] {
   return getDb().inventoryItems;
 }
@@ -676,7 +666,6 @@ export function getInventoryTransactions(itemId?: string): InventoryTransaction[
   return db.inventoryTransactions;
 }
 
-// ===== PURCHASE OPERATIONS =====
 export function getPurchases(): Purchase[] {
   return getDb().purchases;
 }
@@ -813,7 +802,6 @@ export function createPurchase(data: Omit<Purchase, 'id' | 'purchaseNo' | 'creat
   return { purchase };
 }
 
-// ===== PAYMENT OPERATIONS =====
 export function getPayments(): Payment[] {
   return getDb().payments;
 }
@@ -866,7 +854,6 @@ export function deletePayment(id: string): boolean {
   return true;
 }
 
-// ===== SETTINGS =====
 export function getSettings(): Settings {
   return getDb().settings;
 }
@@ -892,7 +879,6 @@ export function resetDatabase(): void {
   saveDb(empty);
 }
 
-// ===== UTILITY =====
 function recalculateBalances(db: Database): void {
   const partyIds = [...new Set(db.ledgerEntries.map(e => e.partyId))];
   for (const partyId of partyIds) {
@@ -959,7 +945,6 @@ export function getReportData(startDate: string, endDate: string) {
   };
 }
 
-// ===== SEED DATA =====
 export function seedDemoData() {
   const db = getDb();
   if (db.parties.length > 0) return;

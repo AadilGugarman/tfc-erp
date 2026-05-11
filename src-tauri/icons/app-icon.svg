@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="Fruit Market ERP">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#facc15"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="64" y="64" width="896" height="896" rx="220" fill="url(#bg)"/>
+
+  <path d="M312 720c0-138 89-252 217-289 106-31 221-5 304 67" fill="none" stroke="#e2e8f0" stroke-width="56" stroke-linecap="round"/>
+  <circle cx="716" cy="498" r="124" fill="url(#accent)"/>
+  <rect x="263" y="531" width="160" height="250" rx="68" fill="#22c55e"/>
+  <circle cx="343" cy="463" r="84" fill="#16a34a"/>
+
+  <path d="M407 312h252" stroke="#f8fafc" stroke-width="56" stroke-linecap="round"/>
+  <path d="M533 196v252" stroke="#f8fafc" stroke-width="56" stroke-linecap="round"/>
+</svg>

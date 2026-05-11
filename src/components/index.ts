@@ -1,13 +1,11 @@
-// Re-export all premium components for easy importing
 export { PremiumInput, PremiumSelect, PremiumTextarea } from './PremiumForm';
-export { SkeletonCard, SkeletonTable, SkeletonHero, SkeletonGrid, SkeletonList, PageLoadingSkeleton } from './SkeletonLoaders';
 export { PremiumTable, PremiumTableRow, PremiumTableCell, PremiumTableHeader } from './PremiumTable';
 export { PremiumModal, PageLayout, Section } from './PremiumLayout';
 export { DashboardHero } from './DashboardHero';
 export { QuickActions } from './QuickActions';
 export { PendingTasksWidgets } from './PendingTasksWidgets';
 export { RecentActivitySection } from './RecentActivitySection';
-export { PageTransition, PageTransitionGroup } from './PageTransition';
+export { PageTransition } from './PageTransition';
 export { Toast, ToastContainer, useToast, type ToastType } from './Toast';
 export { Button } from './ui/Button';
 export { Badge } from './ui/Badge';

@@ -260,20 +260,3 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 html.dark :focus-visible {
   outline-color: #5c7cfa;
 }
-
-/* ============================================================
-   SELECTION
-   ============================================================ */
-::selection {
-  background: rgba(59, 91, 219, 0.18);
-}
-
-html.dark ::selection {
-  background: rgba(92, 124, 250, 0.22);
-}
-
-.erp-grid .erp-text {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}

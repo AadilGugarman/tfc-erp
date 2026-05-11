@@ -158,7 +158,7 @@ export function Header() {
                 )}
               >
                 <LogOut className="h-4 w-4" />
-                Logout
+                <span>{t('header.logout', 'Logout')}</span>
               </button>
             </div>
           )}

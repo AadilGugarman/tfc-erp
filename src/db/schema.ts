@@ -220,6 +220,10 @@ export interface Settings {
   language: 'english' | 'gujarati' | 'hindi';
   darkMode: boolean;
   lowStockAlert: boolean;
+  logoUrl?: string;
+  signatureUrl?: string;
+  whatsappPhone?: string;
+  termsAndConditions?: string;
 }
 
 export interface Company {
@@ -229,10 +233,6 @@ export interface Company {
   city: string;
   state: string;
   phone: string;
-  email: string;
-  gstin: string;
-  logo?: string;
-  invoicePrefix: string;
   language: 'english' | 'gujarati' | 'hindi';
   theme: 'light' | 'dark';
   isActive: boolean;

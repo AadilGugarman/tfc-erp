@@ -21,7 +21,6 @@ import { PurchasesPage } from '@/pages/Purchases';
 function App() {
   const { currentPage, setCurrentPage, settings, notification, clearNotification, sidebarOpen, authenticated, login } = useAppStore();
 
-  // Seed demo data on mount
   useEffect(() => {
     db.seedDemoData();
   }, []);
@@ -30,7 +29,6 @@ function App() {
     document.documentElement.classList.toggle('dark', settings.darkMode);
   }, [settings.darkMode]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.altKey) {
@@ -93,21 +91,21 @@ function App() {
         <main className="flex-1 p-6 bg-slate-50 dark:bg-slate-900/30">{renderPage()}</main>
       </div>
 
-      {/* Toast Notification */}
       {notification && (
-        <div
+        <button
+          type="button"
           onClick={clearNotification}
           className={[
             'fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-lg shadow-lg text-white text-[13px] font-medium cursor-pointer select-none animate-toast',
-            notification.type === 'success' ? 'bg-[#16a34a]' :
-            notification.type === 'error'   ? 'bg-[#dc2626]' : 'bg-[#3b5bdb]',
+            notification.type === 'success'
+              ? 'bg-[#16a34a]'
+              : notification.type === 'error'
+                ? 'bg-[#dc2626]'
+                : 'bg-[#3b5bdb]',
           ].join(' ')}
         >
-          <span className="text-base leading-none">
-            {notification.type === 'success' ? '✓' : notification.type === 'error' ? '✕' : 'ℹ'}
-          </span>
           {notification.message}
-        </div>
+        </button>
       )}
     </div>
   );

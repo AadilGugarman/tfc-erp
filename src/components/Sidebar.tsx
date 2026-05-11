@@ -43,7 +43,7 @@ export function Sidebar() {
     <aside
       className={cn(
         'fixed top-0 left-0 z-40 h-screen flex flex-col',
-        'bg-white dark:bg-slate-950',
+        'bg-white/88 dark:bg-slate-950/90 backdrop-blur-xl',
         'border-r border-slate-200 dark:border-slate-800',
         'transition-[width] duration-300 ease-in-out',
         sidebarOpen ? 'w-56' : 'w-[60px]'
@@ -170,10 +170,7 @@ export function Sidebar() {
           )}
         >
           {sidebarOpen ? (
-            <>
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Collapse
-            </>
+            <ChevronLeft className="h-4 w-4" />
           ) : (
             <ChevronRight className="h-4 w-4" />
           )}
