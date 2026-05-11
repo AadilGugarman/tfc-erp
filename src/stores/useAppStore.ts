@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Settings, Party, Supplier, Bill, Purchase, Payment, InventoryItem, Company } from '@/db/schema';
+import type { Settings, Party, Supplier, Bill, Purchase, Payment, InventoryItem, Company, LedgerEntry, VehicleRegister } from '@/db/schema';
 import * as db from '@/db/db';
 
 export type PageId =
@@ -61,6 +61,14 @@ interface AppState {
 
   payments: Payment[];
   loadPayments: () => void;
+
+  ledgerEntries: LedgerEntry[];
+  loadLedgerEntries: () => void;
+
+  vehicleRegisters: VehicleRegister[];
+  loadVehicleRegisters: () => void;
+
+  refreshDataFromDb: () => void;
 
   sidebarOpen: boolean;
   toggleSidebar: () => void;
@@ -198,7 +206,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  parties: [],
+  parties: db.getParties(),
   loadParties: () => set({ parties: db.getParties() }),
   searchParties: (query) => {
     const parties = db.getParties();
@@ -208,7 +216,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     );
   },
 
-  suppliers: [],
+  suppliers: db.getSuppliers(),
   loadSuppliers: () => set({ suppliers: db.getSuppliers() }),
   searchSuppliers: (query) => {
     const suppliers = db.getSuppliers();
@@ -218,17 +226,35 @@ export const useAppStore = create<AppState>((set, get) => ({
     );
   },
 
-  inventoryItems: [],
+  inventoryItems: db.getInventoryItems(),
   loadInventory: () => set({ inventoryItems: db.getInventoryItems() }),
 
-  bills: [],
+  bills: db.getBills(),
   loadBills: () => set({ bills: db.getBills() }),
 
-  purchases: [],
+  purchases: db.getPurchases(),
   loadPurchases: () => set({ purchases: db.getPurchases() }),
 
-  payments: [],
+  payments: db.getPayments(),
   loadPayments: () => set({ payments: db.getPayments() }),
+
+  ledgerEntries: db.getLedgerEntries(),
+  loadLedgerEntries: () => set({ ledgerEntries: db.getLedgerEntries() }),
+
+  vehicleRegisters: db.getVehicleRegisters(),
+  loadVehicleRegisters: () => set({ vehicleRegisters: db.getVehicleRegisters() }),
+
+  refreshDataFromDb: () => set({
+    settings: db.getSettings(),
+    parties: db.getParties(),
+    suppliers: db.getSuppliers(),
+    inventoryItems: db.getInventoryItems(),
+    bills: db.getBills(),
+    purchases: db.getPurchases(),
+    payments: db.getPayments(),
+    ledgerEntries: db.getLedgerEntries(),
+    vehicleRegisters: db.getVehicleRegisters(),
+  }),
 
   sidebarOpen: true,
   toggleSidebar: () => set({ sidebarOpen: !get().sidebarOpen }),

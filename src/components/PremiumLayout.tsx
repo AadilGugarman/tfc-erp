@@ -1,5 +1,8 @@
 import { cn } from '@/utils/cn';
 import { X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useFormKeyboardNavigation } from '@/hooks/useFormKeyboardNavigation';
 
 interface PremiumModalProps {
   isOpen: boolean;
@@ -18,6 +21,18 @@ export function PremiumModal({
   size = 'md',
   footer,
 }: PremiumModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap({ active: isOpen, containerRef: modalRef, onEscape: onClose });
+  useFormKeyboardNavigation(modalRef, { enabled: isOpen });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -30,9 +45,13 @@ export function PremiumModal({
 
       {/* Modal */}
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className={cn(
-          'relative bg-white dark:bg-slate-900 rounded-xl shadow-2xl animate-slide-up',
-          'border border-slate-200 dark:border-slate-800',
+          'relative bg-white dark:bg-[#111827] rounded-xl shadow-2xl animate-slide-up',
+          'border border-slate-200 dark:border-[#2a3550]',
           size === 'sm' && 'max-w-sm w-full mx-4',
           size === 'md' && 'max-w-md w-full mx-4',
           size === 'lg' && 'max-w-lg w-full mx-4',
@@ -40,14 +59,14 @@ export function PremiumModal({
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-[#22304a]">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{title}</h2>
           <button
             onClick={onClose}
             className={cn(
               'flex items-center justify-center h-8 w-8 rounded-lg',
               'text-slate-500 dark:text-slate-400',
-              'hover:bg-slate-100 dark:hover:bg-slate-800',
+              'hover:bg-slate-100 dark:hover:bg-[#1b2335]',
               'transition-colors duration-150'
             )}
           >
@@ -60,7 +79,7 @@ export function PremiumModal({
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 rounded-b-xl">
+          <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-[#22304a] bg-slate-50 dark:bg-[#0f1527] rounded-b-xl">
             {footer}
           </div>
         )}
@@ -85,25 +104,35 @@ export function PageLayout({
   loading = false,
 }: PageLayoutProps) {
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Page Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{title}</h1>
-          {subtitle && (
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{subtitle}</p>
-          )}
+    <div className="space-y-4 animate-fade-in">
+      {/* Sticky Module Header */}
+      <div className="sticky top-[4.15rem] z-20 rounded-xl border border-slate-200/85 dark:border-[#2a3550]/90 bg-white/94 dark:bg-[#0f1628]/94 backdrop-blur-xl shadow-[0_14px_28px_-22px_rgba(15,23,42,0.65)]">
+        <div className="flex flex-col gap-3 p-3.5 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-500 dark:text-slate-400">
+              Operations Workspace / {title}
+            </p>
+            <div className="mt-0.5 flex items-center gap-2">
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">{title}</h1>
+              {subtitle && (
+                <span className="hidden sm:inline text-sm text-slate-500 dark:text-slate-400 truncate">{subtitle}</span>
+              )}
+            </div>
+            {subtitle && (
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 sm:hidden">{subtitle}</p>
+            )}
+          </div>
+          {actions && <div className="flex items-center gap-2 shrink-0 flex-wrap">{actions}</div>}
         </div>
-        {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
       </div>
 
       {/* Content */}
       {loading ? (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
             <div
               key={i}
-              className="h-32 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse"
+              className="h-24 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse"
             />
           ))}
         </div>
@@ -123,15 +152,15 @@ interface SectionProps {
 export function Section({ title, children, compact = false }: SectionProps) {
   return (
     <div className={cn(
-      'rounded-lg border border-slate-200 dark:border-slate-800',
-      'bg-white dark:bg-slate-900/50 overflow-hidden'
+      'rounded-xl border border-slate-200 dark:border-[#2a3550]',
+      'bg-white dark:bg-[#111827] overflow-hidden'
     )}>
       {title && (
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-50 to-transparent dark:from-slate-800/50 dark:to-transparent">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+        <div className="px-5 py-3 border-b border-slate-200 dark:border-[#22304a] bg-gradient-to-r from-slate-50 to-transparent dark:from-[#141d31] dark:to-transparent">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
         </div>
       )}
-      <div className={compact ? 'p-4' : 'p-6'}>
+      <div className={compact ? 'p-4' : 'p-5'}>
         {children}
       </div>
     </div>

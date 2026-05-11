@@ -146,6 +146,8 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_suppliers_name ON suppliers(name);
+    CREATE INDEX IF NOT EXISTS idx_suppliers_phone ON suppliers(phone);
 
     CREATE TABLE IF NOT EXISTS ledger_entries (
       id TEXT PRIMARY KEY,
@@ -177,6 +179,8 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_name_grade_warehouse ON inventory_items(name, grade, warehouse);
+    CREATE INDEX IF NOT EXISTS idx_inventory_status ON inventory_items(status);
 
     CREATE TABLE IF NOT EXISTS inventory_transactions (
       id TEXT PRIMARY KEY,
@@ -192,6 +196,8 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_inventory_txn_item_date ON inventory_transactions(item_id, date);
+    CREATE INDEX IF NOT EXISTS idx_inventory_txn_ref ON inventory_transactions(reference_type, reference_id);
 
     CREATE TABLE IF NOT EXISTS bills (
       id TEXT PRIMARY KEY,
@@ -227,6 +233,7 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_bill_items_bill ON bill_items(bill_id);
 
     CREATE TABLE IF NOT EXISTS purchases (
       id TEXT PRIMARY KEY,
@@ -244,6 +251,8 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_purchases_date ON purchases(date);
+    CREATE INDEX IF NOT EXISTS idx_purchases_supplier ON purchases(supplier_id);
 
     CREATE TABLE IF NOT EXISTS purchase_items (
       id TEXT PRIMARY KEY,
@@ -258,6 +267,7 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase ON purchase_items(purchase_id);
 
     CREATE TABLE IF NOT EXISTS payments (
       id TEXT PRIMARY KEY,
@@ -309,6 +319,9 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_vehicle_rows_register ON vehicle_register_rows(vehicle_register_id);
+    CREATE INDEX IF NOT EXISTS idx_vehicle_rows_party ON vehicle_register_rows(party_id);
+    CREATE INDEX IF NOT EXISTS idx_vehicle_rows_inventory ON vehicle_register_rows(inventory_item_id);
     "#,
   ).map_err(|error| error.to_string())?;
 

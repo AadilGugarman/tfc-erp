@@ -19,22 +19,21 @@ export function PremiumTable({
   hoverable = true,
 }: PremiumTableProps) {
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 overflow-hidden">
+    <div className="rounded-xl ring-1 ring-slate-200/70 dark:ring-[#25344f]/75 bg-white/95 dark:bg-[#111827]/92 overflow-hidden shadow-[0_10px_24px_-22px_rgba(15,23,42,0.5)]">
       {title && (
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-50 to-transparent dark:from-slate-800/50 dark:to-transparent">
+        <div className="px-4 py-3 bg-gradient-to-r from-slate-50/85 to-transparent dark:from-[#141d31]/80 dark:to-transparent">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
         </div>
       )}
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-slate-200/70 dark:border-[#22304a]/70 bg-slate-100/80 dark:bg-[#0f172a]/85">
               {headers.map((header, i) => (
                 <th
                   key={i}
                   className={cn(
                     'text-left font-semibold text-slate-700 dark:text-slate-300',
-                    'border-r border-slate-200 dark:border-slate-800 last:border-r-0',
                     compact ? 'px-3 py-2 text-xs' : 'px-4 py-3 text-sm',
                     'uppercase tracking-wider'
                   )}
@@ -44,7 +43,7 @@ export function PremiumTable({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+          <tbody className="divide-y divide-slate-100/90 dark:divide-[#1a253c]/70">
             {children}
           </tbody>
         </table>
@@ -72,9 +71,9 @@ export function PremiumTableRow({
       onClick={onClick}
       className={cn(
         'transition-colors duration-150',
-        hoverable && 'hover:bg-indigo-50 dark:hover:bg-indigo-950/20 cursor-pointer',
-        isStriped && 'bg-slate-50 dark:bg-slate-800/20',
-        !hoverable && 'hover:bg-slate-50 dark:hover:bg-slate-800/30'
+        hoverable && 'hover:bg-slate-50 dark:hover:bg-[#172036] cursor-pointer',
+        isStriped && 'bg-slate-50/70 dark:bg-[#111a2d]',
+        !hoverable && 'hover:bg-slate-50 dark:hover:bg-[#172036]'
       )}
     >
       {children}
@@ -89,6 +88,7 @@ interface PremiumTableCellProps {
   numeric?: boolean;
   highlighted?: boolean;
   secondary?: boolean;
+  className?: string;
 }
 
 export function PremiumTableCell({
@@ -98,18 +98,19 @@ export function PremiumTableCell({
   numeric = false,
   highlighted = false,
   secondary = false,
+  className,
 }: PremiumTableCellProps) {
   return (
     <td
       className={cn(
-        'border-r border-slate-200 dark:border-slate-800 last:border-r-0',
         compact ? 'px-3 py-2 text-sm' : 'px-4 py-3 text-base',
         'text-slate-900 dark:text-slate-100',
         align === 'right' && 'text-right',
         align === 'center' && 'text-center',
         numeric && 'font-mono',
-        highlighted && 'font-semibold text-indigo-600 dark:text-indigo-400',
-        secondary && 'text-slate-500 dark:text-slate-400 text-xs'
+        highlighted && 'font-semibold text-blue-700 dark:text-blue-300',
+        secondary && 'text-slate-500 dark:text-slate-400 text-xs',
+        className
       )}
     >
       {children}
@@ -123,6 +124,8 @@ interface PremiumTableHeaderProps {
   sorted?: 'asc' | 'desc' | null;
   align?: 'left' | 'center' | 'right';
   onClick?: () => void;
+  className?: string;
+  numeric?: boolean;
 }
 
 export function PremiumTableHeader({
@@ -131,14 +134,17 @@ export function PremiumTableHeader({
   sorted = null,
   align = 'left',
   onClick,
+  className,
+  numeric = false,
 }: PremiumTableHeaderProps) {
   return (
     <th
       onClick={sortable ? onClick : undefined}
       className={cn(
-        'px-4 py-2 text-left font-semibold text-slate-600 dark:text-slate-400 uppercase text-xs tracking-wider',
+        'px-4 py-2.5 text-left font-semibold text-slate-600 dark:text-slate-400 uppercase text-[10px] tracking-[0.06em]',
         sortable && 'cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 transition-colors',
-        'border-r border-slate-200 dark:border-slate-800 last:border-r-0'
+        numeric && 'text-right',
+        className
       )}
     >
       <div className={cn('flex items-center gap-2', align === 'right' && 'justify-end')}>

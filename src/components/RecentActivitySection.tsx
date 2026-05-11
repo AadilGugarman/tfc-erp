@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/stores/useAppStore';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import { cn } from '@/utils/cn';
-import * as db from '@/db/db';
+import { useEffect } from 'react';
 import { ArrowUpRight, Truck, Receipt, Package, CreditCard } from 'lucide-react';
 
 interface ActivityItem {
@@ -18,10 +18,12 @@ interface ActivityItem {
 }
 
 export function RecentActivitySection() {
-  const { bills, payments, inventoryItems, setCurrentPage } = useAppStore();
+  const { bills, payments, inventoryItems, vehicleRegisters, setCurrentPage, loadVehicleRegisters } = useAppStore();
   const { t } = useTranslation();
 
-  const vehicleRegisters = db.getVehicleRegisters();
+  useEffect(() => {
+    loadVehicleRegisters();
+  }, []);
 
   // Combine and sort all activities by date
   const activities: ActivityItem[] = [];
@@ -78,7 +80,7 @@ export function RecentActivitySection() {
 
   if (recentActivities.length === 0) {
     return (
-      <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 px-6 py-8">
+      <div className="rounded-lg border border-slate-200 dark:border-[#2a3550] bg-white dark:bg-[#111827] px-6 py-8">
         <p className="text-center text-sm text-slate-500 dark:text-slate-400">
           No recent activity
         </p>
@@ -89,8 +91,8 @@ export function RecentActivitySection() {
   return (
     <div className="space-y-1">
       <h2 className="text-sm font-semibold text-slate-900 dark:text-white px-1">Recent Activity</h2>
-      <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 overflow-hidden">
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+      <div className="rounded-lg border border-slate-200 dark:border-[#2a3550] bg-white dark:bg-[#111827] overflow-hidden">
+        <div className="divide-y divide-slate-100 dark:divide-[#1f2a43]">
           {recentActivities.map((activity) => {
             const Icon = activity.icon;
             return (
@@ -99,7 +101,7 @@ export function RecentActivitySection() {
                 onClick={() => setCurrentPage(activity.page)}
                 className={cn(
                   'w-full px-4 py-3 flex items-center gap-3',
-                  'hover:bg-slate-50 dark:hover:bg-slate-800/50',
+                  'hover:bg-slate-50 dark:hover:bg-[#172036]',
                   'transition-colors duration-150 text-left'
                 )}
               >

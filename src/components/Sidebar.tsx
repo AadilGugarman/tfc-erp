@@ -11,26 +11,26 @@ const NAV_GROUPS = [
   {
     label: 'Operations',
     items: [
-      { id: 'dashboard',        labelKey: 'navigation.dashboard',              icon: LayoutDashboard, shortcut: '1' },
-      { id: 'vehicle-register', labelKey: 'navigation.vehicleArrivalRegister', icon: Truck,           shortcut: 'V' },
-      { id: 'inventory',        labelKey: 'navigation.inventory',              icon: Package,         shortcut: '6' },
+      { id: 'dashboard',        labelKey: 'navigation.dashboard',              icon: LayoutDashboard, shortcut: 'Alt+1' },
+      { id: 'transactions',     labelKey: 'navigation.transactions',           icon: Receipt,         shortcut: 'Alt+5' },
     ],
   },
   {
     label: 'Accounting',
     items: [
-      { id: 'parties',      labelKey: 'navigation.parties',      icon: Users,    shortcut: '2' },
-      { id: 'suppliers',    labelKey: 'navigation.suppliers',    icon: Layers,   shortcut: '3' },
-      { id: 'ledger',       labelKey: 'navigation.ledger',       icon: BookOpen, shortcut: '4' },
-      { id: 'transactions', labelKey: 'navigation.transactions', icon: Receipt,  shortcut: '5' },
-      { id: 'payments',     labelKey: 'navigation.payments',     icon: CreditCard, shortcut: '7' },
+      { id: 'vehicle-register', labelKey: 'navigation.vehicleArrivalRegister', icon: Truck,           shortcut: 'Alt+V' },
+      { id: 'inventory',        labelKey: 'navigation.inventory',              icon: Package,         shortcut: 'Alt+6' },
+      { id: 'parties',      labelKey: 'navigation.parties',      icon: Users,    shortcut: 'Alt+2' },
+      { id: 'suppliers',    labelKey: 'navigation.suppliers',    icon: Layers,   shortcut: 'Alt+3' },
+      { id: 'ledger',       labelKey: 'navigation.ledger',       icon: BookOpen, shortcut: 'Alt+4' },
+      { id: 'payments',     labelKey: 'navigation.payments',     icon: CreditCard, shortcut: 'Alt+7' },
     ],
   },
   {
     label: 'Insights',
     items: [
-      { id: 'reports',  labelKey: 'navigation.reports',  icon: BarChart3,    shortcut: '8' },
-      { id: 'settings', labelKey: 'navigation.settings', icon: SettingsIcon, shortcut: '9' },
+      { id: 'reports',  labelKey: 'navigation.reports',  icon: BarChart3,    shortcut: 'Alt+8' },
+      { id: 'settings', labelKey: 'navigation.settings', icon: SettingsIcon, shortcut: 'Alt+9' },
     ],
   },
 ];
@@ -42,50 +42,41 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'fixed top-0 left-0 z-40 h-screen flex flex-col',
-        'bg-white/88 dark:bg-slate-950/90 backdrop-blur-xl',
-        'border-r border-slate-200 dark:border-slate-800',
+        'fixed top-16 left-0 z-20 h-[calc(100vh-4rem)] flex flex-col',
+        'bg-gradient-to-b from-[#f8fbff] via-[#f4f8ff] to-[#eef4ff] dark:from-[#0b1324] dark:via-[#0a1222] dark:to-[#0a111f] backdrop-blur-xl',
+        'border-r border-slate-200/80 dark:border-[#1f2a43]',
         'transition-[width] duration-300 ease-in-out',
         sidebarOpen ? 'w-56' : 'w-[60px]'
       )}
     >
-      {/* Brand Section */}
-      <div
-        className={cn(
-          'flex items-center border-b border-slate-200 dark:border-slate-800',
-          'h-14 shrink-0 overflow-hidden px-3 gap-3 transition-all duration-300',
-          'bg-gradient-to-r from-white to-slate-50 dark:from-slate-950 dark:to-slate-900/50'
-        )}
-      >
-        {/* Logo */}
-        <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-700 shadow-md shadow-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/40 transition-all duration-200">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="currentColor" opacity="0.2" />
-            <path d="M12 2c-1.5 0-2.8.8-3.5 2L12 9l3.5-5C14.8 2.8 13.5 2 12 2z" fill="currentColor" />
-            <path d="M9 18c1.2 1.8 2.4 2.8 3 3 .6-.2 1.8-1.2 3-3H9z" fill="currentColor" />
-          </svg>
-        </div>
-
-        {/* Brand text */}
-        {sidebarOpen && (
-          <div className="min-w-0 flex-1 overflow-hidden animate-fade-in">
-            <div className="text-sm font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-              TFC
-            </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
-              Talha Fruit Co.
-            </div>
-          </div>
-        )}
+      <div className="h-11 shrink-0 flex items-center border-b border-slate-200/60 dark:border-[#1f2a43]/80 px-2.5">
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          className={cn(
+            'flex h-8 w-8 items-center justify-center rounded-lg shrink-0',
+            'text-slate-500 dark:text-slate-400',
+            'bg-white/60 dark:bg-[#101a2f]/75 ring-1 ring-slate-200/70 dark:ring-[#2a3550]/75',
+            'hover:bg-white dark:hover:bg-[#1b2945] hover:text-slate-700 dark:hover:text-slate-200',
+            'transition-all duration-150',
+            !sidebarOpen && 'mx-auto'
+          )}
+        >
+          {sidebarOpen ? (
+            <ChevronLeft className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 space-y-5 px-2">
+      <nav className="flex-1 overflow-y-auto py-5 space-y-6 px-2">
         {NAV_GROUPS.map((group) => (
           <div key={group.label}>
             {sidebarOpen && (
-              <div className="mb-2 px-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-600 select-none">
+              <div className="mb-2.5 px-3">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-[#5b6f95] select-none">
                   {group.label}
                 </span>
               </div>
@@ -105,32 +96,32 @@ export function Sidebar() {
                     onClick={() => setCurrentPage(item.id)}
                     title={!sidebarOpen ? label : undefined}
                     className={cn(
-                      'group relative w-full rounded-lg transition-all duration-150 font-medium',
+                        'group relative w-full rounded-xl transition-all duration-150 font-medium',
                       sidebarOpen
                         ? cn(
-                          'flex items-center gap-3 px-3 py-2.5 text-sm',
+                            'flex items-center gap-3 px-3 py-2.5 text-sm',
                           active
-                            ? 'bg-gradient-to-r from-indigo-50 to-indigo-50/50 dark:from-indigo-950/40 dark:to-indigo-900/30 text-indigo-700 dark:text-indigo-300 shadow-sm shadow-indigo-200/50 dark:shadow-indigo-950/50'
-                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
+                                ? 'bg-gradient-to-r from-blue-50/95 to-cyan-50/85 dark:from-blue-950/35 dark:to-cyan-900/20 text-blue-700 dark:text-blue-300 ring-1 ring-blue-200/70 dark:ring-blue-800/35'
+                                : 'text-slate-600 dark:text-slate-400 hover:bg-white/65 dark:hover:bg-[#16203a] hover:text-slate-900 dark:hover:text-slate-200'
                           )
                         : cn(
-                          'flex h-10 w-10 items-center justify-center mx-auto',
+                            'flex h-11 w-11 items-center justify-center mx-auto rounded-xl',
                           active
-                            ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/30'
-                            : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                                ? 'bg-gradient-to-br from-blue-600 to-cyan-600 text-white shadow-sm shadow-blue-600/30'
+                                : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/70 dark:hover:bg-[#16203a]'
                         )
                     )}
                   >
                     {/* Active indicator line (expanded only) */}
                     {active && sidebarOpen && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-indigo-600 dark:bg-indigo-500" />
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-blue-600 dark:bg-blue-500" />
                     )}
 
                     {/* Icon */}
                     <Icon className={cn(
-                      'h-4 w-4 shrink-0 transition-all duration-150',
+                      !sidebarOpen ? 'h-6 w-6 shrink-0 transition-all duration-150' : 'h-4 w-4 shrink-0 transition-all duration-150',
                       active && sidebarOpen
-                        ? 'text-indigo-600 dark:text-indigo-400'
+                        ? 'text-blue-600 dark:text-blue-400'
                         : active
                           ? 'text-white'
                           : ''
@@ -142,11 +133,14 @@ export function Sidebar() {
                         <span className="flex-1 text-left truncate">
                           {label}
                         </span>
-                        {active && (
-                          <div className="ml-auto text-xs font-mono text-indigo-600 dark:text-indigo-400 opacity-70">
-                            {item.shortcut}
-                          </div>
-                        )}
+                        <kbd className={cn(
+                          'ml-auto rounded-md px-1.5 py-0.5 text-[10px] font-mono leading-none ring-1',
+                          active
+                            ? 'ring-blue-300/80 bg-blue-100/80 text-blue-700 dark:ring-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                            : 'ring-slate-200 bg-white/90 text-slate-500 dark:ring-[#2c3a59] dark:bg-[#14213a] dark:text-slate-400'
+                        )}>
+                          {item.shortcut}
+                        </kbd>
                       </>
                     )}
                   </button>
@@ -156,26 +150,6 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
-
-      {/* Collapse Toggle */}
-      <div className="border-t border-slate-200 dark:border-slate-800 p-2">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className={cn(
-            'flex items-center justify-center w-full h-9 rounded-lg',
-            'text-slate-500 dark:text-slate-400',
-            'hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-700 dark:hover:text-slate-200',
-            'transition-all duration-150',
-            'font-medium text-sm'
-          )}
-        >
-          {sidebarOpen ? (
-            <ChevronLeft className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
-        </button>
-      </div>
     </aside>
   );
 }

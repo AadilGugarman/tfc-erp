@@ -32,6 +32,7 @@ import {
   TrendingDown,
   AlertCircle,
 } from 'lucide-react';
+import { useShortcutAction } from '@/keyboard/shortcutManager';
 
 
 export function InventoryPage() {
@@ -212,8 +213,27 @@ export function InventoryPage() {
     ? db.getInventoryTransactions(txnItemId)
     : db.getInventoryTransactions();
 
+  useShortcutAction('new-entry', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="inventory"]')) return;
+    openNew();
+  });
+
+  useShortcutAction('save', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="inventory"]')) return;
+    if (showForm) {
+      handleSaveItem();
+      return;
+    }
+    if (showInward) {
+      handleDoInward();
+    }
+  });
+
   return (
     <PageTransition>
+      <div data-entry-surface="inventory">
       <PageLayout
         title="Inventory"
         subtitle="Manage inventory items, stock levels, and transactions"
@@ -285,7 +305,7 @@ export function InventoryPage() {
               placeholder="Search by item, grade, or warehouse..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 dark:border-[#2a3550] rounded-lg bg-white dark:bg-[#111827] text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500 transition-all"
             />
           </div>
         </Section>
@@ -590,6 +610,7 @@ export function InventoryPage() {
 
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onClose={removeToast} />
+      </div>
     </PageTransition>
   );
 }

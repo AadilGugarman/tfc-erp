@@ -17,45 +17,24 @@ import { SettingsPage } from '@/pages/Settings';
 import { SearchPage } from '@/pages/Search';
 import { BillingPage } from '@/pages/Billing';
 import { PurchasesPage } from '@/pages/Purchases';
+import { CommandPalette } from '@/components/CommandPalette';
+import { useGlobalKeyboardManager } from '@/hooks/useGlobalKeyboardManager';
 
 function App() {
-  const { currentPage, setCurrentPage, settings, notification, clearNotification, sidebarOpen, authenticated, login } = useAppStore();
+  const { currentPage, setCurrentPage, settings, sidebarOpen, authenticated, login, refreshDataFromDb } = useAppStore();
+  const { commandPaletteOpen, closeCommandPalette } = useGlobalKeyboardManager({ setCurrentPage });
 
   useEffect(() => {
-    db.seedDemoData();
-  }, []);
+    refreshDataFromDb();
+    const unsubscribe = db.subscribeDbChanges(() => {
+      refreshDataFromDb();
+    });
+    return unsubscribe;
+  }, [refreshDataFromDb]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings.darkMode);
   }, [settings.darkMode]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.altKey) {
-        switch (e.key) {
-          case '1': e.preventDefault(); setCurrentPage('dashboard'); break;
-          case 'v': e.preventDefault(); setCurrentPage('vehicle-register'); break;
-          case 'b': e.preventDefault(); setCurrentPage('billing'); break;
-          case 'p': e.preventDefault(); setCurrentPage('purchases'); break;
-          case 'm': e.preventDefault(); setCurrentPage('payments'); break;
-          case '2': e.preventDefault(); setCurrentPage('parties'); break;
-          case '3': e.preventDefault(); setCurrentPage('suppliers'); break;
-          case '4': e.preventDefault(); setCurrentPage('ledger'); break;
-          case '5': e.preventDefault(); setCurrentPage('transactions'); break;
-          case '6': e.preventDefault(); setCurrentPage('inventory'); break;
-          case '7': e.preventDefault(); setCurrentPage('payments'); break;
-          case '8': e.preventDefault(); setCurrentPage('reports'); break;
-          case '9': e.preventDefault(); setCurrentPage('settings'); break;
-        }
-      }
-      if (e.ctrlKey && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setCurrentPage('search');
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [setCurrentPage]);
 
   const renderPage = () => {
     switch (currentPage) {
@@ -77,36 +56,21 @@ function App() {
   };
 
   if (!authenticated) {
-    return <LoginPage onLogin={login} />;
+    return <LoginPage onLogin={() => login('admin')} />;
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div className="min-h-screen bg-[#f7f9fd] dark:bg-[#0a0f1d] text-slate-900 dark:text-[#e8edf5]">
       <Sidebar />
+      <Header />
       <div
-        className="flex flex-col min-h-screen transition-[margin-left] duration-300 ease-in-out"
+        className="flex flex-col min-h-screen transition-[margin-left] duration-300 ease-in-out pt-16"
         style={{ marginLeft: sidebarOpen ? 224 : 60 }}
       >
-        <Header />
-        <main className="flex-1 p-6 bg-slate-50 dark:bg-slate-900/30">{renderPage()}</main>
+        <main className="flex-1 px-4 py-3 lg:px-5 lg:py-4 bg-[#f7f9fd] dark:bg-[#0d1323]">{renderPage()}</main>
       </div>
 
-      {notification && (
-        <button
-          type="button"
-          onClick={clearNotification}
-          className={[
-            'fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-lg shadow-lg text-white text-[13px] font-medium cursor-pointer select-none animate-toast',
-            notification.type === 'success'
-              ? 'bg-[#16a34a]'
-              : notification.type === 'error'
-                ? 'bg-[#dc2626]'
-                : 'bg-[#3b5bdb]',
-          ].join(' ')}
-        >
-          {notification.message}
-        </button>
-      )}
+      <CommandPalette open={commandPaletteOpen} onClose={closeCommandPalette} />
     </div>
   );
 }

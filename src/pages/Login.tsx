@@ -20,7 +20,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       <div className="w-full max-w-[360px]">
         {/* Logo + brand */}
         <div className="flex flex-col items-center mb-8">
-          <div className="h-10 w-10 rounded-xl bg-[#3b5bdb] flex items-center justify-center shadow-lg shadow-[#3b5bdb]/30 mb-4">
+          <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/30 mb-4">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white">
               <path d="M12 3C8 3 4 7 4 12s4 9 8 9 8-4 8-9-4-9-8-9z" fill="currentColor" opacity="0.2"/>
               <path d="M12 3c-1 0-2 .5-3 1.5L12 8l3-3.5C14 3.5 13 3 12 3z" fill="currentColor"/>
@@ -34,7 +34,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         </div>
 
         {/* Form card */}
-        <form onSubmit={handleSubmit} className="bg-white dark:bg-[#111318] border border-slate-200 dark:border-[#1e2330] rounded-lg p-6 shadow-sm space-y-4">
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#2a3550] rounded-lg p-6 shadow-sm space-y-4">
           <Input label="Username" value={username} onChange={e => setUsername(e.target.value)} autoFocus />
           <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
           <Button type="submit" className="w-full mt-2">Sign in</Button>

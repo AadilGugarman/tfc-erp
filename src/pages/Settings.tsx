@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Input, Select, TextArea } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import * as db from '@/db/db';
+import { BackupRestorePanel } from '@/components/BackupRestorePanel';
 import type { Company, Settings } from '@/db/schema';
+import { updateBackupConfig, type BackupConfig } from '@/services/backup';
 import { Save, RefreshCw, Trash2, Moon, Sun, Globe, Building2, Percent, Plus, Edit, X } from 'lucide-react';
 
 type AppLanguage = Settings['language'];
@@ -29,8 +30,7 @@ export function SettingsPage() {
   const { t } = useTranslation();
   const tx = (key: string, fallback: string) => t(key, { defaultValue: fallback });
   const { 
-    settings, updateSettings, showNotification, loadParties, loadSuppliers, loadBills, loadPurchases, loadPayments, loadInventory, 
-    parties, suppliers, bills, inventoryItems, language, setLanguage, 
+    settings, updateSettings, showNotification, language, setLanguage,
     companies, currentCompany, createCompany, updateCompany, deleteCompany, setCurrentCompany
   } = useAppStore();
   
@@ -130,15 +130,8 @@ export function SettingsPage() {
     }
   };
 
-  const seedData = () => {
-    db.seedDemoData();
-    loadParties();
-    loadSuppliers();
-    loadBills();
-    loadPurchases();
-    loadPayments();
-    loadInventory();
-    showNotification(t('notifications.success'), 'success');
+  const saveBackupConfig = async (config: BackupConfig) => {
+    await updateBackupConfig(config);
   };
 
   const handleSaveCompany = () => {
@@ -229,21 +222,26 @@ export function SettingsPage() {
     { id: 'backup', label: t('settings.backup') },
   ];
 
-  const card = 'bg-white dark:bg-[#111318] border border-slate-200 dark:border-[#1e2330] rounded-lg p-5';
+  const card = 'bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#2a3550] rounded-xl p-5';
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <h1 className="text-[15px] font-semibold text-slate-900 dark:text-white">{tx('settings.title', 'Settings')}</h1>
+      <div className="sticky top-[4.15rem] z-20 rounded-xl border border-slate-200/85 dark:border-[#2a3550]/90 bg-white/94 dark:bg-[#0f1628]/94 backdrop-blur-xl shadow-[0_14px_28px_-22px_rgba(15,23,42,0.65)]">
+        <div className="p-3.5 sm:p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-500 dark:text-slate-400">System Controls / Operations Workspace</p>
+          <h1 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-slate-100">{tx('settings.title', 'Settings')}</h1>
+        </div>
+      </div>
 
-      <div className="flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-[#1e2330]">
+      <div className="flex gap-1.5 overflow-x-auto rounded-xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#2a3550] p-1.5">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-3.5 py-2 text-[12px] font-medium whitespace-nowrap border-b-2 transition-colors ${
+            className={`px-3.5 py-2 text-[12px] font-semibold whitespace-nowrap rounded-lg transition-colors ${
               activeTab === tab.id
-                ? 'border-[#3b5bdb] text-[#3b5bdb] dark:text-[#8ba4f9]'
-                : 'border-transparent text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                ? 'bg-blue-600 text-white shadow'
+                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#1b2335]'
             }`}
           >
             {tab.label}
@@ -254,7 +252,7 @@ export function SettingsPage() {
       {activeTab === 'basic' && (
         <div className={`${card} max-w-xl space-y-4`}>
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#1a1f2e]">
-            <Building2 className="h-4 w-4 text-[#3b5bdb]" />
+            <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{t('settings.businessName')}</span>
           </div>
           <Input
@@ -310,12 +308,12 @@ export function SettingsPage() {
 
           <div className="space-y-3">
             {companies.map(company => (
-              <div key={company.id} className={`${card} flex items-center justify-between ${currentCompany?.id === company.id ? 'border-[#3b5bdb]' : ''}`}>
+              <div key={company.id} className={`${card} flex items-center justify-between ${currentCompany?.id === company.id ? 'border-blue-500 dark:border-blue-600' : ''}`}>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{company.name}</span>
                     {currentCompany?.id === company.id && (
-                      <span className="text-[10px] bg-[#eef2ff] dark:bg-[#1a1f2e] text-[#3b5bdb] dark:text-[#8ba4f9] px-2 py-0.5 rounded font-semibold uppercase tracking-[0.06em]">
+                      <span className="text-[10px] bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded font-semibold uppercase tracking-[0.06em]">
                         {tx('settings.active', 'Active')}
                       </span>
                     )}
@@ -351,7 +349,7 @@ export function SettingsPage() {
       {activeTab === 'billing' && (
         <div className={`${card} max-w-xl space-y-4`}>
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#1a1f2e]">
-            <Percent className="h-4 w-4 text-[#3b5bdb]" />
+            <Percent className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{t('settings.billing')}</span>
           </div>
           <Input
@@ -391,7 +389,7 @@ export function SettingsPage() {
       {activeTab === 'language' && (
         <div className={`${card} max-w-xl space-y-4`}>
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#1a1f2e]">
-            <Globe className="h-4 w-4 text-[#3b5bdb]" />
+            <Globe className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{t('settings.selectLanguage')}</span>
           </div>
           <div className="space-y-3">
@@ -401,13 +399,13 @@ export function SettingsPage() {
                 onClick={() => setForm(f => ({ ...f, language: lang.value }))}
                 className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg border-2 transition-all text-left ${
                   form.language === lang.value
-                    ? 'border-[#3b5bdb] bg-[#eef2ff] dark:bg-[#1a1f2e]'
-                    : 'border-slate-200 dark:border-[#1e2330] hover:border-slate-300 dark:hover:border-slate-600'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20'
+                    : 'border-slate-200 dark:border-[#2a3550] hover:border-slate-300 dark:hover:border-slate-600'
                 }`}
               >
                 <p className="text-[13px] font-medium flex-1 text-slate-800 dark:text-slate-200">{lang.label}</p>
                 <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
-                  form.language === lang.value ? 'border-[#3b5bdb] bg-[#3b5bdb]' : 'border-slate-300'
+                    form.language === lang.value ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
                 }`}>
                   {form.language === lang.value && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
                 </div>
@@ -420,7 +418,7 @@ export function SettingsPage() {
       {activeTab === 'theme' && (
         <div className={`${card} max-w-xl space-y-4`}>
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#1a1f2e]">
-            <Sun className="h-4 w-4 text-[#3b5bdb]" />
+            <Sun className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{t('settings.theme')}</span>
           </div>
           <div className="space-y-3">
@@ -435,14 +433,14 @@ export function SettingsPage() {
                   onClick={() => setForm(f => ({ ...f, darkMode: theme.value }))}
                   className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg border-2 transition-all text-left ${
                     form.darkMode === theme.value
-                      ? 'border-[#3b5bdb] bg-[#eef2ff] dark:bg-[#1a1f2e]'
-                      : 'border-slate-200 dark:border-[#1e2330] hover:border-slate-300 dark:hover:border-slate-600'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20'
+                        : 'border-slate-200 dark:border-[#2a3550] hover:border-slate-300 dark:hover:border-slate-600'
                   }`}
                 >
                   <Icon className="h-5 w-5 text-slate-500" />
                   <p className="text-[13px] font-medium flex-1 text-slate-800 dark:text-slate-200">{theme.label}</p>
                   <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
-                    form.darkMode === theme.value ? 'border-[#3b5bdb] bg-[#3b5bdb]' : 'border-slate-300'
+                    form.darkMode === theme.value ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
                   }`}>
                     {form.darkMode === theme.value && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
                   </div>
@@ -454,78 +452,14 @@ export function SettingsPage() {
       )}
 
       {activeTab === 'backup' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className={`${card} space-y-3`}>
-            <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200 block">{t('settings.exportData')}</span>
-            <p className="text-[12px] text-slate-500">{tx('settings.exportDescription', 'Export all ERP data as JSON backup file')}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const data = localStorage.getItem('fruit_market_erp_db');
-                if (data) {
-                  const blob = new Blob([data], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `erp-backup-${new Date().toISOString().split('T')[0]}.json`;
-                  a.click();
-                }
-              }}
-            >
-              {t('settings.exportData')}
-            </Button>
-          </div>
+        <div className="space-y-4">
+          <BackupRestorePanel
+            onNotify={showNotification}
+            onSaveConfig={saveBackupConfig}
+          />
 
-          <div className={`${card} space-y-3`}>
-            <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200 block">{t('settings.importData')}</span>
-            <p className="text-[12px] text-slate-500">{tx('settings.importDescription', 'Restore from backup JSON file')}</p>
-            <input
-              type="file"
-              accept=".json"
-              onChange={e => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onload = (evt) => {
-                    try {
-                      const data = evt.target?.result as string;
-                      localStorage.setItem('fruit_market_erp_db', data);
-                      window.location.reload();
-                    } catch {
-                      showNotification(tx('validation.invalidFile', 'Invalid file'), 'error');
-                    }
-                  };
-                  reader.readAsText(file);
-                }
-              }}
-              className="block w-full text-[12px] text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-[11px] file:font-semibold file:bg-[#eef2ff] file:text-[#3b5bdb] hover:file:bg-[#e0e7ff] dark:file:bg-[#1a1f2e] dark:file:text-[#8ba4f9]"
-            />
-          </div>
-
-          <div className={`${card} space-y-3`}>
-            <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200 block">{tx('settings.dataStatistics', 'Data Statistics')}</span>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: t('navigation.parties'), value: parties.length },
-                { label: t('navigation.suppliers'), value: suppliers.length },
-                { label: t('navigation.billing'), value: bills.length },
-                { label: t('navigation.inventory'), value: inventoryItems.length },
-              ].map(s => (
-                <div key={s.label} className="bg-slate-50 dark:bg-[#0e1017] rounded p-3 text-center">
-                  <p className="text-[16px] font-bold tabnum text-slate-800 dark:text-slate-200">{s.value}</p>
-                  <p className="text-[11px] text-slate-500">{s.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className={`${card} space-y-3`}>
-            <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200 block">{tx('settings.demoData', 'Demo Data')}</span>
-            <Button variant="outline" size="sm" className="w-full gap-2" onClick={seedData}>
-              <RefreshCw className="h-3.5 w-3.5" />
-              {tx('settings.loadDemoData', 'Load Demo Data')}
-            </Button>
+          <div className={`${card} space-y-3 max-w-xl`}>
+            <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200 block">{tx('settings.dangerZone', 'Danger Zone')}</span>
             <Button
               variant="outline"
               size="sm"
@@ -539,7 +473,7 @@ export function SettingsPage() {
         </div>
       )}
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-[#1e2330]">
+      <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-[#22304a]">
         <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
           {t('common.cancel')}
         </Button>

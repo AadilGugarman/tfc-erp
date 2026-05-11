@@ -17,22 +17,20 @@ interface TaskWidget {
 }
 
 export function PendingTasksWidgets() {
-  const { payments, bills, inventoryItems, setCurrentPage } = useAppStore();
+  const { bills, purchases, inventoryItems, setCurrentPage } = useAppStore();
   const { t } = useTranslation();
 
   // Calculate pending data
-  const pendingPayments = payments.filter(p => p.status === 'pending').length;
-  const unpaidBills = bills.filter(b => b.status === 'draft' || b.status === 'pending').length;
+  const pendingPayments = bills.filter(b => b.netBalance > 0).length + purchases.filter(p => p.netBalance > 0).length;
+  const unpaidBills = bills.filter(b => b.status === 'unpaid' || b.status === 'partial').length;
   const lowStockItems = inventoryItems.filter(i => i.status === 'low_stock').length;
   const outOfStockItems = inventoryItems.filter(i => i.status === 'out_of_stock').length;
 
-  const pendingPaymentsAmount = payments
-    .filter(p => p.status === 'pending')
-    .reduce((sum, p) => sum + p.amount, 0);
+  const pendingPaymentsAmount = bills.reduce((sum, b) => sum + b.netBalance, 0) + purchases.reduce((sum, p) => sum + p.netBalance, 0);
 
   const unpaidBillsAmount = bills
-    .filter(b => b.status === 'draft' || b.status === 'pending')
-    .reduce((sum, b) => sum + b.total, 0);
+    .filter(b => b.status === 'unpaid' || b.status === 'partial')
+    .reduce((sum, b) => sum + b.netBalance, 0);
 
   const widgets: TaskWidget[] = [
     {
@@ -65,7 +63,7 @@ export function PendingTasksWidgets() {
       id: 'outofstock',
       title: 'Out of Stock',
       icon: AlertCircle,
-      color: 'from-red-500 to-red-600',
+      color: 'from-blue-700 to-blue-800',
       count: outOfStockItems,
       page: 'inventory',
     },
@@ -81,7 +79,7 @@ export function PendingTasksWidgets() {
             onClick={() => widget.page && setCurrentPage(widget.page)}
             className={cn(
               'group relative overflow-hidden rounded-lg p-4',
-              'bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800',
+              'bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#2a3550]',
               'hover:shadow-md dark:hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-black/50',
               'transition-all duration-200 ease-out text-left',
               'hover:-translate-y-0.5'

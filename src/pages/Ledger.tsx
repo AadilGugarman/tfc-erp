@@ -22,13 +22,13 @@ import { formatCurrency, formatDate } from '@/utils/formatters';
 import * as db from '@/db/db';
 import { Plus, Search, Download, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import type { LedgerType } from '@/db/schema';
+import { useShortcutAction } from '@/keyboard/shortcutManager';
 
 export function LedgerPage() {
   const { t } = useTranslation();
-  const { parties, suppliers, loadParties, loadSuppliers } = useAppStore();
+  const { parties, suppliers, ledgerEntries, loadParties, loadSuppliers, loadLedgerEntries } = useAppStore();
   const { toasts, removeToast, success, error } = useToast();
   const [selectedParty, setSelectedParty] = useState('');
-  const [entries, setEntries] = useState(db.getLedgerEntries());
   const [modalOpen, setModalOpen] = useState(false);
   const [fDate, setFDate] = useState(new Date().toISOString().split('T')[0]);
   const [fType, setFType] = useState<LedgerType>('debit');
@@ -41,17 +41,14 @@ export function LedgerPage() {
   useEffect(() => {
     loadParties();
     loadSuppliers();
+    loadLedgerEntries();
   }, []);
-
-  useEffect(() => {
-    setEntries(db.getLedgerEntries());
-  }, [parties, suppliers]);
 
   const allParties = [...parties, ...suppliers.map(s => ({ id: s.id, name: s.name }))];
 
   const filtered = selectedParty
-    ? entries.filter(e => e.partyId === selectedParty)
-    : entries;
+    ? ledgerEntries.filter(e => e.partyId === selectedParty)
+    : ledgerEntries;
 
   const dateFiltered = dateFrom && dateTo
     ? filtered.filter(e => e.date >= dateFrom && e.date <= dateTo)
@@ -98,7 +95,7 @@ export function LedgerPage() {
       });
       success('Entry Saved', 'Manual ledger entry created successfully');
       setModalOpen(false);
-      setEntries(db.getLedgerEntries());
+      loadLedgerEntries();
       setFAmount(0);
       setFDesc('');
     } catch (err) {
@@ -134,8 +131,22 @@ export function LedgerPage() {
     setSelectedParty('');
   };
 
+  useShortcutAction('new-entry', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="ledger"]')) return;
+    setModalOpen(true);
+  });
+
+  useShortcutAction('save', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="ledger"]')) return;
+    if (!modalOpen) return;
+    handleSaveEntry();
+  });
+
   return (
     <PageTransition>
+      <div data-entry-surface="ledger">
       <PageLayout
         title="Ledger"
         subtitle="View and manage party ledger entries and balances"
@@ -194,10 +205,10 @@ export function LedgerPage() {
 
           {/* Party Balance Display */}
           {selectedParty && (
-            <div className="mt-4 p-4 bg-gradient-to-r from-indigo-50 to-indigo-50/50 dark:from-indigo-950/40 dark:to-indigo-900/30 rounded-lg border border-indigo-200/50 dark:border-indigo-800/50">
+            <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-blue-50/60 dark:from-blue-950/35 dark:to-blue-900/25 rounded-lg border border-blue-200/50 dark:border-blue-800/40">
               <p className="text-sm text-slate-600 dark:text-slate-400">{selectedPartyName}</p>
               <div className="flex items-center gap-2 mt-2">
-                <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                <span className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                   {formatCurrency(balance.balance)}
                 </span>
                 <span className="text-sm text-slate-600 dark:text-slate-400">
@@ -245,7 +256,7 @@ export function LedgerPage() {
                 <p
                   className={`text-2xl font-bold mt-1 ${
                     totalDebit - totalCredit >= 0
-                      ? 'text-indigo-600 dark:text-indigo-400'
+                      ? 'text-blue-700 dark:text-blue-300'
                       : 'text-orange-600 dark:text-orange-400'
                   }`}
                 >
@@ -255,7 +266,7 @@ export function LedgerPage() {
               <div
                 className={`p-3 rounded-lg ${
                   totalDebit - totalCredit >= 0
-                    ? 'bg-indigo-50 dark:bg-indigo-950/30'
+                    ? 'bg-blue-50 dark:bg-blue-950/30'
                     : 'bg-orange-50 dark:bg-orange-950/30'
                 }`}
               />
@@ -322,7 +333,7 @@ export function LedgerPage() {
                           numeric
                           className={
                             entry.runningBalance >= 0
-                              ? 'text-indigo-600 dark:text-indigo-400'
+                              ? 'text-blue-700 dark:text-blue-300'
                               : 'text-red-600 dark:text-red-400'
                           }
                         >
@@ -407,6 +418,7 @@ export function LedgerPage() {
 
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onClose={removeToast} />
+      </div>
     </PageTransition>
   );
 }

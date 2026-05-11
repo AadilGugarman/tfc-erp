@@ -6,9 +6,9 @@ export function Card({ children, className, onClick }: { children: React.ReactNo
     <div
       onClick={onClick}
       className={cn(
-        'bg-white dark:bg-[#111318] rounded-lg border border-slate-200 dark:border-[#1e2330]',
-        'shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:shadow-none',
-        onClick && 'cursor-pointer hover:border-slate-300 dark:hover:border-[#2a3040] transition-colors duration-100',
+        'bg-white/95 dark:bg-[#121a2b]/92 rounded-xl ring-1 ring-slate-200/65 dark:ring-[#24324d]/70',
+        'shadow-[0_6px_18px_-14px_rgba(15,23,42,0.45)] dark:shadow-[0_14px_30px_-20px_rgba(2,8,20,0.62)]',
+        onClick && 'cursor-pointer hover:ring-slate-300/80 dark:hover:ring-[#314365]/80 transition-all duration-150',
         className
       )}
     >
@@ -19,7 +19,7 @@ export function Card({ children, className, onClick }: { children: React.ReactNo
 
 export function CardHeader({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn('px-4 py-3 border-b border-slate-100 dark:border-[#1a1f2e] flex items-center justify-between', className)}>
+    <div className={cn('px-4 py-3 flex items-center justify-between', className)}>
       {children}
     </div>
   );
@@ -39,7 +39,7 @@ export function CardContent({ children, className }: { children: React.ReactNode
 
 export function CardFooter({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn('px-4 py-3 border-t border-slate-100 dark:border-[#1a1f2e]', className)}>
+    <div className={cn('px-4 py-3', className)}>
       {children}
     </div>
   );

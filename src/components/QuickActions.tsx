@@ -52,7 +52,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     id: 'purchase',
     label: 'Add Purchase',
     icon: ShoppingCart,
-    color: 'from-purple-500 to-purple-600',
+    color: 'from-sky-500 to-blue-600',
     page: 'purchases',
     shortcut: 'Alt+P',
   },
@@ -76,7 +76,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     id: 'ledger',
     label: 'Open Ledger',
     icon: BookOpen,
-    color: 'from-indigo-500 to-indigo-600',
+    color: 'from-blue-500 to-blue-600',
     page: 'ledger',
     shortcut: 'Alt+L',
   },
@@ -106,7 +106,7 @@ export function QuickActions() {
               onClick={() => setCurrentPage(action.page)}
               className={cn(
                 'group relative overflow-hidden rounded-lg p-4',
-                'bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800',
+                  'bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#2a3550]',
                 'hover:shadow-md dark:hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-black/50',
                 'transition-all duration-200 ease-out',
                 'hover:-translate-y-0.5'

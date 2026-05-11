@@ -150,7 +150,7 @@ export interface InventoryTransaction {
   type: 'inward' | 'outward';
   quantity: number;
   rate: number;
-  referenceType: 'purchase' | 'bill' | 'manual' | 'adjustment';
+  referenceType: 'purchase' | 'bill' | 'manual' | 'adjustment' | 'vehicle_register';
   referenceId: string;
   date: string;
   notes: string;

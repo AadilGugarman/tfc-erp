@@ -22,6 +22,7 @@ import { formatCurrency } from '@/utils/formatters';
 import * as db from '@/db/db';
 import { Search, Plus, Edit2, Trash2, Phone, Mail, User } from 'lucide-react';
 import type { Party, LedgerType } from '@/db/schema';
+import { useShortcutAction } from '@/keyboard/shortcutManager';
 
 export function PartiesPage() {
   const { t } = useTranslation();
@@ -43,6 +44,7 @@ export function PartiesPage() {
   const [formNotes, setFormNotes] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  const [selectedRowIndex, setSelectedRowIndex] = useState(0);
 
   useEffect(() => {
     loadParties();
@@ -148,8 +150,64 @@ export function PartiesPage() {
     }
   };
 
+  useEffect(() => {
+    if (filtered.length === 0) {
+      setSelectedRowIndex(0);
+      return;
+    }
+    if (selectedRowIndex > filtered.length - 1) {
+      setSelectedRowIndex(filtered.length - 1);
+    }
+  }, [filtered.length, selectedRowIndex]);
+
+  useShortcutAction('new-entry', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="parties"]')) return;
+    openNew();
+  });
+
+  useShortcutAction('save', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="parties"]')) return;
+    if (!modalOpen) return;
+    handleSave();
+  });
+
+  useShortcutAction('delete-row', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="parties"]')) return;
+    if (modalOpen) return;
+    const selected = filtered[selectedRowIndex];
+    if (!selected) return;
+    handleDeleteParty(selected.id);
+  });
+
+  useEffect(() => {
+    const onHistoryKeyDown = (event: KeyboardEvent) => {
+      if (modalOpen) return;
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (!activeElement?.closest('[data-entry-surface="parties"]')) return;
+      if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA') return;
+
+      if (event.key === 'ArrowDown') {
+        if (filtered.length === 0) return;
+        event.preventDefault();
+        setSelectedRowIndex(prev => Math.min(prev + 1, filtered.length - 1));
+      }
+      if (event.key === 'ArrowUp') {
+        if (filtered.length === 0) return;
+        event.preventDefault();
+        setSelectedRowIndex(prev => Math.max(prev - 1, 0));
+      }
+    };
+
+    document.addEventListener('keydown', onHistoryKeyDown);
+    return () => document.removeEventListener('keydown', onHistoryKeyDown);
+  }, [filtered.length, modalOpen]);
+
   return (
     <PageTransition>
+      <div data-entry-surface="parties">
       <PageLayout
         title="Parties"
         subtitle="Manage buyer and seller party information and balances"
@@ -164,7 +222,7 @@ export function PartiesPage() {
               placeholder="Search by name or phone..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 dark:border-[#2a3550] rounded-lg bg-white dark:bg-[#111827] text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500 transition-all"
             />
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{filtered.length} parties found</p>
@@ -191,11 +249,11 @@ export function PartiesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {filtered.map(party => {
+                  {filtered.map((party, index) => {
                     const balance = db.getPartyBalance(party.id);
                     return (
                       <PremiumTableRow key={party.id}>
-                        <PremiumTableCell>
+                        <PremiumTableCell className={index === selectedRowIndex ? 'bg-blue-50/60 dark:bg-blue-950/20' : ''}>
                           <div className="font-medium">{party.name}</div>
                           {party.gstin && (
                             <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -203,7 +261,7 @@ export function PartiesPage() {
                             </div>
                           )}
                         </PremiumTableCell>
-                        <PremiumTableCell>
+                        <PremiumTableCell className={index === selectedRowIndex ? 'bg-blue-50/60 dark:bg-blue-950/20' : ''}>
                           <div className="text-sm">{party.phone || '—'}</div>
                           {party.email && (
                             <div className="text-xs text-slate-500 dark:text-slate-400">
@@ -211,14 +269,14 @@ export function PartiesPage() {
                             </div>
                           )}
                         </PremiumTableCell>
-                        <PremiumTableCell>{party.city || '—'}</PremiumTableCell>
-                        <PremiumTableCell>{party.commissionPercent}%</PremiumTableCell>
+                        <PremiumTableCell className={index === selectedRowIndex ? 'bg-blue-50/60 dark:bg-blue-950/20' : ''}>{party.city || '—'}</PremiumTableCell>
+                        <PremiumTableCell className={index === selectedRowIndex ? 'bg-blue-50/60 dark:bg-blue-950/20' : ''}>{party.commissionPercent}%</PremiumTableCell>
                         <PremiumTableCell
                           numeric
                           className={
-                            balance.type === 'receivable'
-                              ? 'text-indigo-600 dark:text-indigo-400'
-                              : 'text-red-600 dark:text-red-400'
+                            `${balance.type === 'receivable'
+                                ? 'text-blue-700 dark:text-blue-300'
+                                : 'text-red-600 dark:text-red-400'} ${index === selectedRowIndex ? 'bg-blue-50/60 dark:bg-blue-950/20' : ''}`
                           }
                         >
                           <div className="font-semibold">{formatCurrency(balance.balance)}</div>
@@ -226,16 +284,16 @@ export function PartiesPage() {
                             {balance.type}
                           </div>
                         </PremiumTableCell>
-                        <PremiumTableCell>
+                        <PremiumTableCell className={index === selectedRowIndex ? 'bg-blue-50/60 dark:bg-blue-950/20' : ''}>
                           <div className="flex items-center justify-end gap-2">
-                            <Button size="sm" variant="ghost" icon={<Edit2 size={16} />} onClick={() => openEdit(party)} />
+                            <Button size="sm" variant="ghost" icon={<Edit2 size={16} />} onClick={() => { setSelectedRowIndex(index); openEdit(party); }} />
                             <Button
                               size="sm"
                               variant="ghost"
                               loading={deleteLoading === party.id}
                               className="text-red-600 dark:text-red-400"
                               icon={<Trash2 size={16} />}
-                              onClick={() => handleDeleteParty(party.id)}
+                              onClick={() => { setSelectedRowIndex(index); handleDeleteParty(party.id); }}
                             />
                           </div>
                         </PremiumTableCell>
@@ -358,6 +416,7 @@ export function PartiesPage() {
 
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onClose={removeToast} />
+      </div>
     </PageTransition>
   );
 }

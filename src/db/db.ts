@@ -33,6 +33,26 @@ interface Database {
   settings: Settings;
 }
 
+type DbChangeListener = () => void;
+const dbChangeListeners = new Set<DbChangeListener>();
+
+function notifyDbChangeListeners(): void {
+  for (const listener of dbChangeListeners) {
+    try {
+      listener();
+    } catch {
+      // Ignore listener failures so persistence is never blocked.
+    }
+  }
+}
+
+export function subscribeDbChanges(listener: DbChangeListener): () => void {
+  dbChangeListeners.add(listener);
+  return () => {
+    dbChangeListeners.delete(listener);
+  };
+}
+
 const defaultSettings: Settings = {
   businessName: 'ફળ માર્કેટ કમિશન એજન્ટ',
   businessAddress: 'મુખ્ય બજાર યાર્ડ',
@@ -189,6 +209,7 @@ function saveDb(db: Database): void {
   dbCache = normalizeDb(db);
   writeLocalDb(dbCache);
   void persistToBackend(dbCache);
+  notifyDbChangeListeners();
 }
 
 function genId(): string {
@@ -377,27 +398,55 @@ export function createVehicleRegister(data: Omit<VehicleRegister, 'id' | 'entryN
       : db.inventoryItems.find(item => item.name.trim().toLowerCase() === row.fruitName.trim().toLowerCase());
 
     if (inventoryItem && row.weight > 0) {
-      if (inventoryItem) {
-        inventoryItem.currentStock = Math.max(0, inventoryItem.currentStock - row.weight);
-        inventoryItem.lastUpdated = new Date().toISOString();
-        if (inventoryItem.currentStock <= 0) inventoryItem.status = 'out_of_stock';
-        else if (inventoryItem.currentStock <= inventoryItem.lowStockThreshold) inventoryItem.status = 'low_stock';
-        else inventoryItem.status = 'in_stock';
+      inventoryItem.currentStock += row.weight;
+      inventoryItem.lastUpdated = new Date().toISOString();
+      if (inventoryItem.currentStock <= 0) inventoryItem.status = 'out_of_stock';
+      else if (inventoryItem.currentStock <= inventoryItem.lowStockThreshold) inventoryItem.status = 'low_stock';
+      else inventoryItem.status = 'in_stock';
 
-        db.inventoryTransactions.push({
-          id: genId(),
-          itemId: inventoryItem.id,
-          itemName: inventoryItem.name,
-          type: 'outward',
-          quantity: row.weight,
-          rate: row.rate,
-          referenceType: 'vehicle_register',
-          referenceId: register.id,
-          date: register.date,
-          notes: `Vehicle Arrival Register ${register.entryNo}`,
-          createdAt: new Date().toISOString(),
-        });
-      }
+      db.inventoryTransactions.push({
+        id: genId(),
+        itemId: inventoryItem.id,
+        itemName: inventoryItem.name,
+        type: 'inward',
+        quantity: row.weight,
+        rate: row.rate,
+        referenceType: 'vehicle_register',
+        referenceId: register.id,
+        date: register.date,
+        notes: `Vehicle Arrival Register ${register.entryNo}`,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    if (!inventoryItem && row.weight > 0 && row.fruitName.trim()) {
+      const newItem: InventoryItem = {
+        id: genId(),
+        name: row.fruitName,
+        grade: 'A',
+        category: 'Fruits',
+        currentStock: row.weight,
+        unit: 'kg',
+        lowStockThreshold: 50,
+        status: 'in_stock',
+        warehouse: 'Main',
+        lastUpdated: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+      db.inventoryItems.push(newItem);
+      db.inventoryTransactions.push({
+        id: genId(),
+        itemId: newItem.id,
+        itemName: newItem.name,
+        type: 'inward',
+        quantity: row.weight,
+        rate: row.rate,
+        referenceType: 'vehicle_register',
+        referenceId: register.id,
+        date: register.date,
+        notes: `Vehicle Arrival Register ${register.entryNo}`,
+        createdAt: new Date().toISOString(),
+      });
     }
   });
 
@@ -417,6 +466,22 @@ export function updateVehicleRegister(id: string, data: Partial<VehicleRegister>
 
 export function deleteVehicleRegister(id: string): boolean {
   const db = getDb();
+  const transactions = db.inventoryTransactions.filter(transaction => transaction.referenceId === id && transaction.referenceType === 'vehicle_register');
+
+  for (const transaction of transactions) {
+    const item = db.inventoryItems.find(inventoryItem => inventoryItem.id === transaction.itemId);
+    if (!item) continue;
+    if (transaction.type === 'inward') {
+      item.currentStock = Math.max(0, item.currentStock - transaction.quantity);
+    } else {
+      item.currentStock += transaction.quantity;
+    }
+    item.lastUpdated = new Date().toISOString();
+    if (item.currentStock <= 0) item.status = 'out_of_stock';
+    else if (item.currentStock <= item.lowStockThreshold) item.status = 'low_stock';
+    else item.status = 'in_stock';
+  }
+
   db.vehicleRegisters = db.vehicleRegisters.filter(register => register.id !== id);
   db.ledgerEntries = db.ledgerEntries.filter(entry => !(entry.referenceId === id && entry.referenceType === 'vehicle_register'));
   db.inventoryTransactions = db.inventoryTransactions.filter(transaction => !(transaction.referenceId === id && transaction.referenceType === 'vehicle_register'));
@@ -836,6 +901,40 @@ export function createPayment(data: Omit<Payment, 'id' | 'createdAt' | 'ledgerEn
   payment.ledgerEntryId = ledgerEntry.id;
   db.payments.push(payment);
   db.ledgerEntries.push(ledgerEntry);
+
+  if (payment.type === 'received') {
+    let remaining = payment.amount;
+    const openBills = db.bills
+      .filter(bill => bill.partyId === payment.partyId && bill.netBalance > 0)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    for (const bill of openBills) {
+      if (remaining <= 0) break;
+      const applied = Math.min(remaining, bill.netBalance);
+      bill.paidAmount += applied;
+      bill.netBalance -= applied;
+      bill.status = bill.netBalance <= 0 ? 'paid' : 'partial';
+      bill.updatedAt = new Date().toISOString();
+      remaining -= applied;
+    }
+  }
+
+  if (payment.type === 'paid') {
+    let remaining = payment.amount;
+    const openPurchases = db.purchases
+      .filter(purchase => purchase.supplierId === payment.partyId && purchase.netBalance > 0)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    for (const purchase of openPurchases) {
+      if (remaining <= 0) break;
+      const applied = Math.min(remaining, purchase.netBalance);
+      purchase.paidAmount += applied;
+      purchase.netBalance -= applied;
+      purchase.status = purchase.netBalance <= 0 ? 'paid' : 'partial';
+      purchase.updatedAt = new Date().toISOString();
+      remaining -= applied;
+    }
+  }
 
   recalculateBalances(db);
   saveDb(db);

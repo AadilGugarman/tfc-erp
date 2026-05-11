@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
@@ -9,6 +9,8 @@ import { formatCurrency, formatDate, todayStr } from '@/utils/formatters';
 import * as db from '@/db/db';
 import type { BillItem } from '@/db/schema';
 import { Plus, Trash2, Printer, FileText, Search } from 'lucide-react';
+import { useShortcutAction } from '@/keyboard/shortcutManager';
+import { useSpreadsheetNavigation } from '@/hooks/useSpreadsheetNavigation';
 
 interface BillLineItem {
   id: string;
@@ -24,7 +26,7 @@ interface BillLineItem {
 
 export function BillingPage() {
   const { t } = useTranslation();
-  const { parties, loadParties, loadBills, settings, showNotification } = useAppStore();
+  const { parties, bills, loadParties, loadBills, settings, showNotification } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [billSearch, setBillSearch] = useState('');
   const [selectedParty, setSelectedParty] = useState('');
@@ -32,17 +34,38 @@ export function BillingPage() {
   const [items, setItems] = useState<BillLineItem[]>([{ id: '1', fruitName: '', grade: 'A', boxCount: 0, weightPerBox: 0, totalWeight: 0, rate: 0, amount: 0, lotNo: '' }]);
   const [billNotes, setBillNotes] = useState('');
   const [advancePayment, setAdvancePayment] = useState(0);
-  const bills = db.getBills();
+  const itemsGridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadParties(); loadBills(); }, []);
 
-  const addItem = () => {
-    setItems([...items, { id: Date.now().toString(), fruitName: '', grade: 'A', boxCount: 0, weightPerBox: 0, totalWeight: 0, rate: 0, amount: 0, lotNo: '' }]);
-  };
+  const addItem = useCallback(() => {
+    setItems((prev) => [...prev, { id: Date.now().toString(), fruitName: '', grade: 'A', boxCount: 0, weightPerBox: 0, totalWeight: 0, rate: 0, amount: 0, lotNo: '' }]);
+  }, []);
 
-  const removeItem = (id: string) => {
-    if (items.length > 1) setItems(items.filter(i => i.id !== id));
-  };
+  const removeItem = useCallback((id: string) => {
+    setItems((prev) => prev.length > 1 ? prev.filter((item) => item.id !== id) : prev);
+  }, []);
+
+  const grid = useSpreadsheetNavigation({
+    rowCount: items.length,
+    colCount: 7,
+    onAddRow: addItem,
+    onDeleteRow: (row) => {
+      const item = items[row];
+      if (!item) return;
+      removeItem(item.id);
+    },
+  });
+
+  const focusCell = useCallback((row: number, col: number) => {
+    const element = itemsGridRef.current?.querySelector<HTMLInputElement>(`[data-r="${row}"][data-c="${col}"]`);
+    element?.focus();
+    element?.select();
+  }, []);
+
+  useEffect(() => {
+    focusCell(grid.activeCell.row, grid.activeCell.col);
+  }, [focusCell, grid.activeCell]);
 
   const updateItem = (id: string, field: keyof BillLineItem, value: string | number) => {
     setItems(items.map(item => {
@@ -92,6 +115,37 @@ export function BillingPage() {
     setItems([{ id: '1', fruitName: '', grade: 'A', boxCount: 0, weightPerBox: 0, totalWeight: 0, rate: 0, amount: 0, lotNo: '' }]);
     loadBills();
   };
+
+  useShortcutAction('save', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="billing"]')) return;
+    if (!showForm) return;
+    saveBill();
+  });
+
+  useShortcutAction('new-entry', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="billing"]')) return;
+    setShowForm(true);
+    addItem();
+  });
+
+  useShortcutAction('insert-row', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.hasAttribute('data-grid-cell')) return;
+    addItem();
+    requestAnimationFrame(() => grid.setActiveCell(items.length, 0));
+  });
+
+  useShortcutAction('delete-row', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.hasAttribute('data-grid-cell')) return;
+    const row = grid.activeCell.row;
+    const item = items[row];
+    if (!item) return;
+    removeItem(item.id);
+    requestAnimationFrame(() => grid.setActiveCell(Math.max(row - 1, 0), grid.activeCell.col));
+  });
 
   const printBill = (bill: typeof bills[0]) => {
     const printWindow = window.open('', '_blank');
@@ -151,14 +205,17 @@ export function BillingPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Billing / બિલિંગ</h1>
+    <div className="space-y-4" data-entry-surface="billing">
+      <div className="sticky top-[4.15rem] z-20 rounded-xl border border-slate-200/85 dark:border-[#2a3550]/90 bg-white/94 dark:bg-[#0f1628]/94 backdrop-blur-xl shadow-[0_14px_28px_-22px_rgba(15,23,42,0.65)]">
+        <div className="flex items-center justify-between p-3.5 sm:p-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-500 dark:text-slate-400">Sales Ledger / Operations Workspace</p>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100">Billing / બિલિંગ</h1>
+          </div>
+          <Button onClick={() => setShowForm(!showForm)} className="gap-2" size="sm">
+            <FileText className="h-4 w-4" /> {showForm ? 'View Bills' : 'New Bill'}
+          </Button>
         </div>
-        <Button onClick={() => setShowForm(!showForm)} className="gap-2">
-          <FileText className="h-4 w-4" /> {showForm ? 'View Bills' : 'New Bill'}
-        </Button>
       </div>
 
       {showForm ? (
@@ -184,10 +241,10 @@ export function BillingPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Bill Items / બિલ આઇટમ્સ</CardTitle>
-                <Button variant="outline" size="sm" onClick={addItem} className="gap-1"><Plus className="h-3.5 w-3.5" /> Add Item</Button>
+                <Button variant="outline" size="sm" onClick={addItem} className="gap-1" title="Insert"><Plus className="h-3.5 w-3.5" /> Add Item</Button>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-3" ref={itemsGridRef}>
                   <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-semibold text-slate-500 uppercase">
                     <div className="col-span-2">Fruit</div>
                     <div className="col-span-1">Grade</div>
@@ -199,15 +256,15 @@ export function BillingPage() {
                     <div className="col-span-2">Amount</div>
                     <div className="col-span-1"></div>
                   </div>
-                  {items.map((item) => (
-                    <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                      <div className="md:col-span-2"><Input value={item.fruitName} onChange={e => updateItem(item.id, 'fruitName', e.target.value)} placeholder="ફળ" /></div>
-                      <div className="md:col-span-1"><Input value={item.grade} onChange={e => updateItem(item.id, 'grade', e.target.value)} placeholder="Grade" /></div>
-                      <div className="md:col-span-1"><Input value={item.lotNo} onChange={e => updateItem(item.id, 'lotNo', e.target.value)} placeholder="Lot" /></div>
-                      <div className="md:col-span-1"><Input type="number" value={item.boxCount || ''} onChange={e => updateItem(item.id, 'boxCount', parseFloat(e.target.value) || 0)} /></div>
-                      <div className="md:col-span-1"><Input type="number" value={item.weightPerBox || ''} onChange={e => updateItem(item.id, 'weightPerBox', parseFloat(e.target.value) || 0)} /></div>
-                      <div className="md:col-span-1"><Input type="number" value={item.totalWeight || ''} onChange={e => updateItem(item.id, 'totalWeight', parseFloat(e.target.value) || 0)} readOnly /></div>
-                      <div className="md:col-span-1"><Input type="number" value={item.rate || ''} onChange={e => updateItem(item.id, 'rate', parseFloat(e.target.value) || 0)} /></div>
+                  {items.map((item, idx) => (
+                    <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end p-3 bg-slate-50 dark:bg-[#141d31] rounded-lg">
+                      <div className="md:col-span-2"><Input data-grid-cell="true" data-r={idx} data-c={0} value={item.fruitName} onFocus={() => grid.setActiveCell(idx, 0)} onKeyDown={e => grid.onCellKeyDown(e, idx, 0)} onChange={e => updateItem(item.id, 'fruitName', e.target.value)} placeholder="ફળ" className={grid.isActiveCell(idx, 0) ? 'ring-2 ring-blue-500/35' : ''} /></div>
+                      <div className="md:col-span-1"><Input data-grid-cell="true" data-r={idx} data-c={1} value={item.grade} onFocus={() => grid.setActiveCell(idx, 1)} onKeyDown={e => grid.onCellKeyDown(e, idx, 1)} onChange={e => updateItem(item.id, 'grade', e.target.value)} placeholder="Grade" className={grid.isActiveCell(idx, 1) ? 'ring-2 ring-blue-500/35' : ''} /></div>
+                      <div className="md:col-span-1"><Input data-grid-cell="true" data-r={idx} data-c={2} value={item.lotNo} onFocus={() => grid.setActiveCell(idx, 2)} onKeyDown={e => grid.onCellKeyDown(e, idx, 2)} onChange={e => updateItem(item.id, 'lotNo', e.target.value)} placeholder="Lot" className={grid.isActiveCell(idx, 2) ? 'ring-2 ring-blue-500/35' : ''} /></div>
+                      <div className="md:col-span-1"><Input data-grid-cell="true" data-r={idx} data-c={3} type="number" value={item.boxCount || ''} onFocus={() => grid.setActiveCell(idx, 3)} onKeyDown={e => grid.onCellKeyDown(e, idx, 3)} onChange={e => updateItem(item.id, 'boxCount', parseFloat(e.target.value) || 0)} className={grid.isActiveCell(idx, 3) ? 'ring-2 ring-blue-500/35' : ''} /></div>
+                      <div className="md:col-span-1"><Input data-grid-cell="true" data-r={idx} data-c={4} type="number" value={item.weightPerBox || ''} onFocus={() => grid.setActiveCell(idx, 4)} onKeyDown={e => grid.onCellKeyDown(e, idx, 4)} onChange={e => updateItem(item.id, 'weightPerBox', parseFloat(e.target.value) || 0)} className={grid.isActiveCell(idx, 4) ? 'ring-2 ring-blue-500/35' : ''} /></div>
+                      <div className="md:col-span-1"><Input data-grid-cell="true" data-r={idx} data-c={5} type="number" value={item.totalWeight || ''} onFocus={() => grid.setActiveCell(idx, 5)} onKeyDown={e => grid.onCellKeyDown(e, idx, 5)} onChange={e => updateItem(item.id, 'totalWeight', parseFloat(e.target.value) || 0)} readOnly className={grid.isActiveCell(idx, 5) ? 'ring-2 ring-blue-500/35' : ''} /></div>
+                      <div className="md:col-span-1"><Input data-grid-cell="true" data-r={idx} data-c={6} type="number" value={item.rate || ''} onFocus={() => grid.setActiveCell(idx, 6)} onKeyDown={e => grid.onCellKeyDown(e, idx, 6)} onChange={e => updateItem(item.id, 'rate', parseFloat(e.target.value) || 0)} className={grid.isActiveCell(idx, 6) ? 'ring-2 ring-blue-500/35' : ''} /></div>
                       <div className="md:col-span-2"><p className="text-lg font-bold text-slate-900 dark:text-white py-2">{formatCurrency(item.amount)}</p></div>
                       <div className="md:col-span-1"><Button variant="ghost" size="sm" className="p-1.5 h-auto text-red-500" onClick={() => removeItem(item.id)}><Trash2 className="h-4 w-4" /></Button></div>
                     </div>
@@ -246,7 +303,7 @@ export function BillingPage() {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input type="text" placeholder="Search bills..." value={billSearch} onChange={e => setBillSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-[#2a3550] rounded-lg bg-white dark:bg-[#111827] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500" />
             </div>
             <span className="text-sm text-slate-500">{filteredBills.length} bills</span>
           </div>

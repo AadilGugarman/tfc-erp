@@ -75,6 +75,124 @@ html.dark body {
   color: #e8edf5;
 }
 
+/* ============================================================
+   GLOBAL INPUT DESIGN SYSTEM
+   ============================================================ */
+:root {
+  --erp-field-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 251, 255, 0.92));
+  --erp-field-text: #0f172a;
+  --erp-field-placeholder: #8a97ab;
+  --erp-field-shadow:
+    inset 0 0 0 1px rgba(148, 163, 184, 0.22),
+    0 1px 2px rgba(15, 23, 42, 0.04);
+  --erp-field-hover-shadow:
+    inset 0 0 0 1px rgba(100, 116, 139, 0.28),
+    0 4px 12px rgba(15, 23, 42, 0.07);
+  --erp-field-focus-shadow:
+    inset 0 0 0 1px rgba(59, 130, 246, 0.46),
+    0 0 0 3px rgba(59, 130, 246, 0.18);
+  --erp-field-radius: 0.75rem;
+}
+
+html.dark {
+  --erp-field-bg: linear-gradient(180deg, rgba(20, 29, 46, 0.9), rgba(15, 24, 40, 0.9));
+  --erp-field-text: #e8edf5;
+  --erp-field-placeholder: #7a8aa4;
+  --erp-field-shadow:
+    inset 0 0 0 1px rgba(73, 86, 113, 0.38),
+    0 1px 2px rgba(0, 0, 0, 0.26);
+  --erp-field-hover-shadow:
+    inset 0 0 0 1px rgba(109, 125, 158, 0.48),
+    0 6px 14px rgba(0, 0, 0, 0.34);
+  --erp-field-focus-shadow:
+    inset 0 0 0 1px rgba(96, 165, 250, 0.62),
+    0 0 0 3px rgba(96, 165, 250, 0.2);
+}
+
+:where(
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+  select,
+  textarea
+) {
+  border: 0 !important;
+  border-radius: var(--erp-field-radius) !important;
+  background: var(--erp-field-bg) !important;
+  color: var(--erp-field-text) !important;
+  box-shadow: var(--erp-field-shadow) !important;
+  outline: none !important;
+  min-height: 2.4rem;
+  font-size: 0.83rem;
+  line-height: 1.35;
+  letter-spacing: 0.005em;
+  transition: box-shadow 160ms ease, transform 160ms ease, background-color 160ms ease;
+}
+
+:where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']), select, textarea):hover {
+  box-shadow: var(--erp-field-hover-shadow) !important;
+}
+
+:where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']), select, textarea):focus,
+:where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']), select, textarea):focus-visible {
+  box-shadow: var(--erp-field-focus-shadow) !important;
+}
+
+:where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']), select, textarea)::placeholder {
+  color: var(--erp-field-placeholder) !important;
+  font-weight: 500;
+}
+
+:where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']), select, textarea):disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    inset 0 0 0 1px rgba(148, 163, 184, 0.18) !important;
+}
+
+:where(input, select, textarea).erp-invalid,
+:where(input, select, textarea)[aria-invalid='true'] {
+  box-shadow:
+    inset 0 0 0 1px rgba(239, 68, 68, 0.55),
+    0 0 0 3px rgba(239, 68, 68, 0.16) !important;
+}
+
+html.dark :where(input, select, textarea).erp-invalid,
+html.dark :where(input, select, textarea)[aria-invalid='true'] {
+  box-shadow:
+    inset 0 0 0 1px rgba(248, 113, 113, 0.55),
+    0 0 0 3px rgba(248, 113, 113, 0.2) !important;
+}
+
+.erp-select-panel {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(203, 213, 225, 0.24);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 255, 0.96));
+  box-shadow: 0 16px 30px -22px rgba(15, 23, 42, 0.44);
+  backdrop-filter: blur(8px);
+}
+
+html.dark .erp-select-panel {
+  border-color: rgba(71, 85, 105, 0.5);
+  background: linear-gradient(180deg, rgba(18, 28, 46, 0.96), rgba(14, 23, 39, 0.96));
+  box-shadow: 0 20px 38px -20px rgba(0, 0, 0, 0.75);
+}
+
+.erp-kbd {
+  border-radius: 0.45rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(248, 250, 252, 0.82);
+  color: #64748b;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  padding: 0.15rem 0.4rem;
+}
+
+html.dark .erp-kbd {
+  border-color: rgba(71, 85, 105, 0.72);
+  background: rgba(15, 23, 42, 0.88);
+  color: #94a3b8;
+}
+
 /* Tabular numbers for all financial data */
 .tabnum {
   font-variant-numeric: tabular-nums;
@@ -93,10 +211,10 @@ html.dark body {
   --ag-even-row-background-color: #fafbfd;
   --ag-row-hover-color: #f0f4ff;
   --ag-selected-row-background-color: #eef2ff;
-  --ag-border-color: #e4e8f0;
-  --ag-secondary-border-color: #f1f3f9;
-  --ag-header-column-separator-color: #e4e8f0;
-  --ag-cell-horizontal-border: solid #f1f3f9;
+  --ag-border-color: #e8edf6;
+  --ag-secondary-border-color: #f5f7fb;
+  --ag-header-column-separator-color: #edf1f8;
+  --ag-cell-horizontal-border: solid #f5f7fb;
   --ag-font-family: 'Inter', 'Noto Sans Gujarati', sans-serif;
   --ag-font-size: 13px;
   --ag-cell-horizontal-padding: 12px;
@@ -115,16 +233,16 @@ html.dark .erp-grid {
   --ag-even-row-background-color: #0f1219;
   --ag-row-hover-color: #1a1f2e;
   --ag-selected-row-background-color: #1a1f2e;
-  --ag-border-color: #1e2330;
-  --ag-secondary-border-color: #161b26;
-  --ag-header-column-separator-color: #1e2330;
-  --ag-cell-horizontal-border: solid #161b26;
+  --ag-border-color: #1a2334;
+  --ag-secondary-border-color: #151d2a;
+  --ag-header-column-separator-color: #1a2334;
+  --ag-cell-horizontal-border: solid #151d2a;
   --ag-input-focus-border-color: #5c7cfa;
   --ag-range-selection-border-color: #5c7cfa;
 }
 
 .erp-grid .ag-root-wrapper {
-  border: 1px solid var(--ag-border-color);
+  border: 1px solid color-mix(in srgb, var(--ag-border-color) 70%, transparent);
   border-radius: 0.5rem;
   overflow: hidden;
 }
@@ -144,20 +262,26 @@ html.dark .erp-grid {
 .erp-grid .ag-cell {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
-  border-right: 1px solid var(--ag-cell-horizontal-border, transparent);
   display: flex;
   align-items: center;
 }
 
 .erp-grid .ag-cell-inline-editing {
-  box-shadow: inset 0 0 0 2px #3b5bdb;
-  background-color: var(--ag-background-color) !important;
-  border-radius: 2px;
+  box-shadow:
+    inset 0 0 0 1px rgba(59, 130, 246, 0.45),
+    0 0 0 3px rgba(59, 130, 246, 0.2),
+    0 10px 24px rgba(37, 99, 235, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.96)) !important;
+  border-radius: 10px;
   padding: 0 8px;
 }
 
 html.dark .erp-grid .ag-cell-inline-editing {
-  box-shadow: inset 0 0 0 2px #5c7cfa;
+  box-shadow:
+    inset 0 0 0 1px rgba(96, 165, 250, 0.62),
+    0 0 0 3px rgba(96, 165, 250, 0.24),
+    0 10px 24px rgba(29, 78, 216, 0.25);
+  background: linear-gradient(180deg, rgba(18, 29, 46, 0.98), rgba(15, 24, 39, 0.97)) !important;
 }
 
 .erp-grid .ag-row {
@@ -253,10 +377,5 @@ html.dark ::-webkit-scrollbar-thumb:hover {
    FOCUS RING — accessible + premium
    ============================================================ */
 :focus-visible {
-  outline: 2px solid #3b5bdb;
-  outline-offset: 2px;
-}
-
-html.dark :focus-visible {
-  outline-color: #5c7cfa;
+  outline: none;
 }

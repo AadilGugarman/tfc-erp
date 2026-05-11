@@ -22,10 +22,11 @@ import { formatCurrency, formatDate, todayStr } from '@/utils/formatters';
 import * as db from '@/db/db';
 import { Plus, Search, Trash2, CreditCard, TrendingUp, TrendingDown } from 'lucide-react';
 import type { PaymentMode } from '@/db/schema';
+import { useShortcutAction } from '@/keyboard/shortcutManager';
 
 export function PaymentsPage() {
   const { t } = useTranslation();
-  const { parties, suppliers, loadParties, loadSuppliers } = useAppStore();
+  const { parties, suppliers, payments, loadParties, loadSuppliers, loadPayments } = useAppStore();
   const { toasts, removeToast, success, error } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -37,27 +38,39 @@ export function PaymentsPage() {
   const [fRef, setFRef] = useState('');
   const [fNotes, setFNotes] = useState('');
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  const [selectedRowIndex, setSelectedRowIndex] = useState(0);
 
   useEffect(() => {
     loadParties();
     loadSuppliers();
+    loadPayments();
   }, []);
 
   const allParties = [
     ...parties.map(p => ({ id: p.id, name: p.name })),
     ...suppliers.map(s => ({ id: s.id, name: s.name })),
   ];
-  const payments = db.getPayments().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const filtered = payments.filter(
+  const sortedPayments = [...payments].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const filtered = sortedPayments.filter(
     p =>
       p.partyName.toLowerCase().includes(search.toLowerCase()) ||
       p.referenceNo.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalReceived = payments
+  useEffect(() => {
+    if (filtered.length === 0) {
+      setSelectedRowIndex(0);
+      return;
+    }
+    if (selectedRowIndex > filtered.length - 1) {
+      setSelectedRowIndex(filtered.length - 1);
+    }
+  }, [filtered.length, selectedRowIndex]);
+
+  const totalReceived = sortedPayments
     .filter(p => p.type === 'received')
     .reduce((s, p) => s + p.amount, 0);
-  const totalPaid = payments
+  const totalPaid = sortedPayments
     .filter(p => p.type === 'paid')
     .reduce((s, p) => s + p.amount, 0);
   const netBalance = totalReceived - totalPaid;
@@ -124,8 +137,62 @@ export function PaymentsPage() {
     setModalOpen(true);
   };
 
+  useShortcutAction('new-entry', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="payments"]')) return;
+    handleOpenModal();
+  });
+
+  useShortcutAction('save', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="payments"]')) return;
+    if (!modalOpen) return;
+    handleSave();
+  });
+
+  useShortcutAction('delete-row', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="payments"]')) return;
+    if (modalOpen) return;
+    const selected = filtered[selectedRowIndex];
+    if (!selected) return;
+    handleDelete(selected.id);
+  });
+
+  useEffect(() => {
+    const onHistoryKeyDown = (event: KeyboardEvent) => {
+      if (modalOpen) return;
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (!activeElement?.closest('[data-entry-surface="payments"]')) return;
+      if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA') return;
+
+      if (event.key === 'ArrowDown') {
+        if (filtered.length === 0) return;
+        event.preventDefault();
+        setSelectedRowIndex(prev => Math.min(prev + 1, filtered.length - 1));
+      }
+
+      if (event.key === 'ArrowUp') {
+        if (filtered.length === 0) return;
+        event.preventDefault();
+        setSelectedRowIndex(prev => Math.max(prev - 1, 0));
+      }
+
+      if (event.key === 'Enter') {
+        const selected = filtered[selectedRowIndex];
+        if (!selected) return;
+        event.preventDefault();
+        handleDelete(selected.id);
+      }
+    };
+
+    document.addEventListener('keydown', onHistoryKeyDown);
+    return () => document.removeEventListener('keydown', onHistoryKeyDown);
+  }, [filtered, modalOpen, selectedRowIndex]);
+
   return (
     <PageTransition>
+      <div data-entry-surface="payments">
       <PageLayout
         title="Payments"
         subtitle="Manage incoming and outgoing payment transactions"
@@ -138,7 +205,7 @@ export function PaymentsPage() {
                 placeholder="Search payments..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 text-sm border border-slate-200 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                className="pl-10 pr-4 py-2 text-sm border border-slate-200 dark:border-[#2a3550] rounded-lg bg-white dark:bg-[#111827] text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500 transition-all"
               />
             </div>
             <Button icon={<Plus size={16} />} onClick={handleOpenModal}>
@@ -184,7 +251,7 @@ export function PaymentsPage() {
                 <p
                   className={`text-2xl font-bold mt-1 ${
                     netBalance >= 0
-                      ? 'text-indigo-600 dark:text-indigo-400'
+                      ? 'text-blue-700 dark:text-blue-300'
                       : 'text-red-600 dark:text-red-400'
                   }`}
                 >
@@ -194,7 +261,7 @@ export function PaymentsPage() {
               <div
                 className={`p-3 rounded-lg ${
                   netBalance >= 0
-                    ? 'bg-indigo-50 dark:bg-indigo-950/30'
+                    ? 'bg-blue-50 dark:bg-blue-950/30'
                     : 'bg-red-50 dark:bg-red-950/30'
                 }`}
               >
@@ -202,7 +269,7 @@ export function PaymentsPage() {
                   size={24}
                   className={
                     netBalance >= 0
-                      ? 'text-indigo-600 dark:text-indigo-400'
+                      ? 'text-blue-700 dark:text-blue-300'
                       : 'text-red-600 dark:text-red-400'
                   }
                 />
@@ -233,10 +300,10 @@ export function PaymentsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {filtered.map(p => (
+                  {filtered.map((p, index) => (
                     <PremiumTableRow key={p.id}>
                       <PremiumTableCell>{formatDate(p.date)}</PremiumTableCell>
-                      <PremiumTableCell className="font-medium">{p.partyName}</PremiumTableCell>
+                      <PremiumTableCell className={index === selectedRowIndex ? 'font-semibold text-blue-700 dark:text-blue-300 bg-blue-50/60 dark:bg-blue-950/20' : 'font-medium'}>{p.partyName}</PremiumTableCell>
                       <PremiumTableCell>
                         <Badge variant={p.type === 'received' ? 'success' : 'danger'}>
                           {p.type === 'received' ? 'Received' : 'Paid'}
@@ -247,9 +314,9 @@ export function PaymentsPage() {
                       <PremiumTableCell
                         numeric
                         className={
-                          p.type === 'received'
+                          `${p.type === 'received'
                             ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-red-600 dark:text-red-400'
+                            : 'text-red-600 dark:text-red-400'} ${index === selectedRowIndex ? 'bg-blue-50/60 dark:bg-blue-950/20' : ''}`
                         }
                       >
                         {formatCurrency(p.amount)}
@@ -259,7 +326,10 @@ export function PaymentsPage() {
                           size="sm"
                           variant="ghost"
                           loading={deleteLoading === p.id}
-                          onClick={() => handleDelete(p.id)}
+                          onClick={() => {
+                            setSelectedRowIndex(index);
+                            handleDelete(p.id);
+                          }}
                           className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
                         >
                           <Trash2 size={16} />
@@ -359,6 +429,7 @@ export function PaymentsPage() {
 
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onClose={removeToast} />
+      </div>
     </PageTransition>
   );
 }

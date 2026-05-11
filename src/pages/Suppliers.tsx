@@ -9,6 +9,7 @@ import { formatCurrency } from '@/utils/formatters';
 import * as db from '@/db/db';
 import { Search, Plus, Edit2, Trash2, Phone, Mail } from 'lucide-react';
 import type { Supplier, LedgerType } from '@/db/schema';
+import { useShortcutAction } from '@/keyboard/shortcutManager';
 
 export function SuppliersPage() {
   const { t } = useTranslation();
@@ -26,6 +27,7 @@ export function SuppliersPage() {
   const [fBalType, setFBalType] = useState<LedgerType>('credit');
   const [fComm, setFComm] = useState(3);
   const [fNotes, setFNotes] = useState('');
+  const [selectedRowIndex, setSelectedRowIndex] = useState(0);
 
   useEffect(() => { loadSuppliers(); }, []);
 
@@ -59,24 +61,92 @@ export function SuppliersPage() {
     setModalOpen(false); loadSuppliers();
   };
 
+  const deleteSupplierById = (id: string) => {
+    if (confirm('Delete this supplier?')) {
+      db.deleteSupplier(id);
+      showNotification('Supplier deleted', 'info');
+      loadSuppliers();
+    }
+  };
+
+  useEffect(() => {
+    if (filtered.length === 0) {
+      setSelectedRowIndex(0);
+      return;
+    }
+    if (selectedRowIndex > filtered.length - 1) {
+      setSelectedRowIndex(filtered.length - 1);
+    }
+  }, [filtered.length, selectedRowIndex]);
+
+  useShortcutAction('new-entry', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="suppliers"]')) return;
+    openNew();
+  });
+
+  useShortcutAction('save', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="suppliers"]')) return;
+    if (!modalOpen) return;
+    save();
+  });
+
+  useShortcutAction('delete-row', () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement?.closest('[data-entry-surface="suppliers"]')) return;
+    if (modalOpen) return;
+    const selected = filtered[selectedRowIndex];
+    if (!selected) return;
+    deleteSupplierById(selected.id);
+  });
+
+  useEffect(() => {
+    const onHistoryKeyDown = (event: KeyboardEvent) => {
+      if (modalOpen) return;
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (!activeElement?.closest('[data-entry-surface="suppliers"]')) return;
+      if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA') return;
+
+      if (event.key === 'ArrowDown') {
+        if (filtered.length === 0) return;
+        event.preventDefault();
+        setSelectedRowIndex(prev => Math.min(prev + 1, filtered.length - 1));
+      }
+      if (event.key === 'ArrowUp') {
+        if (filtered.length === 0) return;
+        event.preventDefault();
+        setSelectedRowIndex(prev => Math.max(prev - 1, 0));
+      }
+    };
+
+    document.addEventListener('keydown', onHistoryKeyDown);
+    return () => document.removeEventListener('keydown', onHistoryKeyDown);
+  }, [filtered.length, modalOpen]);
+
   return (
-      <div className="space-y-4 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <h1 className="text-[15px] font-semibold text-slate-900 dark:text-white">Suppliers</h1>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
-              <input type="text" placeholder="Search suppliers..." value={search} onChange={e => setSearch(e.target.value)}
-                className="w-60 pl-7 pr-3 py-1.5 text-[12px] border border-slate-200 dark:border-[#1e2330] rounded-md bg-white dark:bg-[#111318] text-slate-800 dark:text-[#e8edf5] focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]/30 focus:border-[#3b5bdb]" />
+      <div className="space-y-4 animate-fade-in" data-entry-surface="suppliers">
+        <div className="sticky top-[4.15rem] z-20 rounded-xl border border-slate-200/85 dark:border-[#2a3550]/90 bg-white/94 dark:bg-[#0f1628]/94 backdrop-blur-xl shadow-[0_14px_28px_-22px_rgba(15,23,42,0.65)]">
+          <div className="flex items-center justify-between p-3.5 sm:p-4">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-500 dark:text-slate-400">Vendor Ledger / Operations Workspace</p>
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100">Suppliers</h1>
             </div>
-            <Button size="sm" onClick={openNew}><Plus className="h-3.5 w-3.5" /> Add Supplier</Button>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
+                <input type="text" placeholder="Search suppliers..." value={search} onChange={e => setSearch(e.target.value)}
+                  className="w-60 pl-7 pr-3 py-1.5 text-[12px] border border-slate-300 dark:border-[#2a3550] rounded-md bg-white dark:bg-[#111827] text-slate-800 dark:text-[#e8edf5] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500" />
+              </div>
+              <Button size="sm" onClick={openNew}><Plus className="h-3.5 w-3.5" /> Add Supplier</Button>
+            </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#111318] border border-slate-200 dark:border-[#1e2330] rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#2a3550] rounded-xl overflow-hidden">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="bg-slate-50 dark:bg-[#0e1017] border-b border-slate-200 dark:border-[#1e2330]">
+              <tr className="bg-slate-100 dark:bg-[#0f172a] border-b border-slate-200 dark:border-[#22304a]">
                 <th className="px-4 py-2.5 text-left font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em] text-[10px]">Name</th>
                 <th className="px-4 py-2.5 text-left font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em] text-[10px]">Phone</th>
                 <th className="px-4 py-2.5 text-left font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em] text-[10px]">City</th>
@@ -85,13 +155,13 @@ export function SuppliersPage() {
                 <th className="px-4 py-2.5 text-right font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em] text-[10px]">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-[#1a1f2e]">
+            <tbody className="divide-y divide-slate-100 dark:divide-[#1f2a43]">
               {filtered.length === 0 ? (
                 <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-400">No suppliers found</td></tr>
-              ) : filtered.map(s => {
+              ) : filtered.map((s, index) => {
                 const balance = db.getPartyBalance(s.id);
                 return (
-                  <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-[#0e1017] transition-colors">
+                  <tr key={s.id} className={`hover:bg-slate-50 dark:hover:bg-[#172036] transition-colors ${index === selectedRowIndex ? 'bg-blue-50/70 dark:bg-blue-950/20' : ''}`}>
                     <td className="px-4 py-2.5 font-medium text-slate-800 dark:text-slate-200">{s.name}</td>
                     <td className="px-4 py-2.5 text-slate-500 dark:text-slate-500">{s.phone || '—'}</td>
                     <td className="px-4 py-2.5 text-slate-500 dark:text-slate-500">{s.city}{s.state ? `, ${s.state}` : ''}</td>
@@ -102,8 +172,8 @@ export function SuppliersPage() {
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-0.5">
-                        <button className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#1a1f2e] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors" onClick={() => openEdit(s)}><Edit2 className="h-3.5 w-3.5" /></button>
-                        <button className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-400 transition-colors" onClick={() => { if (confirm('Delete this supplier?')) { db.deleteSupplier(s.id); showNotification('Supplier deleted', 'info'); loadSuppliers(); } }}><Trash2 className="h-3.5 w-3.5" /></button>
+                        <button className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#1b2335] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors" onClick={() => { setSelectedRowIndex(index); openEdit(s); }}><Edit2 className="h-3.5 w-3.5" /></button>
+                        <button className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-400 transition-colors" onClick={() => { setSelectedRowIndex(index); deleteSupplierById(s.id); }}><Trash2 className="h-3.5 w-3.5" /></button>
                       </div>
                     </td>
                   </tr>

@@ -17,13 +17,27 @@ interface SearchResult {
 }
 
 export function SearchPage() {
-  const { setCurrentPage } = useAppStore();
+  const {
+    setCurrentPage,
+    parties,
+    suppliers,
+    bills,
+    vehicleRegisters,
+    loadParties,
+    loadSuppliers,
+    loadBills,
+    loadVehicleRegisters,
+  } = useAppStore();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
+    loadParties();
+    loadSuppliers();
+    loadBills();
+    loadVehicleRegisters();
   }, []);
 
   const results = useMemo(() => {
@@ -33,7 +47,7 @@ export function SearchPage() {
     const allResults: SearchResult[] = [];
 
     // Search parties
-    db.getParties()
+    parties
       .filter(item => item.name.toLowerCase().includes(q) || item.phone.includes(q))
       .forEach(party => {
         allResults.push({
@@ -48,7 +62,7 @@ export function SearchPage() {
       });
 
     // Search suppliers
-    db.getSuppliers()
+    suppliers
       .filter(item => item.name.toLowerCase().includes(q) || item.phone.includes(q))
       .forEach(supplier => {
         allResults.push({
@@ -63,7 +77,7 @@ export function SearchPage() {
       });
 
     // Search bills
-    db.getBills()
+    bills
       .filter(item => item.billNo.toLowerCase().includes(q) || item.partyName.toLowerCase().includes(q))
       .forEach(bill => {
         allResults.push({
@@ -79,7 +93,7 @@ export function SearchPage() {
       });
 
     // Search vehicles
-    db.getVehicleRegisters()
+    vehicleRegisters
       .filter(item => item.entryNo.toLowerCase().includes(q) || item.vehicleNumber.toLowerCase().includes(q) || item.driverName.toLowerCase().includes(q))
       .forEach(vehicle => {
         allResults.push({
@@ -95,7 +109,7 @@ export function SearchPage() {
       });
 
     return allResults;
-  }, [query]);
+  }, [query, parties, suppliers, bills, vehicleRegisters]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -112,12 +126,12 @@ export function SearchPage() {
   };
 
   return (
-    <div className="h-full min-h-[calc(100vh-200px)] flex items-start justify-center pt-12 animate-fade-in">
+    <div className="h-full min-h-[calc(100vh-130px)] flex items-start justify-center pt-4 animate-fade-in">
       <div className="w-full max-w-2xl space-y-4">
         {/* Search Input */}
         <div className="relative">
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-600/5 to-cyan-600/5 pointer-events-none" />
-          <div className="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 shadow-lg shadow-slate-200/50 dark:shadow-black/30">
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-600/10 to-cyan-600/10 pointer-events-none" />
+          <div className="relative rounded-2xl border border-slate-200 dark:border-[#2a3550] bg-white dark:bg-[#111827] p-4 shadow-lg shadow-slate-200/50 dark:shadow-black/30">
             <div className="flex items-center gap-3">
               <Search className="h-5 w-5 text-slate-400 dark:text-slate-500 shrink-0" />
               <input
@@ -137,7 +151,7 @@ export function SearchPage() {
 
         {/* Results */}
         {query.trim() && (
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-lg overflow-hidden">
+          <div className="rounded-xl border border-slate-200 dark:border-[#2a3550] bg-white dark:bg-[#111827] shadow-lg overflow-hidden">
             {results.length === 0 ? (
               <div className="px-4 py-12 text-center">
                 <Search className="h-12 w-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
@@ -145,7 +159,7 @@ export function SearchPage() {
                 <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Try a different search term</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-200 dark:divide-slate-800">
+              <div className="divide-y divide-slate-200 dark:divide-[#1f2a43]">
                 {results.map((result, idx) => {
                   const Icon = result.icon;
                   const isSelected = idx === selectedIndex;
@@ -156,8 +170,8 @@ export function SearchPage() {
                       className={cn(
                         'w-full px-4 py-3 flex items-center gap-3 text-left transition-colors duration-150',
                         isSelected
-                          ? 'bg-indigo-50 dark:bg-indigo-950/30 border-l-2 border-indigo-600 dark:border-indigo-500'
-                          : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                          ? 'bg-blue-50 dark:bg-blue-950/30 border-l-2 border-blue-600 dark:border-blue-500'
+                          : 'hover:bg-slate-50 dark:hover:bg-[#172036]'
                       )}
                     >
                       {/* Icon */}
@@ -185,7 +199,7 @@ export function SearchPage() {
                           {result.value}
                         </span>
                         {isSelected && (
-                          <ChevronRight className="h-4 w-4 text-indigo-600 dark:text-indigo-500" />
+                          <ChevronRight className="h-4 w-4 text-blue-600 dark:text-blue-500" />
                         )}
                       </div>
                     </button>
@@ -198,7 +212,7 @@ export function SearchPage() {
 
         {/* Tips */}
         {!query.trim() && (
-          <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 text-center">
+          <div className="rounded-lg border border-slate-200 dark:border-[#2a3550] bg-white dark:bg-[#111827] p-4 text-center">
             <p className="text-sm text-slate-600 dark:text-slate-400">
               Type to search parties, suppliers, bills, and vehicles
             </p>

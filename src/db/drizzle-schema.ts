@@ -72,7 +72,10 @@ export const suppliers = sqliteTable('suppliers', {
   commissionPercent: real('commission_percent').notNull().default(0),
   notes: text('notes').notNull().default(''),
   ...timestamps,
-});
+}, (table) => ({
+  suppliersNameIndex: index('idx_suppliers_name').on(table.name),
+  suppliersPhoneIndex: index('idx_suppliers_phone').on(table.phone),
+}));
 
 export const ledgerEntries = sqliteTable('ledger_entries', {
   id: text('id').primaryKey(),
@@ -102,7 +105,10 @@ export const inventoryItems = sqliteTable('inventory_items', {
   warehouse: text('warehouse').notNull(),
   lastUpdated: text('last_updated').notNull(),
   ...timestamps,
-});
+}, (table) => ({
+  inventoryNameGradeIndex: index('idx_inventory_name_grade').on(table.name, table.grade),
+  inventoryStatusIndex: index('idx_inventory_status').on(table.status),
+}));
 
 export const inventoryTransactions = sqliteTable('inventory_transactions', {
   id: text('id').primaryKey(),
@@ -116,7 +122,10 @@ export const inventoryTransactions = sqliteTable('inventory_transactions', {
   date: text('date').notNull(),
   notes: text('notes').notNull().default(''),
   ...timestamps,
-});
+}, (table) => ({
+  inventoryTxnItemDateIndex: index('idx_inventory_txn_item_date').on(table.itemId, table.date),
+  inventoryTxnRefIndex: index('idx_inventory_txn_ref').on(table.referenceType, table.referenceId),
+}));
 
 export const bills = sqliteTable('bills', {
   id: text('id').primaryKey(),
@@ -152,7 +161,9 @@ export const billItems = sqliteTable('bill_items', {
   amount: real('amount').notNull(),
   lotNo: text('lot_no').notNull().default(''),
   ...timestamps,
-});
+}, (table) => ({
+  billItemsBillIndex: index('idx_bill_items_bill').on(table.billId),
+}));
 
 export const purchases = sqliteTable('purchases', {
   id: text('id').primaryKey(),
@@ -168,7 +179,10 @@ export const purchases = sqliteTable('purchases', {
   notes: text('notes').notNull().default(''),
   status: text('status').notNull(),
   ...timestamps,
-});
+}, (table) => ({
+  purchasesDateIndex: index('idx_purchases_date').on(table.date),
+  purchasesSupplierIndex: index('idx_purchases_supplier').on(table.supplierId),
+}));
 
 export const purchaseItems = sqliteTable('purchase_items', {
   id: text('id').primaryKey(),
@@ -181,7 +195,9 @@ export const purchaseItems = sqliteTable('purchase_items', {
   amount: real('amount').notNull(),
   lotNo: text('lot_no').notNull().default(''),
   ...timestamps,
-});
+}, (table) => ({
+  purchaseItemsPurchaseIndex: index('idx_purchase_items_purchase').on(table.purchaseId),
+}));
 
 export const payments = sqliteTable('payments', {
   id: text('id').primaryKey(),
@@ -231,4 +247,8 @@ export const vehicleRegisterRows = sqliteTable('vehicle_register_rows', {
   remarks: text('remarks').notNull().default(''),
   inventoryItemId: text('inventory_item_id').references(() => inventoryItems.id, { onDelete: 'set null' }),
   ...timestamps,
-});
+}, (table) => ({
+  vehicleRowsRegisterIndex: index('idx_vehicle_rows_register').on(table.vehicleRegisterId),
+  vehicleRowsPartyIndex: index('idx_vehicle_rows_party').on(table.partyId),
+  vehicleRowsInventoryIndex: index('idx_vehicle_rows_inventory').on(table.inventoryItemId),
+}));
