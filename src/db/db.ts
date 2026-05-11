@@ -15,6 +15,10 @@ import type {
 
 const STORAGE_KEY = 'fruit_market_erp_db';
 
+let dbCache: Database | null = null;
+let backendInitPromise: Promise<void> | null = null;
+let tauriInvokePromise: Promise<((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null> | null = null;
+
 interface Database {
   parties: Party[];
   suppliers: Supplier[];
@@ -76,15 +80,106 @@ function normalizeDb(data: Partial<Database>): Database {
   };
 }
 
-function getDb(): Database {
+function readLocalDb(): Database | null {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
       return normalizeDb(JSON.parse(data));
     }
   } catch (e) {
-    console.error('Failed to load database:', e);
+    console.error('Failed to load local database:', e);
   }
+  return null;
+}
+
+function getOrCreateLocalDb(): Database {
+  return readLocalDb() || createEmptyDb();
+}
+
+function writeLocalDb(db: Database): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+}
+
+function isTauriRuntime(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
+async function getTauriInvoke(): Promise<((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null> {
+  if (!isTauriRuntime()) {
+    return null;
+  }
+
+  if (!tauriInvokePromise) {
+    tauriInvokePromise = import('@tauri-apps/api/core')
+      .then((mod) => mod.invoke)
+      .catch((error) => {
+        console.warn('Tauri invoke unavailable, using local storage fallback:', error);
+        return null;
+      });
+  }
+
+  return tauriInvokePromise;
+}
+
+async function loadFromBackend(): Promise<Database | null> {
+  const invoke = await getTauriInvoke();
+  if (!invoke) {
+    return null;
+  }
+
+  try {
+    const payload = await invoke('load_app_state');
+    if (!payload || typeof payload !== 'string') {
+      return null;
+    }
+    return normalizeDb(JSON.parse(payload));
+  } catch (error) {
+    console.error('Failed to load app state from backend:', error);
+    return null;
+  }
+}
+
+async function persistToBackend(db: Database): Promise<void> {
+  const invoke = await getTauriInvoke();
+  if (!invoke) {
+    return;
+  }
+
+  try {
+    await invoke('save_app_state', { data: JSON.stringify(db) });
+  } catch (error) {
+    console.error('Failed to persist app state to backend:', error);
+  }
+}
+
+export async function initializeBackendStorage(): Promise<void> {
+  if (!backendInitPromise) {
+    backendInitPromise = (async () => {
+      const localDb = getOrCreateLocalDb();
+      const backendDb = await loadFromBackend();
+      dbCache = backendDb || localDb;
+      writeLocalDb(dbCache);
+
+      if (!backendDb) {
+        await persistToBackend(dbCache);
+      }
+    })();
+  }
+
+  await backendInitPromise;
+}
+
+function getDb(): Database {
+  if (dbCache) {
+    return dbCache;
+  }
+
+  const localDb = readLocalDb();
+  if (localDb) {
+    dbCache = localDb;
+    return dbCache;
+  }
+
   return initializeDb();
 }
 
@@ -95,7 +190,9 @@ function initializeDb(): Database {
 }
 
 function saveDb(db: Database): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  dbCache = normalizeDb(db);
+  writeLocalDb(dbCache);
+  void persistToBackend(dbCache);
 }
 
 function genId(): string {
@@ -779,6 +876,20 @@ export function updateSettings(data: Partial<Settings>): Settings {
   db.settings = { ...db.settings, ...data };
   saveDb(db);
   return db.settings;
+}
+
+export function exportDatabase(): string {
+  return JSON.stringify(getDb(), null, 2);
+}
+
+export function importDatabase(raw: string): void {
+  const parsed = normalizeDb(JSON.parse(raw) as Partial<Database>);
+  saveDb(parsed);
+}
+
+export function resetDatabase(): void {
+  const empty = createEmptyDb();
+  saveDb(empty);
 }
 
 // ===== UTILITY =====

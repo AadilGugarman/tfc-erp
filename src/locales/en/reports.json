@@ -1,0 +1,23 @@
+{
+    "title":  "Reports",
+    "partyReport":  "Party Report",
+    "saleReport":  "Sale Report",
+    "purchaseReport":  "Purchase Report",
+    "ledgerReport":  "Ledger Report",
+    "inventoryReport":  "Inventory Report",
+    "generateReport":  "Generate Report",
+    "exportPDF":  "Export PDF",
+    "exportExcel":  "Export Excel",
+    "dateRange":  "Date Range",
+    "fromDate":  "From Date",
+    "toDate":  "To Date",
+    "payable":  "Payable",
+    "daybook":  "Daybook",
+    "outstanding":  "Outstanding",
+    "noTransactionsOn":  "No transactions on",
+    "profitLoss":  "Profit / Loss",
+    "stock":  "Stock",
+    "estimatedValue":  "Est. Value",
+    "totalItems":  "Total Items",
+    "receivable":  "Receivable"
+}

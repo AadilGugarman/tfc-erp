@@ -1,0 +1,12 @@
+{
+    "title":  "Ledger",
+    "party":  "Party",
+    "date":  "Date",
+    "description":  "Description",
+    "debit":  "Debit",
+    "credit":  "Credit",
+    "balance":  "Balance",
+    "runningBalance":  "Running Balance",
+    "type":  "Type",
+    "viewLedger":  "View Ledger"
+}

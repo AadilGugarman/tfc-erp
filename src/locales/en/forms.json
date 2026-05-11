@@ -1,0 +1,9 @@
+{
+    "validation":  {
+                       "required":  "This field is required",
+                       "invalidEmail":  "Invalid email address",
+                       "invalidPhone":  "Invalid phone number",
+                       "invalidGstin":  "Invalid GSTIN",
+                       "passwordMismatch":  "Passwords do not match"
+                   }
+}

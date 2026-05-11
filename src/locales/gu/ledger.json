@@ -1,0 +1,12 @@
+{
+    "title":  "લેજર",
+    "party":  "પક્ષ",
+    "date":  "તારીખ",
+    "description":  "વર્ણન",
+    "debit":  "ડેબિટ",
+    "credit":  "ક્રેડિટ",
+    "balance":  "બાકી",
+    "runningBalance":  "ચાલુ બાકી",
+    "type":  "પ્રકાર",
+    "viewLedger":  "લેજર જુઓ"
+}

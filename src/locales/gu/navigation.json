@@ -1,0 +1,14 @@
+{
+    "dashboard":  "ડેશબોર્ડ",
+    "vehicleRegister":  "વાહન આગમન રજીસ્ટર",
+    "vehicleArrivalRegister":  "વાહન આગમન રજીસ્ટર",
+    "parties":  "પક્ષો",
+    "suppliers":  "સપ્લાયરો",
+    "ledger":  "લેજર",
+    "transactions":  "વ્યવહારો",
+    "inventory":  "ઇનવેન્ટરી",
+    "payments":  "ચુકવણીઓ",
+    "billing":  "બિલિંગ",
+    "reports":  "અહેવાલો",
+    "settings":  "સેટિંગ્સ"
+}

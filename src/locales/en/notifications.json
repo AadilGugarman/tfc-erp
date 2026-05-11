@@ -1,0 +1,12 @@
+{
+    "success":  "Operation successful",
+    "error":  "An error occurred",
+    "saved":  "Saved successfully",
+    "deleted":  "Deleted successfully",
+    "updated":  "Updated successfully",
+    "created":  "Created successfully",
+    "billCreated":  "Bill created successfully",
+    "purchaseCreated":  "Purchase created successfully",
+    "paymentRecorded":  "Payment recorded successfully",
+    "inventoryUpdated":  "Inventory updated successfully"
+}

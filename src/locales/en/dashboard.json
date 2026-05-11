@@ -1,0 +1,19 @@
+{
+    "title":  "Dashboard",
+    "todayVehicles":  "Today Vehicles",
+    "totalSales":  "Total Sales",
+    "outstanding":  "Outstanding (Rec.)",
+    "totalPurchases":  "Total Purchases",
+    "paymentPending":  "Payment Pending",
+    "inventoryAlerts":  "Inventory Alerts",
+    "recentBills":  "Recent Bills",
+    "stockAlerts":  "Stock Alerts",
+    "outstandingSummary":  "Outstanding Summary",
+    "quickActions":  "Quick Actions",
+    "newBill":  "New Bill",
+    "newPurchase":  "New Purchase",
+    "payment":  "Payment",
+    "stockInward":  "Stock Inward",
+    "noVehicles":  "No vehicles today",
+    "noAlerts":  "No stock alerts"
+}

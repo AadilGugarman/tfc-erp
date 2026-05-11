@@ -1,0 +1,21 @@
+{
+    "title":  "Vehicle Arrival Register",
+    "vehicleNumber":  "Vehicle Number",
+    "date":  "Date",
+    "driverName":  "Driver Name",
+    "entryNumber":  "Entry Number",
+    "status":  "Status",
+    "partyName":  "Party Name",
+    "vakkal":  "Vakkal",
+    "carat":  "Carat",
+    "weight":  "Weight",
+    "rate":  "Rate",
+    "total":  "Total",
+    "remarks":  "Remarks",
+    "addRow":  "Add Row",
+    "deleteRow":  "Delete Row",
+    "totalWeight":  "Total Weight",
+    "totalAmount":  "Total Amount",
+    "loadingData":  "Loading vehicle arrival data...",
+    "noData":  "No vehicle arrival entries found"
+}

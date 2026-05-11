@@ -1,0 +1,16 @@
+{
+    "title":  "પક્ષો",
+    "partyName":  "પક્ષ નામ",
+    "phone":  "ફોન",
+    "email":  "ઇમેઇલ",
+    "address":  "સરનામું",
+    "gstin":  "GSTIN",
+    "openingBalance":  "ખોલતું બાકી",
+    "balance":  "બાકી",
+    "type":  "પ્રકાર",
+    "addParty":  "પક્ષ ઉમેરો",
+    "editParty":  "પક્ષ સંપાદિત કરો",
+    "deleteParty":  "પક્ષ કાઢી નાખો",
+    "balanceDebit":  "ડેબિટ",
+    "balanceCredit":  "ક્રેડિટ"
+}

@@ -1,6 +1,7 @@
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::{fs, path::PathBuf};
 
 #[derive(Debug, Serialize)]
@@ -66,6 +67,13 @@ pub fn ensure_database() -> Result<(), String> {
   connection.execute_batch(
     r#"
     PRAGMA foreign_keys = ON;
+
+    CREATE TABLE IF NOT EXISTS app_state_snapshots (
+      id TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
 
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -491,6 +499,38 @@ pub fn save_vehicle_register(input: VehicleRegisterInput) -> Result<String, Stri
 
   transaction.commit().map_err(|error| error.to_string())?;
   Ok(register_id)
+}
+
+#[tauri::command]
+pub fn load_app_state() -> Result<Option<String>, String> {
+  let connection = open_connection()?;
+  let data = connection
+    .query_row(
+      "SELECT data FROM app_state_snapshots WHERE id = 'default' LIMIT 1",
+      [],
+      |row| row.get::<_, String>(0),
+    )
+    .optional()
+    .map_err(|error| error.to_string())?;
+
+  Ok(data)
+}
+
+#[tauri::command]
+pub fn save_app_state(data: String) -> Result<String, String> {
+  let _: Value = serde_json::from_str(&data).map_err(|error| error.to_string())?;
+  let connection = open_connection()?;
+  let now = now_iso();
+
+  connection
+    .execute(
+      "INSERT INTO app_state_snapshots (id, data, created_at, updated_at) VALUES ('default', ?1, ?2, ?2)
+       ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
+      params![data, now],
+    )
+    .map_err(|error| error.to_string())?;
+
+  Ok("ok".to_string())
 }
 
 fn scalar_count(connection: &Connection, query: &str) -> Result<i64, String> {

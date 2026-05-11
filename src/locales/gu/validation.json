@@ -1,0 +1,13 @@
+{
+    "required":  "આ ક્ષેત્ર આવશ્યક છે",
+    "invalidEmail":  "અમાન્ય ઇમેઇલ સરનામું",
+    "invalidPhone":  "અમાન્ય ફોન નંબર",
+    "invalidGstin":  "અમાન્ય GSTIN",
+    "passwordMismatch":  "પાસવર્ડ મેળ ખાતું નથી",
+    "selectParty":  "કૃપા કરીને પક્ષ પસંદ કરો",
+    "selectSupplier":  "કૃપા કરીને સપ્લાયર પસંદ કરો",
+    "selectItem":  "કૃપા કરીને આઇટમ પસંદ કરો",
+    "fillAllFields":  "કૃપા કરીને તમામ ક્ષેત્ર ભરો",
+    "minAmount":  "રકમ 0 કરતાં વધુ હોવી જોઈએ",
+    "invalidFile":  "અમાન્ય ફાઇલ"
+}

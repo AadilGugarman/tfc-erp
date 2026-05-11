@@ -1,0 +1,18 @@
+{
+    "title":  "ચુકવણીઓ",
+    "date":  "તારીખ",
+    "party":  "પક્ષ",
+    "amount":  "રકમ",
+    "mode":  "પદ્ધતિ",
+    "cash":  "રોકડ",
+    "bank":  "બેંક",
+    "upi":  "UPI",
+    "cheque":  "ચેક",
+    "type":  "પ્રકાર",
+    "received":  "મળી આવ્યું",
+    "paid":  "ચુકવાયું",
+    "reference":  "સંદર્ભ",
+    "addPayment":  "ચુકવણી ઉમેરો",
+    "editPayment":  "ચુકવણી સંપાદિત કરો",
+    "deletePayment":  "ચુકવણી કાઢી નાખો"
+}

@@ -1,0 +1,16 @@
+{
+    "title":  "Parties",
+    "partyName":  "Party Name",
+    "phone":  "Phone",
+    "email":  "Email",
+    "address":  "Address",
+    "gstin":  "GSTIN",
+    "openingBalance":  "Opening Balance",
+    "balance":  "Balance",
+    "type":  "Type",
+    "addParty":  "Add Party",
+    "editParty":  "Edit Party",
+    "deleteParty":  "Delete Party",
+    "balanceDebit":  "Debit",
+    "balanceCredit":  "Credit"
+}

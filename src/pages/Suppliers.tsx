@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/Button';
 import { Input, Select, TextArea } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
-import { Card, CardContent } from '@/components/ui/Card';
 import { formatCurrency } from '@/utils/formatters';
 import * as db from '@/db/db';
 import { Search, Plus, Edit2, Trash2, Phone, Mail } from 'lucide-react';
@@ -61,58 +60,60 @@ export function SuppliersPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Suppliers / સપ્લાયર</h1>
+      <div className="space-y-4 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <h1 className="text-[15px] font-semibold text-slate-900 dark:text-white">Suppliers</h1>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
+              <input type="text" placeholder="Search suppliers..." value={search} onChange={e => setSearch(e.target.value)}
+                className="w-60 pl-7 pr-3 py-1.5 text-[12px] border border-slate-200 dark:border-[#1e2330] rounded-md bg-white dark:bg-[#111318] text-slate-800 dark:text-[#e8edf5] focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]/30 focus:border-[#3b5bdb]" />
+            </div>
+            <Button size="sm" onClick={openNew}><Plus className="h-3.5 w-3.5" /> Add Supplier</Button>
+          </div>
         </div>
-        <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> {t('buttons.addSupplier')}</Button>
-      </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input type="text" placeholder={t('placeholders.searchSupplier')} value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        <div className="bg-white dark:bg-[#111318] border border-slate-200 dark:border-[#1e2330] rounded-lg overflow-hidden">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="bg-slate-50 dark:bg-[#0e1017] border-b border-slate-200 dark:border-[#1e2330]">
+                <th className="px-4 py-2.5 text-left font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em] text-[10px]">Name</th>
+                <th className="px-4 py-2.5 text-left font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em] text-[10px]">Phone</th>
+                <th className="px-4 py-2.5 text-left font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em] text-[10px]">City</th>
+                <th className="px-4 py-2.5 text-right font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em] text-[10px]">Commission</th>
+                <th className="px-4 py-2.5 text-right font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em] text-[10px]">Balance</th>
+                <th className="px-4 py-2.5 text-right font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-[0.06em] text-[10px]">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-[#1a1f2e]">
+              {filtered.length === 0 ? (
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-400">No suppliers found</td></tr>
+              ) : filtered.map(s => {
+                const balance = db.getPartyBalance(s.id);
+                return (
+                  <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-[#0e1017] transition-colors">
+                    <td className="px-4 py-2.5 font-medium text-slate-800 dark:text-slate-200">{s.name}</td>
+                    <td className="px-4 py-2.5 text-slate-500 dark:text-slate-500">{s.phone || '—'}</td>
+                    <td className="px-4 py-2.5 text-slate-500 dark:text-slate-500">{s.city}{s.state ? `, ${s.state}` : ''}</td>
+                    <td className="px-4 py-2.5 text-right tabnum text-slate-600 dark:text-slate-400">{s.commissionPercent}%</td>
+                    <td className={`px-4 py-2.5 text-right tabnum font-semibold ${balance.type === 'receivable' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {formatCurrency(balance.balance)}
+                      <span className="text-[10px] font-normal ml-1 text-slate-400">{balance.type === 'receivable' ? 'Dr' : 'Cr'}</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-0.5">
+                        <button className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#1a1f2e] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors" onClick={() => openEdit(s)}><Edit2 className="h-3.5 w-3.5" /></button>
+                        <button className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-400 transition-colors" onClick={() => { if (confirm('Delete this supplier?')) { db.deleteSupplier(s.id); showNotification('Supplier deleted', 'info'); loadSuppliers(); } }}><Trash2 className="h-3.5 w-3.5" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-        <span className="text-sm text-slate-500">{filtered.length} {t('common.search')}</span>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(s => {
-          const balance = db.getPartyBalance(s.id);
-          return (
-            <Card key={s.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{s.name}</h3>
-                    <p className="text-sm text-slate-500">{s.city}, {s.state}</p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={() => openEdit(s)}><Edit2 className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="sm" className="p-1.5 h-auto text-red-500" onClick={() => { if (confirm('Delete this supplier?')) { db.deleteSupplier(s.id); showNotification('Supplier deleted', 'info'); loadSuppliers(); } }}><Trash2 className="h-3.5 w-3.5" /></Button>
-                  </div>
-                </div>
-                <div className="space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
-                  <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-slate-400" />{s.phone}</div>
-                  {s.email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-slate-400" />{s.email}</div>}
-                  {s.notes && <div className="text-xs text-slate-400">{s.notes}</div>}
-                </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400">Balance</p>
-                    <p className={`text-lg font-bold ${balance.type === 'receivable' ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(balance.balance)}</p>
-                  </div>
-                  <Badge variant="info">Comm: {s.commissionPercent}%</Badge>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editSupplier ? 'Edit Supplier' : 'Add Supplier / નવો સપ્લાયર'} size="lg">
+        <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editSupplier ? 'Edit Supplier' : 'Add Supplier'} size="lg">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Supplier Name *" value={fName} onChange={e => setFName(e.target.value)} placeholder="Enter supplier name" />
           <Input label="Phone" value={fPhone} onChange={e => setFPhone(e.target.value)} />

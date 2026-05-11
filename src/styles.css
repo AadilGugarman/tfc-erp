@@ -1,0 +1,114 @@
+import '@/index.css';
+
+/* Global styles for premium ERP */
+export const globalStyles = `
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
+  /* Smooth transitions */
+  * {
+    @apply transition-colors duration-150;
+  }
+
+  button {
+    @apply transition-all duration-150;
+  }
+
+  input, select, textarea {
+    @apply transition-all duration-150;
+  }
+
+  /* Focus visible for accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-950;
+  }
+
+  /* Selection color */
+  ::selection {
+    @apply bg-indigo-600 text-white;
+  }
+
+  .dark ::selection {
+    @apply bg-indigo-500 text-white;
+  }
+
+  /* Form elements consistency */
+  input::placeholder {
+    @apply text-slate-400 dark:text-slate-500;
+  }
+
+  /* Disable autocomplete styling */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus,
+  select:-webkit-autofill,
+  select:-webkit-autofill:hover,
+  select:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    box-shadow: 0 0 0 30px white inset !important;
+  }
+
+  .dark input:-webkit-autofill,
+  .dark input:-webkit-autofill:hover,
+  .dark input:-webkit-autofill:focus,
+  .dark textarea:-webkit-autofill,
+  .dark textarea:-webkit-autofill:hover,
+  .dark textarea:-webkit-autofill:focus,
+  .dark select:-webkit-autofill,
+  .dark select:-webkit-autofill:hover,
+  .dark select:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 30px #1e293b inset !important;
+    box-shadow: 0 0 0 30px #1e293b inset !important;
+  }
+
+  /* Text selection in dark mode */
+  .dark ::selection {
+    @apply bg-indigo-600 text-slate-100;
+  }
+
+  /* Loading pulse animation */
+  .animate-pulse {
+    @apply bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 bg-[200%] animate-shimmer;
+  }
+
+  /* Webkit appearance for mobile */
+  input,
+  select,
+  textarea,
+  button {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+`;

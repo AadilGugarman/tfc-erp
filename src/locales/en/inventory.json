@@ -1,0 +1,20 @@
+{
+    "title":  "Inventory",
+    "itemName":  "Item Name",
+    "category":  "Category",
+    "grade":  "Grade",
+    "quantity":  "Quantity",
+    "unit":  "Unit",
+    "rate":  "Rate",
+    "value":  "Value",
+    "status":  "Status",
+    "inStock":  "In Stock",
+    "lowStock":  "Low Stock",
+    "outOfStock":  "Out of Stock",
+    "lowStockThreshold":  "Low Stock Threshold",
+    "addItem":  "Add Item",
+    "editItem":  "Edit Item",
+    "deleteItem":  "Delete Item",
+    "stockInward":  "Stock Inward",
+    "stockOutward":  "Stock Outward"
+}

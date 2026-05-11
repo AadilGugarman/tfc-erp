@@ -1,0 +1,19 @@
+{
+    "title":  "ડેશબોર્ડ",
+    "todayVehicles":  "આજના વાહનો",
+    "totalSales":  "કુલ વેચાણ",
+    "outstanding":  "બાકી (પ્રાપ્ય)",
+    "totalPurchases":  "કુલ ખરીદી",
+    "paymentPending":  "ચુકવણી બાકી",
+    "inventoryAlerts":  "ઇનવેન્ટરી ચેતવણીઓ",
+    "recentBills":  "તાજેતર બિલ",
+    "stockAlerts":  "સ્ટોક ચેતવણીઓ",
+    "outstandingSummary":  "બાકી સારાંશ",
+    "quickActions":  "ઝડપી ક્રિયાઓ",
+    "newBill":  "નવું બિલ",
+    "newPurchase":  "નવી ખરીદી",
+    "payment":  "ચુકવણી",
+    "stockInward":  "સ્ટોક અંદરઆવતો",
+    "noVehicles":  "આજ વાહનો નથી",
+    "noAlerts":  "કોઈ સ્ટોક ચેતવણી નથી"
+}

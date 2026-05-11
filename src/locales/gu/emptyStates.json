@@ -1,0 +1,12 @@
+{
+    "noParties":  "કોઈ પક્ષ નથી",
+    "noSuppliers":  "કોઈ સપ્લાયર નથી",
+    "noBills":  "કોઈ બિલ નથી",
+    "noPurchases":  "કોઈ ખરીદી નથી",
+    "noPayments":  "કોઈ ચુકવણી નથી",
+    "noInventory":  "કોઈ ઇનવેન્ટરી આઇટમ નથી",
+    "noOutstanding":  "કોઈ બાકી ચુકવણી નથી",
+    "noVehicles":  "કોઈ વાહન નથી",
+    "noTransactions":  "કોઈ વ્યવહાર નથી",
+    "noResults":  "કોઈ પરિણામ નથી"
+}

@@ -1,0 +1,21 @@
+{
+    "title":  "વાહન આગમન રજીસ્ટર",
+    "vehicleNumber":  "વાહન નંબર",
+    "date":  "તારીખ",
+    "driverName":  "ચાલક નામ",
+    "entryNumber":  "પ્રવેશ નંબર",
+    "status":  "સ્થિતિ",
+    "partyName":  "પક્ષ નામ",
+    "vakkal":  "વક્કાલ",
+    "carat":  "કેરેટ",
+    "weight":  "વજન",
+    "rate":  "દર",
+    "total":  "કુલ",
+    "remarks":  "ટિપ્પણીઓ",
+    "addRow":  "પંક્તિ ઉમેરો",
+    "deleteRow":  "પંક્તિ કાઢી નાખો",
+    "totalWeight":  "કુલ વજન",
+    "totalAmount":  "કુલ રકમ",
+    "loadingData":  "વાહન આગમન ડેટા લોડ થઇ રહ્યું છે...",
+    "noData":  "કોઈ વાહન આગમન પ્રવેશ નથી"
+}

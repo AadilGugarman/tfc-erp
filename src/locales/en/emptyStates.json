@@ -1,0 +1,12 @@
+{
+    "noParties":  "No parties found",
+    "noSuppliers":  "No suppliers found",
+    "noBills":  "No bills found",
+    "noPurchases":  "No purchases found",
+    "noPayments":  "No payments found",
+    "noInventory":  "No inventory items",
+    "noOutstanding":  "No outstanding payments",
+    "noVehicles":  "No vehicles found",
+    "noTransactions":  "No transactions found",
+    "noResults":  "No results found"
+}

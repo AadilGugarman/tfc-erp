@@ -1,0 +1,13 @@
+{
+    "required":  "This field is required",
+    "invalidEmail":  "Invalid email address",
+    "invalidPhone":  "Invalid phone number",
+    "invalidGstin":  "Invalid GSTIN",
+    "passwordMismatch":  "Passwords do not match",
+    "selectParty":  "Please select a party",
+    "selectSupplier":  "Please select a supplier",
+    "selectItem":  "Please select an item",
+    "fillAllFields":  "Please fill all fields",
+    "minAmount":  "Amount must be greater than 0",
+    "invalidFile":  "Invalid file"
+}

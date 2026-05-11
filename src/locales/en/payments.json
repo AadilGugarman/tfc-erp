@@ -1,0 +1,18 @@
+{
+    "title":  "Payments",
+    "date":  "Date",
+    "party":  "Party",
+    "amount":  "Amount",
+    "mode":  "Mode",
+    "cash":  "Cash",
+    "bank":  "Bank",
+    "upi":  "UPI",
+    "cheque":  "Cheque",
+    "type":  "Type",
+    "received":  "Received",
+    "paid":  "Paid",
+    "reference":  "Reference",
+    "addPayment":  "Add Payment",
+    "editPayment":  "Edit Payment",
+    "deletePayment":  "Delete Payment"
+}

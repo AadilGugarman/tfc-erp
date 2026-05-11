@@ -1,0 +1,20 @@
+{
+    "title":  "ઇનવેન્ટરી",
+    "itemName":  "આઇટમ નામ",
+    "category":  "શ્રેણી",
+    "grade":  "ગ્રેડ",
+    "quantity":  "જથ્થો",
+    "unit":  "એકમ",
+    "rate":  "દર",
+    "value":  "મૂલ્ય",
+    "status":  "સ્થિતિ",
+    "inStock":  "સ્ટોકમાં",
+    "lowStock":  "ઓછો સ્ટોક",
+    "outOfStock":  "સ્ટોક વિહોણું",
+    "lowStockThreshold":  "ઓછો સ્ટોક થ્રેશોલ્ડ",
+    "addItem":  "આઇટમ ઉમેરો",
+    "editItem":  "આઇટમ સંપાદિત કરો",
+    "deleteItem":  "આઇટમ કાઢી નાખો",
+    "stockInward":  "સ્ટોક અંદરઆવતો",
+    "stockOutward":  "સ્ટોક બાહ્ય"
+}

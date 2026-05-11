@@ -1,0 +1,23 @@
+{
+    "title":  "Purchases",
+    "purchaseNumber":  "Purchase Number",
+    "purchaseDate":  "Purchase Date",
+    "supplier":  "Supplier",
+    "items":  "Items",
+    "quantity":  "Quantity",
+    "rate":  "Rate",
+    "amount":  "Amount",
+    "total":  "Total",
+    "status":  "Status",
+    "addPurchase":  "Add Purchase",
+    "editPurchase":  "Edit Purchase",
+    "deletePurchase":  "Delete Purchase",
+    "lot":  "Lot",
+    "paid":  "Paid",
+    "unit":  "Unit",
+    "purchaseNo":  "PO No",
+    "summary":  "Summary",
+    "purchaseOrder":  "Purchase Order",
+    "searchPurchases":  "Search purchases...",
+    "purchaseItems":  "Purchase Items"
+}

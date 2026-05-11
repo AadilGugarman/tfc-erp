@@ -15,8 +15,8 @@ import { PaymentsPage } from '@/pages/Payments';
 import { ReportsPage } from '@/pages/Reports';
 import { SettingsPage } from '@/pages/Settings';
 import { SearchPage } from '@/pages/Search';
-import { PrintPreviewPage } from '@/pages/PrintPreview';
-import { TabletViewPage } from '@/pages/TabletView';
+import { BillingPage } from '@/pages/Billing';
+import { PurchasesPage } from '@/pages/Purchases';
 
 function App() {
   const { currentPage, setCurrentPage, settings, notification, clearNotification, sidebarOpen, authenticated, login } = useAppStore();
@@ -37,6 +37,9 @@ function App() {
         switch (e.key) {
           case '1': e.preventDefault(); setCurrentPage('dashboard'); break;
           case 'v': e.preventDefault(); setCurrentPage('vehicle-register'); break;
+          case 'b': e.preventDefault(); setCurrentPage('billing'); break;
+          case 'p': e.preventDefault(); setCurrentPage('purchases'); break;
+          case 'm': e.preventDefault(); setCurrentPage('payments'); break;
           case '2': e.preventDefault(); setCurrentPage('parties'); break;
           case '3': e.preventDefault(); setCurrentPage('suppliers'); break;
           case '4': e.preventDefault(); setCurrentPage('ledger'); break;
@@ -46,6 +49,10 @@ function App() {
           case '8': e.preventDefault(); setCurrentPage('reports'); break;
           case '9': e.preventDefault(); setCurrentPage('settings'); break;
         }
+      }
+      if (e.ctrlKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCurrentPage('search');
       }
     };
     document.addEventListener('keydown', handler);
@@ -60,14 +67,12 @@ function App() {
       case 'suppliers': return <SuppliersPage />;
       case 'ledger': return <LedgerPage />;
       case 'transactions': return <TransactionsPage />;
-      case 'billing': return <TransactionsPage />;
-      case 'purchases': return <TransactionsPage />;
+      case 'billing': return <BillingPage />;
+      case 'purchases': return <PurchasesPage />;
       case 'inventory': return <InventoryPage />;
       case 'payments': return <PaymentsPage />;
       case 'reports': return <ReportsPage />;
       case 'search': return <SearchPage />;
-      case 'print-preview': return <PrintPreviewPage />;
-      case 'tablet-view': return <TabletViewPage />;
       case 'settings': return <SettingsPage />;
       default: return <DashboardPage />;
     }
@@ -78,20 +83,30 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <Sidebar />
-      <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
+      <div
+        className="flex flex-col min-h-screen transition-[margin-left] duration-300 ease-in-out"
+        style={{ marginLeft: sidebarOpen ? 224 : 60 }}
+      >
         <Header />
-        <main className="p-6">{renderPage()}</main>
+        <main className="flex-1 p-6 bg-slate-50 dark:bg-slate-900/30">{renderPage()}</main>
       </div>
 
-      {/* Notification Toast */}
+      {/* Toast Notification */}
       {notification && (
-        <div className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl shadow-2xl text-white text-sm font-medium flex items-center gap-2 animate-bounce-in ${
-          notification.type === 'success' ? 'bg-emerald-600' :
-          notification.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
-        }`} onClick={clearNotification}>
-          {notification.type === 'success' ? '✓' : notification.type === 'error' ? '✕' : 'ℹ'} {notification.message}
+        <div
+          onClick={clearNotification}
+          className={[
+            'fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-lg shadow-lg text-white text-[13px] font-medium cursor-pointer select-none animate-toast',
+            notification.type === 'success' ? 'bg-[#16a34a]' :
+            notification.type === 'error'   ? 'bg-[#dc2626]' : 'bg-[#3b5bdb]',
+          ].join(' ')}
+        >
+          <span className="text-base leading-none">
+            {notification.type === 'success' ? '✓' : notification.type === 'error' ? '✕' : 'ℹ'}
+          </span>
+          {notification.message}
         </div>
       )}
     </div>

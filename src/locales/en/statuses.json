@@ -1,0 +1,14 @@
+{
+    "draft":  "Draft",
+    "posted":  "Posted",
+    "cancelled":  "Cancelled",
+    "paid":  "Paid",
+    "partial":  "Partial",
+    "unpaid":  "Unpaid",
+    "inStock":  "In Stock",
+    "lowStock":  "Low Stock",
+    "outOfStock":  "Out of Stock",
+    "received":  "Received",
+    "debit":  "Debit",
+    "credit":  "Credit"
+}

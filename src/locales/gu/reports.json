@@ -1,0 +1,23 @@
+{
+    "title":  "અહેવાલો",
+    "partyReport":  "પક્ષ અહેવાલ",
+    "saleReport":  "વેચાણ અહેવાલ",
+    "purchaseReport":  "ખરીદી અહેવાલ",
+    "ledgerReport":  "લેજર અહેવાલ",
+    "inventoryReport":  "ઇનવેન્ટરી અહેવાલ",
+    "generateReport":  "અહેવાલ બનાવો",
+    "exportPDF":  "PDF તરીકે નિકાસ",
+    "exportExcel":  "Excel તરીકે નિકાસ",
+    "dateRange":  "તારીખ શ્રેણી",
+    "fromDate":  "તારીખથી",
+    "toDate":  "તારીખ સુધી",
+    "payable":  "ચુકવાપાત્ર",
+    "daybook":  "ડે બુક",
+    "outstanding":  "બાકી રકમ",
+    "noTransactionsOn":  "આ તારીખે વ્યવહારો નથી",
+    "profitLoss":  "નફો / નુકસાન",
+    "stock":  "સ્ટોક",
+    "estimatedValue":  "અંદાજિત મૂલ્ય",
+    "totalItems":  "કુલ આઇટમ્સ",
+    "receivable":  "પ્રાપ્ય"
+}

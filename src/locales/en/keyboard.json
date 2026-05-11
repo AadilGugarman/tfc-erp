@@ -1,0 +1,21 @@
+{
+    "shortcuts":  "Keyboard Shortcuts",
+    "closeModal":  "Close Modal",
+    "save":  "Save",
+    "search":  "Search",
+    "newBill":  "New Bill",
+    "newPurchase":  "New Purchase",
+    "print":  "Print",
+    "dashboard":  "Dashboard",
+    "vehicleRegister":  "Vehicle Arrival Register",
+    "vehicleArrivalRegister":  "Vehicle Arrival Register",
+    "parties":  "Parties",
+    "suppliers":  "Suppliers",
+    "ledger":  "Ledger",
+    "billing":  "Billing",
+    "inventory":  "Inventory",
+    "purchases":  "Purchases",
+    "payments":  "Payments",
+    "reports":  "Reports",
+    "settings":  "Settings"
+}

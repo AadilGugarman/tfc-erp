@@ -1,0 +1,14 @@
+{
+    "dashboard":  "Dashboard",
+    "vehicleRegister":  "Vehicle Arrival Register",
+    "vehicleArrivalRegister":  "Vehicle Arrival Register",
+    "parties":  "Parties",
+    "suppliers":  "Suppliers",
+    "ledger":  "Ledger",
+    "transactions":  "Transactions",
+    "inventory":  "Inventory",
+    "payments":  "Payments",
+    "billing":  "Billing",
+    "reports":  "Reports",
+    "settings":  "Settings"
+}

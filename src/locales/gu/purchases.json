@@ -1,0 +1,23 @@
+{
+    "title":  "ખરીદી",
+    "purchaseNumber":  "ખરીદી નંબર",
+    "purchaseDate":  "ખરીદી તારીખ",
+    "supplier":  "સપ્લાયર",
+    "items":  "આઇટમ્સ",
+    "quantity":  "જથ્થો",
+    "rate":  "દર",
+    "amount":  "રકમ",
+    "total":  "કુલ",
+    "status":  "સ્થિતિ",
+    "addPurchase":  "ખરીદી ઉમેરો",
+    "editPurchase":  "ખરીદી સંપાદિત કરો",
+    "deletePurchase":  "ખરીદી કાઢી નાખો",
+    "lot":  "લોટ",
+    "paid":  "ચુકવેલ",
+    "unit":  "એકમ",
+    "purchaseNo":  "PO નંબર",
+    "summary":  "સારાંશ",
+    "purchaseOrder":  "ખરીદી ઓર્ડર",
+    "searchPurchases":  "ખરીદી શોધો...",
+    "purchaseItems":  "ખરીદી આઇટમ્સ"
+}

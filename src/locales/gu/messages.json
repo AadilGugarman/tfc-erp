@@ -1,0 +1,22 @@
+{
+    "loading":  "લોડ થઇ રહ્યું છે...",
+    "noData":  "કોઈ ડેટા નથી",
+    "operationSuccessful":  "ક્રિયા સફળ",
+    "saved":  "સફળતા સાથે સંગ્રહ કર્યું",
+    "created":  "સફળતા સાથે બનાવ્યું",
+    "updated":  "સફળતા સાથે અપડેટ કર્યું",
+    "deleted":  "સફળતા સાથે કાઢી નાખ્યું",
+    "billCreated":  "બિલ બનાયો!",
+    "purchaseCreated":  "ખરીદી બનાઈ!",
+    "paymentRecorded":  "ચુકવણી સફળતા સાથે નોંધાઈ",
+    "stockAdded":  "સ્ટોક ઉમેરયું",
+    "partyCreated":  "પક્ષ સફળતા સાથે બનાયો",
+    "partyUpdated":  "પક્ષ સફળતા સાથે અપડેટ કર્યો",
+    "supplierCreated":  "સપ્લાયર સફળતા સાથે બનાયો",
+    "supplierUpdated":  "સપ્લાયર સફળતા સાથે અપડેટ કર્યો",
+    "companyCreated":  "કંપનો સફળતા સાથે બનાઈ",
+    "companyUpdated":  "કંપનો સફળતા સાથે અપડેટ કર્યો",
+    "selectSupplier":  "સપ્લાયર પસંદ કરો",
+    "fillAllItems":  "તમામ આઇટમ્સ ભરો",
+    "confirmDelete":  "શું તમે ખાતર છો?"
+}

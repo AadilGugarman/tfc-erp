@@ -1,0 +1,9 @@
+{
+    "validation":  {
+                       "required":  "આ ક્ષેત્ર આવશ્યક છે",
+                       "invalidEmail":  "અમાન્ય ઇમેઇલ સરનામું",
+                       "invalidPhone":  "અમાન્ય ફોન નંબર",
+                       "invalidGstin":  "અમાન્ય GSTIN",
+                       "passwordMismatch":  "પાસવર્ડ મેળ ખાતું નથી"
+                   }
+}
