@@ -1,9 +1,15 @@
-import { useTranslation } from 'react-i18next';
-import { useAppStore } from '@/stores/useAppStore';
-import { AlertCircle, Clock, DollarSign, Package, ChevronRight } from 'lucide-react';
-import * as db from '@/db/db';
-import { formatCurrency } from '@/utils/formatters';
-import { cn } from '@/utils/cn';
+import { useTranslation } from "react-i18next";
+import { useAppStore } from "@/stores/useAppStore";
+import {
+  AlertCircle,
+  Clock,
+  DollarSign,
+  Package,
+  ChevronRight,
+} from "lucide-react";
+import * as db from "@/db/db";
+import { formatCurrency } from "@/utils/formatters";
+import { cn } from "@/utils/cn";
 
 interface TaskWidget {
   id: string;
@@ -17,55 +23,49 @@ interface TaskWidget {
 }
 
 export function PendingTasksWidgets() {
-  const { bills, purchases, inventoryItems, setCurrentPage } = useAppStore();
+  const { inventoryItems, payments, setCurrentPage } = useAppStore();
   const { t } = useTranslation();
 
-  // Calculate pending data
-  const pendingPayments = bills.filter(b => b.netBalance > 0).length + purchases.filter(p => p.netBalance > 0).length;
-  const unpaidBills = bills.filter(b => b.status === 'unpaid' || b.status === 'partial').length;
-  const lowStockItems = inventoryItems.filter(i => i.status === 'low_stock').length;
-  const outOfStockItems = inventoryItems.filter(i => i.status === 'out_of_stock').length;
+  // Calculate pending data from available data
+  const pendingPayments = payments.filter(
+    (p) => p.status === "pending" || p.status === "partial",
+  ).length;
+  const lowStockItems = inventoryItems.filter(
+    (i) => i.status === "low_stock",
+  ).length;
+  const outOfStockItems = inventoryItems.filter(
+    (i) => i.status === "out_of_stock",
+  ).length;
 
-  const pendingPaymentsAmount = bills.reduce((sum, b) => sum + b.netBalance, 0) + purchases.reduce((sum, p) => sum + p.netBalance, 0);
-
-  const unpaidBillsAmount = bills
-    .filter(b => b.status === 'unpaid' || b.status === 'partial')
-    .reduce((sum, b) => sum + b.netBalance, 0);
+  const pendingPaymentsAmount = payments
+    .filter((p) => p.status === "pending" || p.status === "partial")
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
 
   const widgets: TaskWidget[] = [
     {
-      id: 'payments',
-      title: 'Pending Payments',
+      id: "payments",
+      title: "Pending Payments",
       icon: Clock,
-      color: 'from-amber-500 to-amber-600',
+      color: "from-amber-500 to-amber-600",
       count: pendingPayments,
       value: formatCurrency(pendingPaymentsAmount),
-      page: 'payments',
+      page: "payments",
     },
     {
-      id: 'bills',
-      title: 'Unpaid Bills',
-      icon: AlertCircle,
-      color: 'from-red-500 to-red-600',
-      count: unpaidBills,
-      value: formatCurrency(unpaidBillsAmount),
-      page: 'billing',
-    },
-    {
-      id: 'inventory',
-      title: 'Low Stock Items',
+      id: "inventory",
+      title: "Low Stock Items",
       icon: Package,
-      color: 'from-orange-500 to-orange-600',
+      color: "from-orange-500 to-orange-600",
       count: lowStockItems,
-      page: 'inventory',
+      page: "inventory",
     },
     {
-      id: 'outofstock',
-      title: 'Out of Stock',
+      id: "outofstock",
+      title: "Out of Stock",
       icon: AlertCircle,
-      color: 'from-blue-700 to-blue-800',
+      color: "from-blue-700 to-blue-800",
       count: outOfStockItems,
-      page: 'inventory',
+      page: "inventory",
     },
   ];
 
@@ -78,28 +78,32 @@ export function PendingTasksWidgets() {
             key={widget.id}
             onClick={() => widget.page && setCurrentPage(widget.page)}
             className={cn(
-              'group relative overflow-hidden rounded-lg p-4',
-              'bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#2a3550]',
-              'hover:shadow-md dark:hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-black/50',
-              'transition-all duration-200 ease-out text-left',
-              'hover:-translate-y-0.5'
+              "group relative overflow-hidden rounded-lg p-4",
+              "bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#2a3550]",
+              "hover:shadow-md dark:hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-black/50",
+              "transition-all duration-200 ease-out text-left",
+              "hover:-translate-y-0.5",
             )}
           >
             {/* Background gradient */}
-            <div className={cn(
-              'absolute inset-0 opacity-0 group-hover:opacity-5',
-              `bg-gradient-to-br ${widget.color}`,
-              'transition-opacity duration-200'
-            )} />
+            <div
+              className={cn(
+                "absolute inset-0 opacity-0 group-hover:opacity-5",
+                `bg-gradient-to-br ${widget.color}`,
+                "transition-opacity duration-200",
+              )}
+            />
 
             {/* Content */}
             <div className="relative space-y-3">
               <div className="flex items-center justify-between">
-                <div className={cn(
-                  'h-8 w-8 rounded-lg flex items-center justify-center',
-                  `bg-gradient-to-br ${widget.color} text-white shadow-lg`,
-                  'group-hover:shadow-xl transition-shadow duration-200'
-                )}>
+                <div
+                  className={cn(
+                    "h-8 w-8 rounded-lg flex items-center justify-center",
+                    `bg-gradient-to-br ${widget.color} text-white shadow-lg`,
+                    "group-hover:shadow-xl transition-shadow duration-200",
+                  )}
+                >
                   <Icon className="h-4 w-4" />
                 </div>
                 <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:translate-x-0.5 transition-transform" />

@@ -1,13 +1,20 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
-import { useAppStore } from '@/stores/useAppStore';
-import { formatCurrency, formatDate } from '@/utils/formatters';
-import * as db from '@/db/db';
-import { Search, Truck, Users, Receipt, Package, ChevronRight } from 'lucide-react';
-import { cn } from '@/utils/cn';
+import { useEffect, useMemo, useState, useRef } from "react";
+import { useAppStore } from "@/stores/useAppStore";
+import { formatCurrency, formatDate } from "@/utils/formatters";
+import * as db from "@/db/db";
+import {
+  Search,
+  Truck,
+  Users,
+  Receipt,
+  Package,
+  ChevronRight,
+} from "lucide-react";
+import { cn } from "@/utils/cn";
 
 interface SearchResult {
   id: string;
-  type: 'party' | 'supplier' | 'bill' | 'vehicle';
+  type: "party" | "supplier" | "vehicle";
   title: string;
   description: string;
   value: string;
@@ -21,14 +28,12 @@ export function SearchPage() {
     setCurrentPage,
     parties,
     suppliers,
-    bills,
     vehicleRegisters,
     loadParties,
     loadSuppliers,
-    loadBills,
     loadVehicleRegisters,
   } = useAppStore();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -36,7 +41,6 @@ export function SearchPage() {
     inputRef.current?.focus();
     loadParties();
     loadSuppliers();
-    loadBills();
     loadVehicleRegisters();
   }, []);
 
@@ -48,77 +52,74 @@ export function SearchPage() {
 
     // Search parties
     parties
-      .filter(item => item.name.toLowerCase().includes(q) || item.phone.includes(q))
-      .forEach(party => {
+      .filter(
+        (item) => item.name.toLowerCase().includes(q) || item.phone.includes(q),
+      )
+      .forEach((party) => {
         allResults.push({
           id: `party-${party.id}`,
-          type: 'party',
+          type: "party",
           title: party.name,
           description: `${party.city} • ${party.phone}`,
           value: formatCurrency(db.getPartyBalance(party.id).balance),
           icon: Users,
-          color: 'text-pink-600 dark:text-pink-400',
+          color: "text-pink-600 dark:text-pink-400",
         });
       });
 
     // Search suppliers
     suppliers
-      .filter(item => item.name.toLowerCase().includes(q) || item.phone.includes(q))
-      .forEach(supplier => {
+      .filter(
+        (item) => item.name.toLowerCase().includes(q) || item.phone.includes(q),
+      )
+      .forEach((supplier) => {
         allResults.push({
           id: `supplier-${supplier.id}`,
-          type: 'supplier',
+          type: "supplier",
           title: supplier.name,
           description: `${supplier.city} • ${supplier.phone}`,
           value: formatCurrency(db.getPartyBalance(supplier.id).balance),
           icon: Users,
-          color: 'text-cyan-600 dark:text-cyan-400',
-        });
-      });
-
-    // Search bills
-    bills
-      .filter(item => item.billNo.toLowerCase().includes(q) || item.partyName.toLowerCase().includes(q))
-      .forEach(bill => {
-        allResults.push({
-          id: `bill-${bill.id}`,
-          type: 'bill',
-          title: `Bill #${bill.billNo}`,
-          description: `${bill.partyName} • ${formatDate(bill.date)}`,
-          value: formatCurrency(bill.total),
-          icon: Receipt,
-          color: 'text-emerald-600 dark:text-emerald-400',
-          page: 'billing',
+          color: "text-cyan-600 dark:text-cyan-400",
         });
       });
 
     // Search vehicles
     vehicleRegisters
-      .filter(item => item.entryNo.toLowerCase().includes(q) || item.vehicleNumber.toLowerCase().includes(q) || item.driverName.toLowerCase().includes(q))
-      .forEach(vehicle => {
+      .filter(
+        (item) =>
+          item.entryNo.toLowerCase().includes(q) ||
+          item.vehicleNumber.toLowerCase().includes(q) ||
+          item.driverName.toLowerCase().includes(q),
+      )
+      .forEach((vehicle) => {
         allResults.push({
           id: `vehicle-${vehicle.id}`,
-          type: 'vehicle',
+          type: "vehicle",
           title: `Vehicle #${vehicle.entryNo}`,
           description: `${vehicle.vehicleNumber} • ${vehicle.driverName}`,
           value: formatCurrency(vehicle.grandTotal),
           icon: Truck,
-          color: 'text-blue-600 dark:text-blue-400',
-          page: 'vehicle-register',
+          color: "text-blue-600 dark:text-blue-400",
+          page: "vehicle-register",
         });
       });
 
     return allResults;
-  }, [query, parties, suppliers, bills, vehicleRegisters]);
+  }, [query, parties, suppliers, vehicleRegisters]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
+    if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIndex(prev => (prev + 1) % Math.max(results.length, 1));
-    } else if (e.key === 'ArrowUp') {
+      setSelectedIndex((prev) => (prev + 1) % Math.max(results.length, 1));
+    } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setSelectedIndex(prev => (prev - 1 + Math.max(results.length, 1)) % Math.max(results.length, 1));
-    } else if (e.key === 'Enter' && results[selectedIndex]) {
+      setSelectedIndex(
+        (prev) =>
+          (prev - 1 + Math.max(results.length, 1)) %
+          Math.max(results.length, 1),
+      );
+    } else if (e.key === "Enter" && results[selectedIndex]) {
       e.preventDefault();
       const result = results[selectedIndex];
       if (result.page) setCurrentPage(result.page);
@@ -142,7 +143,7 @@ export function SearchPage() {
                   setSelectedIndex(0);
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Search parties, suppliers, bills, vehicles..."
+                placeholder="Search parties, suppliers, vehicles..."
                 className="flex-1 bg-transparent text-lg font-medium text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none"
               />
             </div>
@@ -155,8 +156,12 @@ export function SearchPage() {
             {results.length === 0 ? (
               <div className="px-4 py-12 text-center">
                 <Search className="h-12 w-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-                <p className="text-slate-500 dark:text-slate-400 font-medium">No results found</p>
-                <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Try a different search term</p>
+                <p className="text-slate-500 dark:text-slate-400 font-medium">
+                  No results found
+                </p>
+                <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+                  Try a different search term
+                </p>
               </div>
             ) : (
               <div className="divide-y divide-slate-200 dark:divide-[#1f2a43]">
@@ -168,18 +173,20 @@ export function SearchPage() {
                       key={result.id}
                       onClick={() => result.page && setCurrentPage(result.page)}
                       className={cn(
-                        'w-full px-4 py-3 flex items-center gap-3 text-left transition-colors duration-150',
+                        "w-full px-4 py-3 flex items-center gap-3 text-left transition-colors duration-150",
                         isSelected
-                          ? 'bg-blue-50 dark:bg-blue-950/30 border-l-2 border-blue-600 dark:border-blue-500'
-                          : 'hover:bg-slate-50 dark:hover:bg-[#172036]'
+                          ? "bg-blue-50 dark:bg-blue-950/30 border-l-2 border-blue-600 dark:border-blue-500"
+                          : "hover:bg-slate-50 dark:hover:bg-[#172036]",
                       )}
                     >
                       {/* Icon */}
-                      <div className={cn(
-                        'flex h-10 w-10 items-center justify-center rounded-lg shrink-0',
-                        'bg-slate-100 dark:bg-slate-800 transition-colors',
-                        result.color
-                      )}>
+                      <div
+                        className={cn(
+                          "flex h-10 w-10 items-center justify-center rounded-lg shrink-0",
+                          "bg-slate-100 dark:bg-slate-800 transition-colors",
+                          result.color,
+                        )}
+                      >
                         <Icon className="h-5 w-5" />
                       </div>
 
@@ -214,10 +221,18 @@ export function SearchPage() {
         {!query.trim() && (
           <div className="rounded-lg border border-slate-200 dark:border-[#2a3550] bg-white dark:bg-[#111827] p-4 text-center">
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Type to search parties, suppliers, bills, and vehicles
+              Type to search parties, suppliers, and vehicles
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
-              Use <kbd className="inline-block px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">↑ ↓</kbd> to navigate, <kbd className="inline-block px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono ml-1">Enter</kbd> to select
+              Use{" "}
+              <kbd className="inline-block px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">
+                ↑ ↓
+              </kbd>{" "}
+              to navigate,{" "}
+              <kbd className="inline-block px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono ml-1">
+                Enter
+              </kbd>{" "}
+              to select
             </p>
           </div>
         )}

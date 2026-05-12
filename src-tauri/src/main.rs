@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod auth;
 mod db;
 mod backup;
 
@@ -13,12 +14,23 @@ fn main() {
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
+      // Auth commands
+      auth::login,
+      auth::refresh_access_token,
+      auth::verify_access_token,
+      auth::get_user,
+      auth::list_users,
+      auth::create_user,
+      auth::update_user,
+      auth::change_password,
+      // Database commands
       db::get_dashboard_summary,
       db::list_vehicle_registers,
       db::save_vehicle_register,
       db::init_database,
       db::load_app_state,
       db::save_app_state,
+      // Backup commands
       backup::get_backup_config,
       backup::update_backup_config,
       backup::save_backup_client_state,

@@ -1,21 +1,31 @@
-import { create } from 'zustand';
-import type { Settings, Party, Supplier, Bill, Purchase, Payment, InventoryItem, Company, LedgerEntry, VehicleRegister } from '@/db/schema';
-import * as db from '@/db/db';
+import { create } from "zustand";
+import type {
+  Settings,
+  Party,
+  Supplier,
+  Bill,
+  Purchase,
+  Payment,
+  InventoryItem,
+  Company,
+  LedgerEntry,
+  VehicleRegister,
+} from "@/db/schema";
+import * as db from "@/db/db";
+import { authService } from "@/services/auth";
 
 export type PageId =
-  | 'dashboard'
-  | 'vehicle-register'
-  | 'parties'
-  | 'suppliers'
-  | 'ledger'
-  | 'transactions'
-  | 'billing'
-  | 'purchases'
-  | 'inventory'
-  | 'payments'
-  | 'reports'
-  | 'search'
-  | 'settings';
+  | "dashboard"
+  | "vehicle-register"
+  | "parties"
+  | "suppliers"
+  | "ledger"
+  | "transactions"
+  | "inventory"
+  | "payments"
+  | "reports"
+  | "search"
+  | "settings";
 
 interface AppState {
   currentPage: PageId;
@@ -34,8 +44,8 @@ interface AppState {
   updateCompany: (company: Company) => void;
   deleteCompany: (companyId: string) => void;
 
-  language: 'english' | 'gujarati' | 'hindi';
-  setLanguage: (lang: 'english' | 'gujarati' | 'hindi') => void;
+  language: "english" | "gujarati" | "hindi";
+  setLanguage: (lang: "english" | "gujarati" | "hindi") => void;
 
   settings: Settings;
   loadSettings: () => void;
@@ -53,14 +63,14 @@ interface AppState {
   inventoryItems: InventoryItem[];
   loadInventory: () => void;
 
+  payments: Payment[];
+  loadPayments: () => void;
+
   bills: Bill[];
   loadBills: () => void;
 
   purchases: Purchase[];
   loadPurchases: () => void;
-
-  payments: Payment[];
-  loadPayments: () => void;
 
   ledgerEntries: LedgerEntry[];
   loadLedgerEntries: () => void;
@@ -80,8 +90,11 @@ interface AppState {
   openModal: (content: string, data?: Record<string, unknown>) => void;
   closeModal: () => void;
 
-  notification: { message: string; type: 'success' | 'error' | 'info' } | null;
-  showNotification: (message: string, type: 'success' | 'error' | 'info') => void;
+  notification: { message: string; type: "success" | "error" | "info" } | null;
+  showNotification: (
+    message: string,
+    type: "success" | "error" | "info",
+  ) => void;
   clearNotification: () => void;
 
   shortcutsEnabled: boolean;
@@ -89,32 +102,31 @@ interface AppState {
 }
 
 const DEFAULT_COMPANY: Company = {
-  id: 'default-company',
-  name: 'TFC - Talha Fruit Co.',
-  address: '123 Market Street',
-  city: 'Ahmedabad',
-  state: 'Gujarat',
-  phone: '+91-9999999999',
-  email: 'info@tfc.com',
-  gstin: '24AABCT1234H1Z0',
-  invoicePrefix: 'TFC',
-  language: 'english',
-  theme: 'light',
+  id: "default-company",
+  name: "TFC - Talha Fruit Co.",
+  address: "123 Market Street",
+  city: "Ahmedabad",
+  state: "Gujarat",
+  phone: "+91-9999999999",
+  email: "info@tfc.com",
+  gstin: "24AABCT1234H1Z0",
+  language: "english",
+  theme: "light",
   isActive: true,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
 
-const getStoredLanguage = (): 'english' | 'gujarati' | 'hindi' => {
-  const stored = localStorage.getItem('appLanguage');
-  if (stored === 'gu' || stored === 'gujarati') return 'gujarati';
-  if (stored === 'hi' || stored === 'hindi') return 'hindi';
-  return 'english';
+const getStoredLanguage = (): "english" | "gujarati" | "hindi" => {
+  const stored = localStorage.getItem("appLanguage");
+  if (stored === "gu" || stored === "gujarati") return "gujarati";
+  if (stored === "hi" || stored === "hindi") return "hindi";
+  return "english";
 };
 
 const getStoredCompanies = (): Company[] => {
   try {
-    const stored = localStorage.getItem('fruit-market-erp-companies');
+    const stored = localStorage.getItem("talha-fruit-companies");
     if (stored) return JSON.parse(stored);
   } catch {
     return [DEFAULT_COMPANY];
@@ -123,24 +135,23 @@ const getStoredCompanies = (): Company[] => {
 };
 
 const saveCompanies = (companies: Company[]) => {
-  localStorage.setItem('fruit-market-erp-companies', JSON.stringify(companies));
+  localStorage.setItem("talha-fruit-companies", JSON.stringify(companies));
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
-  currentPage: 'dashboard',
+  currentPage: "dashboard",
   setCurrentPage: (page) => set({ currentPage: page }),
 
-  authenticated: localStorage.getItem('fruit-market-erp-session') === 'true',
-  userId: localStorage.getItem('fruit-market-erp-user') || 'admin',
+  authenticated: authService.isAuthenticated(),
+  userId: authService.getCurrentUser()?.id || "guest",
   login: (userId: string) => {
-    localStorage.setItem('fruit-market-erp-session', 'true');
-    localStorage.setItem('fruit-market-erp-user', userId);
+    // This is kept for backward compatibility
+    // Real login should use authService.login() from Login component
     set({ authenticated: true, userId });
   },
   logout: () => {
-    localStorage.removeItem('fruit-market-erp-session');
-    localStorage.removeItem('fruit-market-erp-user');
-    set({ authenticated: false, currentPage: 'dashboard', userId: 'admin' });
+    authService.logout();
+    set({ authenticated: false, currentPage: "dashboard", userId: "guest" });
   },
 
   companies: getStoredCompanies(),
@@ -151,9 +162,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setCurrentCompany: (companyId: string) => {
     const companies = get().companies;
-    const company = companies.find(c => c.id === companyId);
+    const company = companies.find((c) => c.id === companyId);
     if (company) {
-      localStorage.setItem('fruit-market-erp-current-company', companyId);
+      localStorage.setItem("talha-fruit-company", companyId);
       set({ currentCompany: company });
     }
   },
@@ -163,7 +174,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ companies });
   },
   updateCompany: (company: Company) => {
-    const companies = get().companies.map(c => c.id === company.id ? company : c);
+    const companies = get().companies.map((c) =>
+      c.id === company.id ? company : c,
+    );
     saveCompanies(companies);
     set({ companies });
     if (get().currentCompany?.id === company.id) {
@@ -171,7 +184,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   deleteCompany: (companyId: string) => {
-    const companies = get().companies.filter(c => c.id !== companyId);
+    const companies = get().companies.filter((c) => c.id !== companyId);
     saveCompanies(companies);
     set({ companies });
     if (get().currentCompany?.id === companyId && companies.length > 0) {
@@ -181,8 +194,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   language: getStoredLanguage(),
   setLanguage: (lang) => {
-    const i18nLang = lang === 'gujarati' ? 'gu' : lang === 'hindi' ? 'hi' : 'en';
-    localStorage.setItem('appLanguage', i18nLang);
+    const i18nLang =
+      lang === "gujarati" ? "gu" : lang === "hindi" ? "hi" : "en";
+    localStorage.setItem("appLanguage", i18nLang);
     set({ language: lang });
     const i18n = window.__i18n;
     if (i18n) {
@@ -200,9 +214,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     db.updateSettings({ darkMode: dark });
     set({ settings: { ...get().settings, darkMode: dark } });
     if (dark) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
   },
 
@@ -212,7 +226,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const parties = db.getParties();
     const q = query.toLowerCase();
     return parties.filter(
-      p => p.name.toLowerCase().includes(q) || p.phone.includes(q)
+      (p) => p.name.toLowerCase().includes(q) || p.phone.includes(q),
     );
   },
 
@@ -222,12 +236,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     const suppliers = db.getSuppliers();
     const q = query.toLowerCase();
     return suppliers.filter(
-      s => s.name.toLowerCase().includes(q) || s.phone.includes(q)
+      (s) => s.name.toLowerCase().includes(q) || s.phone.includes(q),
     );
   },
 
   inventoryItems: db.getInventoryItems(),
   loadInventory: () => set({ inventoryItems: db.getInventoryItems() }),
+
+  payments: db.getPayments(),
+  loadPayments: () => set({ payments: db.getPayments() }),
 
   bills: db.getBills(),
   loadBills: () => set({ bills: db.getBills() }),
@@ -235,36 +252,36 @@ export const useAppStore = create<AppState>((set, get) => ({
   purchases: db.getPurchases(),
   loadPurchases: () => set({ purchases: db.getPurchases() }),
 
-  payments: db.getPayments(),
-  loadPayments: () => set({ payments: db.getPayments() }),
-
   ledgerEntries: db.getLedgerEntries(),
   loadLedgerEntries: () => set({ ledgerEntries: db.getLedgerEntries() }),
 
   vehicleRegisters: db.getVehicleRegisters(),
-  loadVehicleRegisters: () => set({ vehicleRegisters: db.getVehicleRegisters() }),
+  loadVehicleRegisters: () =>
+    set({ vehicleRegisters: db.getVehicleRegisters() }),
 
-  refreshDataFromDb: () => set({
-    settings: db.getSettings(),
-    parties: db.getParties(),
-    suppliers: db.getSuppliers(),
-    inventoryItems: db.getInventoryItems(),
-    bills: db.getBills(),
-    purchases: db.getPurchases(),
-    payments: db.getPayments(),
-    ledgerEntries: db.getLedgerEntries(),
-    vehicleRegisters: db.getVehicleRegisters(),
-  }),
+  refreshDataFromDb: () =>
+    set({
+      settings: db.getSettings(),
+      parties: db.getParties(),
+      suppliers: db.getSuppliers(),
+      inventoryItems: db.getInventoryItems(),
+      payments: db.getPayments(),
+      bills: db.getBills(),
+      purchases: db.getPurchases(),
+      ledgerEntries: db.getLedgerEntries(),
+      vehicleRegisters: db.getVehicleRegisters(),
+    }),
 
   sidebarOpen: true,
   toggleSidebar: () => set({ sidebarOpen: !get().sidebarOpen }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
   modalOpen: false,
-  modalContent: '',
+  modalContent: "",
   modalData: {},
-  openModal: (content, data) => set({ modalOpen: true, modalContent: content, modalData: data || {} }),
-  closeModal: () => set({ modalOpen: false, modalContent: '', modalData: {} }),
+  openModal: (content, data) =>
+    set({ modalOpen: true, modalContent: content, modalData: data || {} }),
+  closeModal: () => set({ modalOpen: false, modalContent: "", modalData: {} }),
 
   notification: null,
   showNotification: (message, type) => set({ notification: { message, type } }),

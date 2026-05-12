@@ -25,12 +25,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { formatCurrency, formatDate, todayStr } from '@/utils/formatters';
 import * as db from '@/db/db';
 import type {
-  Bill,
   InventoryItem,
   InventoryTransaction,
   LedgerEntry,
   Payment,
-  Purchase,
   VehicleRegister,
 } from '@/db/schema';
 
@@ -40,10 +38,8 @@ type ReportType =
   | 'vehicle'
   | 'party-ledger'
   | 'inventory'
-  | 'sales'
   | 'payment'
   | 'outstanding'
-  | 'purchase'
   | 'gst';
 
 type QuickPreset = 'today' | 'last7' | 'last30' | 'thisMonth' | 'thisYear' | 'all';
@@ -81,8 +77,6 @@ type TableRow = {
 };
 
 type AggregatedSnapshot = {
-  bills: Bill[];
-  purchases: Purchase[];
   payments: Payment[];
   inventoryItems: InventoryItem[];
   inventoryTransactions: InventoryTransaction[];
@@ -100,7 +94,6 @@ const REPORT_TYPES: Array<{ id: ReportType; label: string }> = [
   { id: 'sales', label: 'Sales Reports' },
   { id: 'payment', label: 'Payment Reports' },
   { id: 'outstanding', label: 'Outstanding Reports' },
-  { id: 'purchase', label: 'Purchase Reports' },
   { id: 'gst', label: 'GST Reports' },
 ];
 
@@ -189,8 +182,6 @@ function daysAgo(days: number): string {
 
 function readSnapshot(): AggregatedSnapshot {
   return {
-    bills: db.getBills(),
-    purchases: db.getPurchases(),
     payments: db.getPayments(),
     inventoryItems: db.getInventoryItems(),
     inventoryTransactions: db.getInventoryTransactions(),
@@ -418,8 +409,6 @@ export function ReportsPage() {
   const options = useMemo(() => {
     const parties = Array.from(
       new Set([
-        ...snapshot.bills.map((b) => `${b.partyId}::${b.partyName}`),
-        ...snapshot.purchases.map((p) => `${p.supplierId}::${p.supplierName}`),
         ...snapshot.payments.map((p) => `${p.partyId}::${p.partyName}`),
         ...snapshot.vehicleRegisters.flatMap((v) =>
           v.rows.filter((r) => r.partyId).map((r) => `${r.partyId}::${r.partyName}`)
@@ -436,8 +425,6 @@ export function ReportsPage() {
     const items = Array.from(
       new Set([
         ...snapshot.inventoryItems.map((i) => i.name),
-        ...snapshot.bills.flatMap((b) => b.items.map((i) => i.fruitName)),
-        ...snapshot.purchases.flatMap((p) => p.items.map((i) => i.fruitName)),
         ...snapshot.vehicleRegisters.flatMap((v) => v.rows.map((r) => r.fruitName)),
       ])
     ).sort();
@@ -446,20 +433,6 @@ export function ReportsPage() {
   }, [snapshot]);
 
   const filteredData = useMemo(() => {
-    const filteredBills = snapshot.bills.filter((b) => {
-      const itemMatched = itemFilter === 'all' || b.items.some((i) => i.fruitName === itemFilter);
-      const partyMatched = partyFilter === 'all' || b.partyId === partyFilter;
-      const statusMatched = statusFilter === 'all' || normalizeStatus(b.status) === normalizeStatus(statusFilter);
-      return isInDateRange(b.date, dateFrom, dateTo) && itemMatched && partyMatched && statusMatched;
-    });
-
-    const filteredPurchases = snapshot.purchases.filter((p) => {
-      const itemMatched = itemFilter === 'all' || p.items.some((i) => i.fruitName === itemFilter);
-      const partyMatched = partyFilter === 'all' || p.supplierId === partyFilter;
-      const statusMatched = statusFilter === 'all' || normalizeStatus(p.status) === normalizeStatus(statusFilter);
-      return isInDateRange(p.date, dateFrom, dateTo) && itemMatched && partyMatched && statusMatched;
-    });
-
     const filteredPayments = snapshot.payments.filter((p) => {
       const partyMatched = partyFilter === 'all' || p.partyId === partyFilter;
       const modeMatched = paymentTypeFilter === 'all' || p.mode === paymentTypeFilter;
@@ -500,8 +473,6 @@ export function ReportsPage() {
     });
 
     return {
-      bills: filteredBills,
-      purchases: filteredPurchases,
       payments: filteredPayments,
       vehicles: filteredVehicles,
       inventoryItems: filteredInventory,
@@ -521,16 +492,10 @@ export function ReportsPage() {
   ]);
 
   const kpis = useMemo(() => {
-    const sales = filteredData.bills.reduce((sum, b) => sum + b.total, 0);
-    const purchase = filteredData.purchases.reduce((sum, p) => sum + p.total, 0);
-    const gstSales = filteredData.bills.reduce((sum, b) => sum + b.taxAmount, 0);
-    const gstPurchase = filteredData.purchases.reduce((sum, p) => sum + p.taxAmount, 0);
     const received = filteredData.payments
       .filter((p) => p.type === 'received')
       .reduce((sum, p) => sum + p.amount, 0);
     const paid = filteredData.payments.filter((p) => p.type === 'paid').reduce((sum, p) => sum + p.amount, 0);
-    const outstandingReceivable = filteredData.bills.reduce((sum, b) => sum + Math.max(0, b.netBalance), 0);
-    const outstandingPayable = filteredData.purchases.reduce((sum, p) => sum + Math.max(0, p.netBalance), 0);
     const stockOnHand = filteredData.inventoryItems.reduce((sum, i) => sum + i.currentStock, 0);
     const stockInward = filteredData.inventoryTransactions
       .filter((t) => t.type === 'inward')
@@ -542,65 +507,19 @@ export function ReportsPage() {
     const vehicleWeight = filteredData.vehicles.reduce((sum, v) => sum + v.totalWeight, 0);
 
     return {
-      sales,
-      purchase,
-      profit: sales - purchase,
-      gstSales,
-      gstPurchase,
       received,
       paid,
-      outstandingReceivable,
-      outstandingPayable,
       stockOnHand,
       stockInward,
       stockOutward,
       vehicleTrips,
       vehicleWeight,
       paymentsNet: received - paid,
-      gstPayable: gstSales - gstPurchase,
     };
   }, [filteredData]);
 
   const tableRows = useMemo<TableRow[]>(() => {
     const rows: TableRow[] = [];
-
-    filteredData.bills.forEach((b) => {
-      rows.push({
-        id: `bill-${b.id}`,
-        module: 'Billing',
-        type: 'Sale',
-        reference: b.billNo,
-        date: b.date,
-        party: b.partyName,
-        item: b.items.map((i) => i.fruitName).join(', '),
-        vehicle: '-',
-        quantity: b.items.reduce((sum, i) => sum + i.totalWeight, 0),
-        gross: b.total,
-        net: b.netBalance,
-        gst: b.taxAmount,
-        status: b.status,
-        warehouse: '-',
-      });
-    });
-
-    filteredData.purchases.forEach((p) => {
-      rows.push({
-        id: `purchase-${p.id}`,
-        module: 'Purchases',
-        type: 'Purchase',
-        reference: p.purchaseNo,
-        date: p.date,
-        party: p.supplierName,
-        item: p.items.map((i) => i.fruitName).join(', '),
-        vehicle: '-',
-        quantity: p.items.reduce((sum, i) => sum + i.quantity, 0),
-        gross: p.total,
-        net: p.netBalance,
-        gst: p.taxAmount,
-        status: p.status,
-        warehouse: 'Main',
-      });
-    });
 
     filteredData.payments.forEach((p) => {
       rows.push({

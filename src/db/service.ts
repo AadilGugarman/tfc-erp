@@ -1,11 +1,9 @@
 import * as db from './db';
 import type {
-  Bill,
   InventoryItem,
   LedgerEntry,
   Party,
   Payment,
-  Purchase,
   Supplier,
   VehicleRegister,
 } from './schema';
@@ -35,12 +33,6 @@ export const dbQuery = {
   },
   suppliers(): Supplier[] {
     return db.getSuppliers();
-  },
-  bills(): Bill[] {
-    return db.getBills();
-  },
-  purchases(): Purchase[] {
-    return db.getPurchases();
   },
   payments(): Payment[] {
     return db.getPayments();

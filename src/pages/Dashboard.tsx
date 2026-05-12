@@ -1,30 +1,22 @@
-import { useEffect } from 'react';
-import { useAppStore } from '@/stores/useAppStore';
-import { PageLayout } from '@/components/PremiumLayout';
-import { QuickActions } from '@/components/QuickActions';
-import { PendingTasksWidgets } from '@/components/PendingTasksWidgets';
-import { RecentActivitySection } from '@/components/RecentActivitySection';
-import { useTranslation } from 'react-i18next';
+import { useEffect } from "react";
+import { useAppStore } from "@/stores/useAppStore";
+import { PageLayout } from "@/components/PremiumLayout";
+import { QuickActions } from "@/components/QuickActions";
+import { PendingTasksWidgets } from "@/components/PendingTasksWidgets";
+import { RecentActivitySection } from "@/components/RecentActivitySection";
+import { useTranslation } from "react-i18next";
 
 export function DashboardPage() {
-  const {
-    loadParties,
-    loadSuppliers,
-    loadBills,
-    loadPurchases,
-    loadPayments,
-    loadInventory,
-  } = useAppStore();
+  const { loadParties, loadSuppliers, loadPayments, loadInventory } =
+    useAppStore();
   const { t } = useTranslation();
 
   useEffect(() => {
     loadParties();
     loadSuppliers();
-    loadBills();
-    loadPurchases();
     loadPayments();
     loadInventory();
-  }, [loadParties, loadSuppliers, loadBills, loadPurchases, loadPayments, loadInventory]);
+  }, [loadParties, loadSuppliers, loadPayments, loadInventory]);
 
   return (
     <PageLayout
@@ -41,7 +33,9 @@ export function DashboardPage() {
       <QuickActions />
 
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-white px-1">{t('common.operationalStatus')}</h2>
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-white px-1">
+          {t("common.operationalStatus")}
+        </h2>
         <PendingTasksWidgets />
       </div>
 
