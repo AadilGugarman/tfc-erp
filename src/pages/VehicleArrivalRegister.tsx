@@ -4,12 +4,10 @@ import { Badge } from "@/components/ui/Badge";
 import { formatCurrency, formatDate, todayStr } from "@/utils/formatters";
 import * as db from "@/db/db";
 import {
-  AlertTriangle,
   CalendarDays,
   Download,
   FileSpreadsheet,
   Filter,
-  IndianRupee,
   PackageCheck,
   Plus,
   Printer,
@@ -18,7 +16,6 @@ import {
   Trash2,
   Truck,
   Users,
-  Weight,
 } from "lucide-react";
 import { toast } from "sonner";
 

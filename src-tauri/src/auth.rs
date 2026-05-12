@@ -2,7 +2,6 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
 use uuid::Uuid;
 
 // JWT Secret Key - In production, load from environment or secure config
@@ -32,11 +31,6 @@ pub struct AuthResponse {
     pub access_token: String,
     pub refresh_token: String,
     pub expires_in: i64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RefreshTokenRequest {
-    pub refresh_token: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -130,7 +124,7 @@ pub fn login(request: LoginRequest) -> Result<AuthResponse, String> {
     
     let conn = get_db_connection()?;
 
-    let (user_id, name, role, password_hash): (String, String, String, String) = conn
+    let (user_id, _name, role, password_hash): (String, String, String, String) = conn
         .query_row(
             "SELECT id, name, role, password_hash FROM users WHERE username = ? AND is_active = 1",
             params![&request.username],

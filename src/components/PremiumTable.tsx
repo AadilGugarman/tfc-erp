@@ -1,5 +1,5 @@
-import { cn } from '@/utils/cn';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { cn } from "@/utils/cn";
+import { ChevronUp, ChevronDown } from "lucide-react";
 
 interface PremiumTableProps {
   title?: string;
@@ -21,8 +21,10 @@ export function PremiumTable({
   return (
     <div className="rounded-xl ring-1 ring-slate-200/70 dark:ring-[#25344f]/75 bg-white/95 dark:bg-[#111827]/92 overflow-hidden shadow-[0_10px_24px_-22px_rgba(15,23,42,0.5)]">
       {title && (
-        <div className="px-4 py-3 bg-gradient-to-r from-slate-50/85 to-transparent dark:from-[#141d31]/80 dark:to-transparent">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
+        <div className="px-4 py-3 bg-linear-to-r from-slate-50/85 to-transparent dark:from-[#141d31]/80 dark:to-transparent">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {title}
+          </h3>
         </div>
       )}
       <div className="overflow-x-auto">
@@ -33,9 +35,9 @@ export function PremiumTable({
                 <th
                   key={i}
                   className={cn(
-                    'text-left font-semibold text-slate-700 dark:text-slate-300',
-                    compact ? 'px-3 py-2 text-xs' : 'px-4 py-3 text-sm',
-                    'uppercase tracking-wider'
+                    "text-left font-semibold text-slate-700 dark:text-slate-300",
+                    compact ? "px-3 py-2 text-xs" : "px-4 py-3 text-sm",
+                    "uppercase tracking-wider",
                   )}
                 >
                   {header}
@@ -70,10 +72,10 @@ export function PremiumTableRow({
     <tr
       onClick={onClick}
       className={cn(
-        'transition-colors duration-150',
-        hoverable && 'hover:bg-slate-50 dark:hover:bg-[#172036] cursor-pointer',
-        isStriped && 'bg-slate-50/70 dark:bg-[#111a2d]',
-        !hoverable && 'hover:bg-slate-50 dark:hover:bg-[#172036]'
+        "transition-colors duration-150",
+        hoverable && "hover:bg-slate-50 dark:hover:bg-[#172036] cursor-pointer",
+        isStriped && "bg-slate-50/70 dark:bg-[#111a2d]",
+        !hoverable && "hover:bg-slate-50 dark:hover:bg-[#172036]",
       )}
     >
       {children}
@@ -83,7 +85,7 @@ export function PremiumTableRow({
 
 interface PremiumTableCellProps {
   children: React.ReactNode;
-  align?: 'left' | 'center' | 'right';
+  align?: "left" | "center" | "right";
   compact?: boolean;
   numeric?: boolean;
   highlighted?: boolean;
@@ -93,7 +95,7 @@ interface PremiumTableCellProps {
 
 export function PremiumTableCell({
   children,
-  align = 'left',
+  align = "left",
   compact = true,
   numeric = false,
   highlighted = false,
@@ -103,14 +105,14 @@ export function PremiumTableCell({
   return (
     <td
       className={cn(
-        compact ? 'px-3 py-2 text-sm' : 'px-4 py-3 text-base',
-        'text-slate-900 dark:text-slate-100',
-        align === 'right' && 'text-right',
-        align === 'center' && 'text-center',
-        numeric && 'font-mono',
-        highlighted && 'font-semibold text-blue-700 dark:text-blue-300',
-        secondary && 'text-slate-500 dark:text-slate-400 text-xs',
-        className
+        compact ? "px-3 py-2 text-sm" : "px-4 py-3 text-base",
+        "text-slate-900 dark:text-slate-100",
+        align === "right" && "text-right",
+        align === "center" && "text-center",
+        numeric && "font-mono",
+        highlighted && "font-semibold text-blue-700 dark:text-blue-300",
+        secondary && "text-slate-500 dark:text-slate-400 text-xs",
+        className,
       )}
     >
       {children}
@@ -121,8 +123,8 @@ export function PremiumTableCell({
 interface PremiumTableHeaderProps {
   children: React.ReactNode;
   sortable?: boolean;
-  sorted?: 'asc' | 'desc' | null;
-  align?: 'left' | 'center' | 'right';
+  sorted?: "asc" | "desc" | null;
+  align?: "left" | "center" | "right";
   onClick?: () => void;
   className?: string;
   numeric?: boolean;
@@ -132,7 +134,7 @@ export function PremiumTableHeader({
   children,
   sortable = false,
   sorted = null,
-  align = 'left',
+  align = "left",
   onClick,
   className,
   numeric = false,
@@ -141,21 +143,27 @@ export function PremiumTableHeader({
     <th
       onClick={sortable ? onClick : undefined}
       className={cn(
-        'px-4 py-2.5 text-left font-semibold text-slate-600 dark:text-slate-400 uppercase text-[10px] tracking-[0.06em]',
-        sortable && 'cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 transition-colors',
-        numeric && 'text-right',
-        className
+        "px-4 py-2.5 text-left font-semibold text-slate-600 dark:text-slate-400 uppercase text-[10px] tracking-[0.06em]",
+        sortable &&
+          "cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 transition-colors",
+        numeric && "text-right",
+        className,
       )}
     >
-      <div className={cn('flex items-center gap-2', align === 'right' && 'justify-end')}>
+      <div
+        className={cn(
+          "flex items-center gap-2",
+          align === "right" && "justify-end",
+        )}
+      >
         {children}
-        {sortable && sorted && (
-          sorted === 'asc' ? (
+        {sortable &&
+          sorted &&
+          (sorted === "asc" ? (
             <ChevronUp className="h-4 w-4" />
           ) : (
             <ChevronDown className="h-4 w-4" />
-          )
-        )}
+          ))}
       </div>
     </th>
   );

@@ -131,7 +131,7 @@ export function SearchPage() {
       <div className="w-full max-w-2xl space-y-4">
         {/* Search Input */}
         <div className="relative">
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-600/10 to-cyan-600/10 pointer-events-none" />
+          <div className="absolute inset-0 rounded-2xl bg-linear-to-r from-blue-600/10 to-cyan-600/10 pointer-events-none" />
           <div className="relative rounded-2xl border border-slate-200 dark:border-[#2a3550] bg-white dark:bg-[#111827] p-4 shadow-lg shadow-slate-200/50 dark:shadow-black/30">
             <div className="flex items-center gap-3">
               <Search className="h-5 w-5 text-slate-400 dark:text-slate-500 shrink-0" />

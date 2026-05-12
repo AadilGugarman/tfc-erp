@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next";
 import { useAppStore } from "@/stores/useAppStore";
 import {
   Truck,
@@ -7,7 +6,8 @@ import {
   CreditCard,
   BookOpen,
   BarChart3,
-  Settings,
+  ShoppingCart,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 
@@ -69,11 +69,26 @@ const QUICK_ACTIONS: QuickAction[] = [
     page: "search",
     shortcut: "Ctrl+K",
   },
+  {
+    id: "sales",
+    label: "Create Sales Invoice",
+    icon: FileText,
+    color: "from-emerald-500 to-emerald-600",
+    page: "transactions",
+    shortcut: "Alt+N",
+  },
+  {
+    id: "purchase",
+    label: "Create Purchase Order",
+    icon: ShoppingCart,
+    color: "from-orange-500 to-orange-600",
+    page: "transactions",
+    shortcut: "Alt+O",
+  },
 ];
 
 export function QuickActions() {
-  const { setCurrentPage } = useAppStore();
-  const { t } = useTranslation();
+  const { setCurrentPage, setInvoiceCreationMode } = useAppStore();
 
   return (
     <div className="space-y-3">
@@ -83,10 +98,18 @@ export function QuickActions() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {QUICK_ACTIONS.map((action) => {
           const Icon = action.icon;
+          const handleClick = () => {
+            if (action.id === "sales" || action.id === "purchase") {
+              setInvoiceCreationMode(
+                action.id === "sales" ? "sales" : "purchase",
+              );
+            }
+            setCurrentPage(action.page as any);
+          };
           return (
             <button
               key={action.id}
-              onClick={() => setCurrentPage(action.page)}
+              onClick={handleClick}
               className={cn(
                 "group relative overflow-hidden rounded-lg p-4",
                 "bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#2a3550]",
@@ -99,7 +122,7 @@ export function QuickActions() {
               <div
                 className={cn(
                   "absolute inset-0 opacity-0 group-hover:opacity-5",
-                  `bg-gradient-to-br ${action.color}`,
+                  `bg-linear-to-br ${action.color}`,
                   "transition-opacity duration-200",
                 )}
               />
@@ -109,7 +132,7 @@ export function QuickActions() {
                 <div
                   className={cn(
                     "h-10 w-10 rounded-lg flex items-center justify-center",
-                    `bg-gradient-to-br ${action.color} text-white shadow-lg`,
+                    `bg-linear-to-br ${action.color} text-white shadow-lg`,
                     "group-hover:shadow-xl transition-shadow duration-200",
                   )}
                 >

@@ -99,6 +99,9 @@ interface AppState {
 
   shortcutsEnabled: boolean;
   toggleShortcuts: () => void;
+
+  invoiceCreationMode: "sales" | "purchase" | null;
+  setInvoiceCreationMode: (mode: "sales" | "purchase" | null) => void;
 }
 
 const DEFAULT_COMPANY: Company = {
@@ -289,4 +292,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   shortcutsEnabled: true,
   toggleShortcuts: () => set({ shortcutsEnabled: !get().shortcutsEnabled }),
+
+  invoiceCreationMode: null,
+  setInvoiceCreationMode: (mode) => set({ invoiceCreationMode: mode }),
 }));

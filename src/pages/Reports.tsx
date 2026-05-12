@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -19,45 +19,51 @@ import {
   Send,
   Truck,
   Wallet,
-} from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { formatCurrency, formatDate, todayStr } from '@/utils/formatters';
-import * as db from '@/db/db';
+} from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { formatCurrency, formatDate, todayStr } from "@/utils/formatters";
+import * as db from "@/db/db";
 import type {
   InventoryItem,
   InventoryTransaction,
   LedgerEntry,
   Payment,
   VehicleRegister,
-} from '@/db/schema';
+} from "@/db/schema";
 
 type ReportType =
-  | 'daily'
-  | 'monthly'
-  | 'vehicle'
-  | 'party-ledger'
-  | 'inventory'
-  | 'payment'
-  | 'outstanding'
-  | 'gst';
+  | "daily"
+  | "monthly"
+  | "vehicle"
+  | "party-ledger"
+  | "inventory"
+  | "payment"
+  | "outstanding"
+  | "gst";
 
-type QuickPreset = 'today' | 'last7' | 'last30' | 'thisMonth' | 'thisYear' | 'all';
+type QuickPreset =
+  | "today"
+  | "last7"
+  | "last30"
+  | "thisMonth"
+  | "thisYear"
+  | "all";
 
 type TableColumnKey =
-  | 'module'
-  | 'type'
-  | 'reference'
-  | 'date'
-  | 'party'
-  | 'item'
-  | 'vehicle'
-  | 'quantity'
-  | 'gross'
-  | 'net'
-  | 'gst'
-  | 'status'
-  | 'warehouse';
+  | "module"
+  | "type"
+  | "reference"
+  | "date"
+  | "party"
+  | "item"
+  | "vehicle"
+  | "quantity"
+  | "gross"
+  | "net"
+  | "gst"
+  | "status"
+  | "warehouse";
 
 type TableRow = {
   id: string;
@@ -86,98 +92,108 @@ type AggregatedSnapshot = {
 };
 
 const REPORT_TYPES: Array<{ id: ReportType; label: string }> = [
-  { id: 'daily', label: 'Daily Reports' },
-  { id: 'monthly', label: 'Monthly Reports' },
-  { id: 'vehicle', label: 'Vehicle-wise Reports' },
-  { id: 'party-ledger', label: 'Party Ledger Reports' },
-  { id: 'inventory', label: 'Inventory Reports' },
-  { id: 'sales', label: 'Sales Reports' },
-  { id: 'payment', label: 'Payment Reports' },
-  { id: 'outstanding', label: 'Outstanding Reports' },
-  { id: 'gst', label: 'GST Reports' },
+  { id: "daily", label: "Daily Reports" },
+  { id: "monthly", label: "Monthly Reports" },
+  { id: "vehicle", label: "Vehicle-wise Reports" },
+  { id: "party-ledger", label: "Party Ledger Reports" },
+  { id: "inventory", label: "Inventory Reports" },
+  { id: "sales", label: "Sales Reports" },
+  { id: "payment", label: "Payment Reports" },
+  { id: "outstanding", label: "Outstanding Reports" },
+  { id: "gst", label: "GST Reports" },
 ];
 
 const ALL_COLUMNS: Array<{ key: TableColumnKey; label: string }> = [
-  { key: 'module', label: 'Module' },
-  { key: 'type', label: 'Type' },
-  { key: 'reference', label: 'Reference' },
-  { key: 'date', label: 'Date' },
-  { key: 'party', label: 'Party / Supplier' },
-  { key: 'item', label: 'Item' },
-  { key: 'vehicle', label: 'Vehicle' },
-  { key: 'quantity', label: 'Quantity' },
-  { key: 'gross', label: 'Gross Amount' },
-  { key: 'net', label: 'Net / Outstanding' },
-  { key: 'gst', label: 'GST' },
-  { key: 'status', label: 'Status' },
-  { key: 'warehouse', label: 'Warehouse' },
+  { key: "module", label: "Module" },
+  { key: "type", label: "Type" },
+  { key: "reference", label: "Reference" },
+  { key: "date", label: "Date" },
+  { key: "party", label: "Party / Supplier" },
+  { key: "item", label: "Item" },
+  { key: "vehicle", label: "Vehicle" },
+  { key: "quantity", label: "Quantity" },
+  { key: "gross", label: "Gross Amount" },
+  { key: "net", label: "Net / Outstanding" },
+  { key: "gst", label: "GST" },
+  { key: "status", label: "Status" },
+  { key: "warehouse", label: "Warehouse" },
 ];
 
 const KPI_ACCENTS = [
   {
-    border: 'border-emerald-200/80 dark:border-emerald-700/40',
-    strip: 'from-emerald-100/90 to-emerald-50/30 dark:from-emerald-900/35 dark:to-transparent',
-    icon: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/45 dark:text-emerald-300',
-    glow: 'from-emerald-500/25 to-transparent',
+    border: "border-emerald-200/80 dark:border-emerald-700/40",
+    strip:
+      "from-emerald-100/90 to-emerald-50/30 dark:from-emerald-900/35 dark:to-transparent",
+    icon: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/45 dark:text-emerald-300",
+    glow: "from-emerald-500/25 to-transparent",
   },
   {
-    border: 'border-sky-200/80 dark:border-sky-700/40',
-    strip: 'from-sky-100/90 to-sky-50/30 dark:from-sky-900/35 dark:to-transparent',
-    icon: 'bg-sky-100 text-sky-700 dark:bg-sky-900/45 dark:text-sky-300',
-    glow: 'from-sky-500/25 to-transparent',
+    border: "border-sky-200/80 dark:border-sky-700/40",
+    strip:
+      "from-sky-100/90 to-sky-50/30 dark:from-sky-900/35 dark:to-transparent",
+    icon: "bg-sky-100 text-sky-700 dark:bg-sky-900/45 dark:text-sky-300",
+    glow: "from-sky-500/25 to-transparent",
   },
   {
-    border: 'border-orange-200/80 dark:border-orange-700/40',
-    strip: 'from-orange-100/90 to-orange-50/30 dark:from-orange-900/35 dark:to-transparent',
-    icon: 'bg-orange-100 text-orange-700 dark:bg-orange-900/45 dark:text-orange-300',
-    glow: 'from-orange-500/25 to-transparent',
+    border: "border-orange-200/80 dark:border-orange-700/40",
+    strip:
+      "from-orange-100/90 to-orange-50/30 dark:from-orange-900/35 dark:to-transparent",
+    icon: "bg-orange-100 text-orange-700 dark:bg-orange-900/45 dark:text-orange-300",
+    glow: "from-orange-500/25 to-transparent",
   },
   {
-    border: 'border-cyan-200/80 dark:border-cyan-700/40',
-    strip: 'from-cyan-100/90 to-cyan-50/30 dark:from-cyan-900/35 dark:to-transparent',
-    icon: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/45 dark:text-cyan-300',
-    glow: 'from-cyan-500/25 to-transparent',
+    border: "border-cyan-200/80 dark:border-cyan-700/40",
+    strip:
+      "from-cyan-100/90 to-cyan-50/30 dark:from-cyan-900/35 dark:to-transparent",
+    icon: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/45 dark:text-cyan-300",
+    glow: "from-cyan-500/25 to-transparent",
   },
   {
-    border: 'border-amber-200/80 dark:border-amber-700/40',
-    strip: 'from-amber-100/90 to-amber-50/30 dark:from-amber-900/35 dark:to-transparent',
-    icon: 'bg-amber-100 text-amber-700 dark:bg-amber-900/45 dark:text-amber-300',
-    glow: 'from-amber-500/25 to-transparent',
+    border: "border-amber-200/80 dark:border-amber-700/40",
+    strip:
+      "from-amber-100/90 to-amber-50/30 dark:from-amber-900/35 dark:to-transparent",
+    icon: "bg-amber-100 text-amber-700 dark:bg-amber-900/45 dark:text-amber-300",
+    glow: "from-amber-500/25 to-transparent",
   },
   {
-    border: 'border-teal-200/80 dark:border-teal-700/40',
-    strip: 'from-teal-100/90 to-teal-50/30 dark:from-teal-900/35 dark:to-transparent',
-    icon: 'bg-teal-100 text-teal-700 dark:bg-teal-900/45 dark:text-teal-300',
-    glow: 'from-teal-500/25 to-transparent',
+    border: "border-teal-200/80 dark:border-teal-700/40",
+    strip:
+      "from-teal-100/90 to-teal-50/30 dark:from-teal-900/35 dark:to-transparent",
+    icon: "bg-teal-100 text-teal-700 dark:bg-teal-900/45 dark:text-teal-300",
+    glow: "from-teal-500/25 to-transparent",
   },
   {
-    border: 'border-rose-200/80 dark:border-rose-700/40',
-    strip: 'from-rose-100/90 to-rose-50/30 dark:from-rose-900/35 dark:to-transparent',
-    icon: 'bg-rose-100 text-rose-700 dark:bg-rose-900/45 dark:text-rose-300',
-    glow: 'from-rose-500/25 to-transparent',
+    border: "border-rose-200/80 dark:border-rose-700/40",
+    strip:
+      "from-rose-100/90 to-rose-50/30 dark:from-rose-900/35 dark:to-transparent",
+    icon: "bg-rose-100 text-rose-700 dark:bg-rose-900/45 dark:text-rose-300",
+    glow: "from-rose-500/25 to-transparent",
   },
   {
-    border: 'border-indigo-200/80 dark:border-indigo-700/40',
-    strip: 'from-indigo-100/90 to-indigo-50/30 dark:from-indigo-900/35 dark:to-transparent',
-    icon: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/45 dark:text-indigo-300',
-    glow: 'from-indigo-500/25 to-transparent',
+    border: "border-indigo-200/80 dark:border-indigo-700/40",
+    strip:
+      "from-indigo-100/90 to-indigo-50/30 dark:from-indigo-900/35 dark:to-transparent",
+    icon: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/45 dark:text-indigo-300",
+    glow: "from-indigo-500/25 to-transparent",
   },
 ] as const;
 
 function getStartOfMonth(): string {
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  return new Date(now.getFullYear(), now.getMonth(), 1)
+    .toISOString()
+    .split("T")[0];
 }
 
 function getStartOfYear(): string {
   const now = new Date();
-  return new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
+  return new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0];
 }
 
 function daysAgo(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return d.toISOString().split('T')[0];
+  return d.toISOString().split("T")[0];
 }
 
 function readSnapshot(): AggregatedSnapshot {
@@ -192,7 +208,7 @@ function readSnapshot(): AggregatedSnapshot {
 }
 
 function toCsv(rows: TableRow[]): string {
-  const header = ALL_COLUMNS.map((c) => c.label).join(',');
+  const header = ALL_COLUMNS.map((c) => c.label).join(",");
   const body = rows
     .map((r) =>
       [
@@ -211,16 +227,16 @@ function toCsv(rows: TableRow[]): string {
         r.warehouse,
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-        .join(',')
+        .join(","),
     )
-    .join('\n');
+    .join("\n");
   return `${header}\n${body}`;
 }
 
 function downloadBlob(content: BlobPart, fileName: string, type: string): void {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = fileName;
   a.click();
@@ -228,7 +244,7 @@ function downloadBlob(content: BlobPart, fileName: string, type: string): void {
 }
 
 function normalizeStatus(value: string): string {
-  return (value || '').toLowerCase();
+  return (value || "").toLowerCase();
 }
 
 function isInDateRange(date: string, from: string, to: string): boolean {
@@ -238,7 +254,11 @@ function isInDateRange(date: string, from: string, to: string): boolean {
   return true;
 }
 
-function TrendLineChart({ data }: { data: Array<{ label: string; value: number }> }) {
+function TrendLineChart({
+  data,
+}: {
+  data: Array<{ label: string; value: number }>;
+}) {
   const max = Math.max(...data.map((d) => d.value), 1);
   const points = data
     .map((d, idx) => {
@@ -246,23 +266,39 @@ function TrendLineChart({ data }: { data: Array<{ label: string; value: number }
       const y = 100 - (d.value / max) * 90;
       return `${x},${y}`;
     })
-    .join(' ');
+    .join(" ");
 
   return (
     <div className="rounded-xl border border-sky-200/70 dark:border-sky-800/45 bg-gradient-to-br from-sky-50/85 via-white to-cyan-50/75 dark:from-[#0f182b] dark:via-[#111f34] dark:to-[#0f2433] p-3">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">Sales Trend</p>
-        <span className="text-xs text-slate-500 dark:text-slate-400">Line Chart</span>
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+          Sales Trend
+        </p>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          Line Chart
+        </span>
       </div>
       <svg viewBox="0 0 100 100" className="h-40 w-full">
         <defs>
-          <linearGradient id="salesTrendStroke" x1="0" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
+          <linearGradient
+            id="salesTrendStroke"
+            x1="0"
+            y1="0"
+            x2="100"
+            y2="0"
+            gradientUnits="userSpaceOnUse"
+          >
             <stop offset="0%" stopColor="#0ea5e9" />
             <stop offset="52%" stopColor="#2563eb" />
             <stop offset="100%" stopColor="#14b8a6" />
           </linearGradient>
         </defs>
-        <polyline fill="none" stroke="rgba(148,163,184,0.35)" strokeWidth="0.6" points="0,100 100,100" />
+        <polyline
+          fill="none"
+          stroke="rgba(148,163,184,0.35)"
+          strokeWidth="0.6"
+          points="0,100 100,100"
+        />
         <polyline
           fill="none"
           stroke="url(#salesTrendStroke)"
@@ -274,7 +310,10 @@ function TrendLineChart({ data }: { data: Array<{ label: string; value: number }
       </svg>
       <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500 dark:text-slate-400">
         {data.slice(-4).map((d) => (
-          <span key={d.label} className="rounded-md bg-slate-100 px-2 py-1 dark:bg-[#1b2438]">
+          <span
+            key={d.label}
+            className="rounded-md bg-slate-100 px-2 py-1 dark:bg-[#1b2438]"
+          >
             {d.label}: {formatCurrency(d.value)}
           </span>
         ))}
@@ -283,32 +322,40 @@ function TrendLineChart({ data }: { data: Array<{ label: string; value: number }
   );
 }
 
-function BarAnalyticsChart({ data }: { data: Array<{ label: string; value: number }> }) {
+function BarAnalyticsChart({
+  data,
+}: {
+  data: Array<{ label: string; value: number }>;
+}) {
   const max = Math.max(...data.map((d) => d.value), 1);
   const barPalette = [
-    'from-blue-600 to-cyan-400',
-    'from-emerald-600 to-teal-400',
-    'from-orange-500 to-amber-400',
-    'from-rose-600 to-pink-400',
-    'from-indigo-600 to-sky-400',
-    'from-teal-600 to-cyan-500',
+    "from-blue-600 to-cyan-400",
+    "from-emerald-600 to-teal-400",
+    "from-orange-500 to-amber-400",
+    "from-rose-600 to-pink-400",
+    "from-indigo-600 to-sky-400",
+    "from-teal-600 to-cyan-500",
   ];
   return (
     <div className="rounded-xl border border-emerald-200/70 dark:border-emerald-800/45 bg-gradient-to-br from-emerald-50/85 via-white to-teal-50/75 dark:from-[#0f182b] dark:via-[#112034] dark:to-[#102733] p-3">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">Stock Movement</p>
-        <span className="text-xs text-slate-500 dark:text-slate-400">Bar Chart</span>
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+          Stock Movement
+        </p>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          Bar Chart
+        </span>
       </div>
       <div className="space-y-2">
         {data.map((d, idx) => (
           <div key={d.label}>
             <div className="mb-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
               <span className="truncate">{d.label}</span>
-              <span>{d.value.toLocaleString('en-IN')} kg</span>
+              <span>{d.value.toLocaleString("en-IN")} kg</span>
             </div>
             <div className="h-2.5 rounded-full bg-slate-100 dark:bg-[#1b2438]">
               <div
-                className={`h-2.5 rounded-full bg-gradient-to-r ${barPalette[idx % barPalette.length]}`}
+                className={`h-2.5 rounded-full bg-linear-to-r ${barPalette[idx % barPalette.length]}`}
                 style={{ width: `${(d.value / max) * 100}%` }}
               />
             </div>
@@ -319,10 +366,14 @@ function BarAnalyticsChart({ data }: { data: Array<{ label: string; value: numbe
   );
 }
 
-function PieModeChart({ data }: { data: Array<{ label: string; value: number }> }) {
+function PieModeChart({
+  data,
+}: {
+  data: Array<{ label: string; value: number }>;
+}) {
   const total = data.reduce((sum, d) => sum + d.value, 0) || 1;
   let cursor = 0;
-  const colors = ['#2563eb', '#0f766e', '#d97706', '#be123c', '#0891b2'];
+  const colors = ["#2563eb", "#0f766e", "#d97706", "#be123c", "#0891b2"];
 
   const slices = data.map((d, idx) => {
     const frac = d.value / total;
@@ -344,19 +395,32 @@ function PieModeChart({ data }: { data: Array<{ label: string; value: number }> 
   return (
     <div className="rounded-xl border border-amber-200/70 dark:border-amber-800/45 bg-gradient-to-br from-amber-50/85 via-white to-rose-50/75 dark:from-[#0f182b] dark:via-[#211d34] dark:to-[#2a1a2a] p-3">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">Payment Mix</p>
-        <span className="text-xs text-slate-500 dark:text-slate-400">Pie Chart</span>
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+          Payment Mix
+        </p>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          Pie Chart
+        </span>
       </div>
       <div className="flex items-center gap-4">
         <svg viewBox="0 0 100 100" className="h-36 w-36 shrink-0">
           {slices.map((s) => (
-            <path key={s.label} d={s.path} fill={s.color} stroke="white" strokeWidth="0.8" />
+            <path
+              key={s.label}
+              d={s.path}
+              fill={s.color}
+              stroke="white"
+              strokeWidth="0.8"
+            />
           ))}
         </svg>
         <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
           {slices.map((s) => (
             <div key={s.label} className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: s.color }}
+              />
               <span className="capitalize">{s.label}</span>
               <span className="font-semibold">{formatCurrency(s.value)}</span>
             </div>
@@ -369,40 +433,40 @@ function PieModeChart({ data }: { data: Array<{ label: string; value: number }> 
 
 export function ReportsPage() {
   const [snapshot, setSnapshot] = useState<AggregatedSnapshot>(readSnapshot);
-  const [reportType, setReportType] = useState<ReportType>('daily');
+  const [reportType, setReportType] = useState<ReportType>("daily");
   const [dateFrom, setDateFrom] = useState(getStartOfMonth());
   const [dateTo, setDateTo] = useState(todayStr());
-  const [partyFilter, setPartyFilter] = useState('all');
-  const [vehicleFilter, setVehicleFilter] = useState('all');
-  const [itemFilter, setItemFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [paymentTypeFilter, setPaymentTypeFilter] = useState('all');
-  const [warehouseFilter, setWarehouseFilter] = useState('all');
-  const [tableSearch, setTableSearch] = useState('');
-  const [sortBy, setSortBy] = useState<TableColumnKey>('date');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [partyFilter, setPartyFilter] = useState("all");
+  const [vehicleFilter, setVehicleFilter] = useState("all");
+  const [itemFilter, setItemFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState("all");
+  const [warehouseFilter, setWarehouseFilter] = useState("all");
+  const [tableSearch, setTableSearch] = useState("");
+  const [sortBy, setSortBy] = useState<TableColumnKey>("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<TableColumnKey[]>([
-    'module',
-    'type',
-    'reference',
-    'date',
-    'party',
-    'item',
-    'gross',
-    'net',
-    'status',
+    "module",
+    "type",
+    "reference",
+    "date",
+    "party",
+    "item",
+    "gross",
+    "net",
+    "status",
   ]);
 
   useEffect(() => {
     const refresh = () => setSnapshot(readSnapshot());
     const unsubscribe = db.subscribeDbChanges(refresh);
-    window.addEventListener('storage', refresh);
+    window.addEventListener("storage", refresh);
     return () => {
       unsubscribe();
-      window.removeEventListener('storage', refresh);
+      window.removeEventListener("storage", refresh);
     };
   }, []);
 
@@ -411,65 +475,113 @@ export function ReportsPage() {
       new Set([
         ...snapshot.payments.map((p) => `${p.partyId}::${p.partyName}`),
         ...snapshot.vehicleRegisters.flatMap((v) =>
-          v.rows.filter((r) => r.partyId).map((r) => `${r.partyId}::${r.partyName}`)
+          v.rows
+            .filter((r) => r.partyId)
+            .map((r) => `${r.partyId}::${r.partyName}`),
         ),
-      ])
+      ]),
     )
       .map((raw) => {
-        const [id, name] = raw.split('::');
+        const [id, name] = raw.split("::");
         return { id, name };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    const vehicles = Array.from(new Set(snapshot.vehicleRegisters.map((v) => v.vehicleNumber))).sort();
+    const vehicles = Array.from(
+      new Set(snapshot.vehicleRegisters.map((v) => v.vehicleNumber)),
+    ).sort();
     const items = Array.from(
       new Set([
         ...snapshot.inventoryItems.map((i) => i.name),
-        ...snapshot.vehicleRegisters.flatMap((v) => v.rows.map((r) => r.fruitName)),
-      ])
+        ...snapshot.vehicleRegisters.flatMap((v) =>
+          v.rows.map((r) => r.fruitName),
+        ),
+      ]),
     ).sort();
-    const warehouses = Array.from(new Set(snapshot.inventoryItems.map((i) => i.warehouse))).sort();
+    const warehouses = Array.from(
+      new Set(snapshot.inventoryItems.map((i) => i.warehouse)),
+    ).sort();
     return { parties, vehicles, items, warehouses };
   }, [snapshot]);
 
   const filteredData = useMemo(() => {
     const filteredPayments = snapshot.payments.filter((p) => {
-      const partyMatched = partyFilter === 'all' || p.partyId === partyFilter;
-      const modeMatched = paymentTypeFilter === 'all' || p.mode === paymentTypeFilter;
-      const statusMatched = statusFilter === 'all' || normalizeStatus(p.type) === normalizeStatus(statusFilter);
-      return isInDateRange(p.date, dateFrom, dateTo) && partyMatched && modeMatched && statusMatched;
+      const partyMatched = partyFilter === "all" || p.partyId === partyFilter;
+      const modeMatched =
+        paymentTypeFilter === "all" || p.mode === paymentTypeFilter;
+      const statusMatched =
+        statusFilter === "all" ||
+        normalizeStatus(p.type) === normalizeStatus(statusFilter);
+      return (
+        isInDateRange(p.date, dateFrom, dateTo) &&
+        partyMatched &&
+        modeMatched &&
+        statusMatched
+      );
     });
 
     const filteredVehicles = snapshot.vehicleRegisters.filter((v) => {
-      const vehicleMatched = vehicleFilter === 'all' || v.vehicleNumber === vehicleFilter;
-      const statusMatched = statusFilter === 'all' || normalizeStatus(v.status) === normalizeStatus(statusFilter);
+      const vehicleMatched =
+        vehicleFilter === "all" || v.vehicleNumber === vehicleFilter;
+      const statusMatched =
+        statusFilter === "all" ||
+        normalizeStatus(v.status) === normalizeStatus(statusFilter);
       const rowPartyMatched =
-        partyFilter === 'all' || v.rows.some((r) => r.partyId === partyFilter || r.partyName.toLowerCase().includes(partyFilter.toLowerCase()));
-      const rowItemMatched = itemFilter === 'all' || v.rows.some((r) => r.fruitName === itemFilter);
-      return isInDateRange(v.date, dateFrom, dateTo) && vehicleMatched && statusMatched && rowPartyMatched && rowItemMatched;
+        partyFilter === "all" ||
+        v.rows.some(
+          (r) =>
+            r.partyId === partyFilter ||
+            r.partyName.toLowerCase().includes(partyFilter.toLowerCase()),
+        );
+      const rowItemMatched =
+        itemFilter === "all" || v.rows.some((r) => r.fruitName === itemFilter);
+      return (
+        isInDateRange(v.date, dateFrom, dateTo) &&
+        vehicleMatched &&
+        statusMatched &&
+        rowPartyMatched &&
+        rowItemMatched
+      );
     });
 
     const filteredInventory = snapshot.inventoryItems.filter((item) => {
-      const itemMatched = itemFilter === 'all' || item.name === itemFilter;
-      const warehouseMatched = warehouseFilter === 'all' || item.warehouse === warehouseFilter;
-      const statusMatched = statusFilter === 'all' || normalizeStatus(item.status) === normalizeStatus(statusFilter);
+      const itemMatched = itemFilter === "all" || item.name === itemFilter;
+      const warehouseMatched =
+        warehouseFilter === "all" || item.warehouse === warehouseFilter;
+      const statusMatched =
+        statusFilter === "all" ||
+        normalizeStatus(item.status) === normalizeStatus(statusFilter);
       return itemMatched && warehouseMatched && statusMatched;
     });
 
     const inventoryMap = new Map(snapshot.inventoryItems.map((i) => [i.id, i]));
 
-    const filteredInventoryTransactions = snapshot.inventoryTransactions.filter((txn) => {
-      const itemMatched = itemFilter === 'all' || txn.itemName === itemFilter;
-      const statusMatched = statusFilter === 'all' || normalizeStatus(txn.type) === normalizeStatus(statusFilter);
-      const warehouseMatched =
-        warehouseFilter === 'all' || inventoryMap.get(txn.itemId)?.warehouse === warehouseFilter;
-      return isInDateRange(txn.date, dateFrom, dateTo) && itemMatched && statusMatched && warehouseMatched;
-    });
+    const filteredInventoryTransactions = snapshot.inventoryTransactions.filter(
+      (txn) => {
+        const itemMatched = itemFilter === "all" || txn.itemName === itemFilter;
+        const statusMatched =
+          statusFilter === "all" ||
+          normalizeStatus(txn.type) === normalizeStatus(statusFilter);
+        const warehouseMatched =
+          warehouseFilter === "all" ||
+          inventoryMap.get(txn.itemId)?.warehouse === warehouseFilter;
+        return (
+          isInDateRange(txn.date, dateFrom, dateTo) &&
+          itemMatched &&
+          statusMatched &&
+          warehouseMatched
+        );
+      },
+    );
 
     const filteredLedger = snapshot.ledgerEntries.filter((l) => {
-      const partyMatched = partyFilter === 'all' || l.partyId === partyFilter;
-      const statusMatched = statusFilter === 'all' || normalizeStatus(l.type) === normalizeStatus(statusFilter);
-      return isInDateRange(l.date, dateFrom, dateTo) && partyMatched && statusMatched;
+      const partyMatched = partyFilter === "all" || l.partyId === partyFilter;
+      const statusMatched =
+        statusFilter === "all" ||
+        normalizeStatus(l.type) === normalizeStatus(statusFilter);
+      return (
+        isInDateRange(l.date, dateFrom, dateTo) && partyMatched && statusMatched
+      );
     });
 
     return {
@@ -493,18 +605,26 @@ export function ReportsPage() {
 
   const kpis = useMemo(() => {
     const received = filteredData.payments
-      .filter((p) => p.type === 'received')
+      .filter((p) => p.type === "received")
       .reduce((sum, p) => sum + p.amount, 0);
-    const paid = filteredData.payments.filter((p) => p.type === 'paid').reduce((sum, p) => sum + p.amount, 0);
-    const stockOnHand = filteredData.inventoryItems.reduce((sum, i) => sum + i.currentStock, 0);
+    const paid = filteredData.payments
+      .filter((p) => p.type === "paid")
+      .reduce((sum, p) => sum + p.amount, 0);
+    const stockOnHand = filteredData.inventoryItems.reduce(
+      (sum, i) => sum + i.currentStock,
+      0,
+    );
     const stockInward = filteredData.inventoryTransactions
-      .filter((t) => t.type === 'inward')
+      .filter((t) => t.type === "inward")
       .reduce((sum, t) => sum + t.quantity, 0);
     const stockOutward = filteredData.inventoryTransactions
-      .filter((t) => t.type === 'outward')
+      .filter((t) => t.type === "outward")
       .reduce((sum, t) => sum + t.quantity, 0);
     const vehicleTrips = filteredData.vehicles.length;
-    const vehicleWeight = filteredData.vehicles.reduce((sum, v) => sum + v.totalWeight, 0);
+    const vehicleWeight = filteredData.vehicles.reduce(
+      (sum, v) => sum + v.totalWeight,
+      0,
+    );
 
     return {
       received,
@@ -524,52 +644,62 @@ export function ReportsPage() {
     filteredData.payments.forEach((p) => {
       rows.push({
         id: `payment-${p.id}`,
-        module: 'Payments',
+        module: "Payments",
         type: p.type,
         reference: p.referenceNo || p.id,
         date: p.date,
         party: p.partyName,
-        item: '-',
-        vehicle: '-',
+        item: "-",
+        vehicle: "-",
         quantity: 0,
         gross: p.amount,
         net: p.amount,
         gst: 0,
         status: p.mode,
-        warehouse: '-',
+        warehouse: "-",
       });
     });
 
     filteredData.vehicles.forEach((v) => {
       rows.push({
         id: `vehicle-${v.id}`,
-        module: 'Vehicle Register',
-        type: 'Movement',
+        module: "Vehicle Register",
+        type: "Movement",
         reference: v.entryNo,
         date: v.date,
-        party: v.rows.map((r) => r.partyName).filter(Boolean).slice(0, 2).join(', ') || '-',
-        item: v.rows.map((r) => r.fruitName).slice(0, 3).join(', '),
+        party:
+          v.rows
+            .map((r) => r.partyName)
+            .filter(Boolean)
+            .slice(0, 2)
+            .join(", ") || "-",
+        item: v.rows
+          .map((r) => r.fruitName)
+          .slice(0, 3)
+          .join(", "),
         vehicle: v.vehicleNumber,
         quantity: v.totalWeight,
         gross: v.grandTotal,
         net: v.outstandingBalance,
         gst: 0,
         status: v.status,
-        warehouse: '-',
+        warehouse: "-",
       });
     });
 
     filteredData.inventoryTransactions.forEach((t) => {
-      const warehouse = snapshot.inventoryItems.find((i) => i.id === t.itemId)?.warehouse || '-';
+      const warehouse =
+        snapshot.inventoryItems.find((i) => i.id === t.itemId)?.warehouse ||
+        "-";
       rows.push({
         id: `inventory-txn-${t.id}`,
-        module: 'Inventory',
+        module: "Inventory",
         type: t.type,
         reference: t.referenceId,
         date: t.date,
-        party: '-',
+        party: "-",
         item: t.itemName,
-        vehicle: '-',
+        vehicle: "-",
         quantity: t.quantity,
         gross: t.rate * t.quantity,
         net: t.rate * t.quantity,
@@ -584,26 +714,34 @@ export function ReportsPage() {
 
   const scopedRows = useMemo(() => {
     switch (reportType) {
-      case 'daily':
+      case "daily":
         return tableRows.filter((r) => r.date === dateTo);
-      case 'monthly':
-        return tableRows.filter((r) => r.date.slice(0, 7) === dateTo.slice(0, 7));
-      case 'vehicle':
-        return tableRows.filter((r) => r.module === 'Vehicle Register');
-      case 'party-ledger':
-        return tableRows.filter((r) => ['Billing', 'Purchases', 'Payments'].includes(r.module));
-      case 'inventory':
-        return tableRows.filter((r) => r.module === 'Inventory');
-      case 'sales':
-        return tableRows.filter((r) => r.module === 'Billing');
-      case 'payment':
-        return tableRows.filter((r) => r.module === 'Payments');
-      case 'outstanding':
-        return tableRows.filter((r) => r.net > 0 && ['Billing', 'Purchases'].includes(r.module));
-      case 'purchase':
-        return tableRows.filter((r) => r.module === 'Purchases');
-      case 'gst':
-        return tableRows.filter((r) => r.gst > 0 && ['Billing', 'Purchases'].includes(r.module));
+      case "monthly":
+        return tableRows.filter(
+          (r) => r.date.slice(0, 7) === dateTo.slice(0, 7),
+        );
+      case "vehicle":
+        return tableRows.filter((r) => r.module === "Vehicle Register");
+      case "party-ledger":
+        return tableRows.filter((r) =>
+          ["Billing", "Purchases", "Payments"].includes(r.module),
+        );
+      case "inventory":
+        return tableRows.filter((r) => r.module === "Inventory");
+      case "sales":
+        return tableRows.filter((r) => r.module === "Billing");
+      case "payment":
+        return tableRows.filter((r) => r.module === "Payments");
+      case "outstanding":
+        return tableRows.filter(
+          (r) => r.net > 0 && ["Billing", "Purchases"].includes(r.module),
+        );
+      case "purchase":
+        return tableRows.filter((r) => r.module === "Purchases");
+      case "gst":
+        return tableRows.filter(
+          (r) => r.gst > 0 && ["Billing", "Purchases"].includes(r.module),
+        );
       default:
         return tableRows;
     }
@@ -630,10 +768,10 @@ export function ReportsPage() {
     data.sort((a, b) => {
       const left = a[sortBy];
       const right = b[sortBy];
-      if (typeof left === 'number' && typeof right === 'number') {
-        return sortDir === 'asc' ? left - right : right - left;
+      if (typeof left === "number" && typeof right === "number") {
+        return sortDir === "asc" ? left - right : right - left;
       }
-      return sortDir === 'asc'
+      return sortDir === "asc"
         ? String(left).localeCompare(String(right))
         : String(right).localeCompare(String(left));
     });
@@ -648,7 +786,19 @@ export function ReportsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [reportType, dateFrom, dateTo, partyFilter, vehicleFilter, itemFilter, statusFilter, paymentTypeFilter, warehouseFilter, tableSearch, pageSize]);
+  }, [
+    reportType,
+    dateFrom,
+    dateTo,
+    partyFilter,
+    vehicleFilter,
+    itemFilter,
+    statusFilter,
+    paymentTypeFilter,
+    warehouseFilter,
+    tableSearch,
+    pageSize,
+  ]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -687,10 +837,17 @@ export function ReportsPage() {
   }, [filteredData.payments]);
 
   const partyLedgerSummary = useMemo(() => {
-    const map = new Map<string, { party: string; debit: number; credit: number }>();
+    const map = new Map<
+      string,
+      { party: string; debit: number; credit: number }
+    >();
     filteredData.ledgerEntries.forEach((entry) => {
-      const current = map.get(entry.partyId) || { party: entry.partyName, debit: 0, credit: 0 };
-      if (entry.type === 'debit') current.debit += entry.amount;
+      const current = map.get(entry.partyId) || {
+        party: entry.partyName,
+        debit: 0,
+        credit: 0,
+      };
+      if (entry.type === "debit") current.debit += entry.amount;
       else current.credit += entry.amount;
       map.set(entry.partyId, current);
     });
@@ -704,29 +861,29 @@ export function ReportsPage() {
   }, [filteredData.ledgerEntries]);
 
   const applyQuickPreset = (preset: QuickPreset) => {
-    if (preset === 'today') {
+    if (preset === "today") {
       const t = todayStr();
       setDateFrom(t);
       setDateTo(t);
     }
-    if (preset === 'last7') {
+    if (preset === "last7") {
       setDateFrom(daysAgo(6));
       setDateTo(todayStr());
     }
-    if (preset === 'last30') {
+    if (preset === "last30") {
       setDateFrom(daysAgo(29));
       setDateTo(todayStr());
     }
-    if (preset === 'thisMonth') {
+    if (preset === "thisMonth") {
       setDateFrom(getStartOfMonth());
       setDateTo(todayStr());
     }
-    if (preset === 'thisYear') {
+    if (preset === "thisYear") {
       setDateFrom(getStartOfYear());
       setDateTo(todayStr());
     }
-    if (preset === 'all') {
-      setDateFrom('');
+    if (preset === "all") {
+      setDateFrom("");
       setDateTo(todayStr());
     }
   };
@@ -742,21 +899,25 @@ export function ReportsPage() {
 
   const onSort = (key: TableColumnKey) => {
     if (sortBy === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
       return;
     }
     setSortBy(key);
-    setSortDir('desc');
+    setSortDir("desc");
   };
 
   const exportCsv = () => {
-    downloadBlob(toCsv(sortedRows), `reports-${todayStr()}.csv`, 'text/csv;charset=utf-8');
+    downloadBlob(
+      toCsv(sortedRows),
+      `reports-${todayStr()}.csv`,
+      "text/csv;charset=utf-8",
+    );
   };
 
   const exportExcel = () => {
     const html = `
       <table border="1" cellspacing="0" cellpadding="6">
-        <tr>${ALL_COLUMNS.map((c) => `<th>${c.label}</th>`).join('')}</tr>
+        <tr>${ALL_COLUMNS.map((c) => `<th>${c.label}</th>`).join("")}</tr>
         ${sortedRows
           .map(
             (r) =>
@@ -774,23 +935,24 @@ export function ReportsPage() {
                 <td>${r.gst}</td>
                 <td>${r.status}</td>
                 <td>${r.warehouse}</td>
-              </tr>`
+              </tr>`,
           )
-          .join('')}
+          .join("")}
       </table>
     `;
-    downloadBlob(html, `reports-${todayStr()}.xls`, 'application/vnd.ms-excel');
+    downloadBlob(html, `reports-${todayStr()}.xls`, "application/vnd.ms-excel");
   };
 
   const openPrintLayout = (autoPrint: boolean) => {
-    const w = window.open('', '_blank', 'width=1200,height=900');
+    const w = window.open("", "_blank", "width=1200,height=900");
     if (!w) return;
-    const reportName = REPORT_TYPES.find((r) => r.id === reportType)?.label || 'Reports';
+    const reportName =
+      REPORT_TYPES.find((r) => r.id === reportType)?.label || "Reports";
     const header = `${snapshot.settings.businessName} - ${reportName}`;
     const table = `
       <table>
         <thead>
-          <tr>${ALL_COLUMNS.map((c) => `<th>${c.label}</th>`).join('')}</tr>
+          <tr>${ALL_COLUMNS.map((c) => `<th>${c.label}</th>`).join("")}</tr>
         </thead>
         <tbody>
           ${sortedRows
@@ -800,9 +962,9 @@ export function ReportsPage() {
                   <td>${r.module}</td><td>${r.type}</td><td>${r.reference}</td><td>${r.date}</td><td>${r.party}</td>
                   <td>${r.item}</td><td>${r.vehicle}</td><td>${r.quantity}</td><td>${formatCurrency(r.gross)}</td>
                   <td>${formatCurrency(r.net)}</td><td>${formatCurrency(r.gst)}</td><td>${r.status}</td><td>${r.warehouse}</td>
-                </tr>`
+                </tr>`,
             )
-            .join('')}
+            .join("")}
         </tbody>
       </table>
     `;
@@ -828,7 +990,7 @@ export function ReportsPage() {
         </head>
         <body>
           <h1>${header}</h1>
-          <div class="meta">Date Range: ${dateFrom || 'N/A'} to ${dateTo || 'N/A'} | Generated: ${new Date().toLocaleString()}</div>
+          <div class="meta">Date Range: ${dateFrom || "N/A"} to ${dateTo || "N/A"} | Generated: ${new Date().toLocaleString()}</div>
           <div class="cards">
             <div class="card"><div class="label">Total Sales</div><div class="value">${formatCurrency(kpis.sales)}</div></div>
             <div class="card"><div class="label">Total Purchase</div><div class="value">${formatCurrency(kpis.purchase)}</div></div>
@@ -836,7 +998,7 @@ export function ReportsPage() {
             <div class="card"><div class="label">GST Payable</div><div class="value">${formatCurrency(kpis.gstPayable)}</div></div>
           </div>
           ${table}
-          ${autoPrint ? '<script>window.onload = function(){window.print();};</script>' : ''}
+          ${autoPrint ? "<script>window.onload = function(){window.print();};</script>" : ""}
         </body>
       </html>
     `);
@@ -854,17 +1016,17 @@ export function ReportsPage() {
   const shareToWhatsapp = async () => {
     const text = [
       `${snapshot.settings.businessName} Reports Summary`,
-      `Date: ${dateFrom || 'N/A'} to ${dateTo || 'N/A'}`,
+      `Date: ${dateFrom || "N/A"} to ${dateTo || "N/A"}`,
       `Sales: ${formatCurrency(kpis.sales)}`,
       `Purchases: ${formatCurrency(kpis.purchase)}`,
       `Profit/Loss: ${formatCurrency(kpis.profit)}`,
       `Outstanding Receivable: ${formatCurrency(kpis.outstandingReceivable)}`,
       `Outstanding Payable: ${formatCurrency(kpis.outstandingPayable)}`,
-    ].join('\n');
+    ].join("\n");
 
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'ERP Reports Summary', text });
+        await navigator.share({ title: "ERP Reports Summary", text });
         return;
       } catch {
         // Fall through to WhatsApp link.
@@ -872,16 +1034,16 @@ export function ReportsPage() {
     }
 
     const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(waUrl, '_blank');
+    window.open(waUrl, "_blank");
   };
 
   const headerPresets: Array<{ id: QuickPreset; label: string }> = [
-    { id: 'today', label: 'Today' },
-    { id: 'last7', label: 'Last 7D' },
-    { id: 'last30', label: 'Last 30D' },
-    { id: 'thisMonth', label: 'This Month' },
-    { id: 'thisYear', label: 'This Year' },
-    { id: 'all', label: 'All' },
+    { id: "today", label: "Today" },
+    { id: "last7", label: "Last 7D" },
+    { id: "last30", label: "Last 30D" },
+    { id: "thisMonth", label: "This Month" },
+    { id: "thisYear", label: "This Year" },
+    { id: "all", label: "All" },
   ];
 
   const refreshData = () => {
@@ -894,42 +1056,133 @@ export function ReportsPage() {
         <header className="space-y-3 p-3.5 sm:p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-500 dark:text-slate-400">Central Analytics Hub / ERP Reports</p>
-              <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Enterprise Reports Center</h1>
-              <p className="text-xs text-slate-600 dark:text-slate-400">Live analytics synced with Vehicle Register, Billing, Inventory, Parties, Ledger, Payments, Purchases, and Transactions.</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-500 dark:text-slate-400">
+                Central Analytics Hub / ERP Reports
+              </p>
+              <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Enterprise Reports Center
+              </h1>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Live analytics synced with Vehicle Register, Billing, Inventory,
+                Parties, Ledger, Payments, Purchases, and Transactions.
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />} onClick={exportCsv}>CSV</Button>
-              <Button variant="outline" size="sm" icon={<FileSpreadsheet className="h-4 w-4" />} onClick={exportExcel}>Excel</Button>
-              <Button variant="outline" size="sm" icon={<FileText className="h-4 w-4" />} onClick={exportPdf}>PDF</Button>
-              <Button variant="outline" size="sm" icon={<Printer className="h-4 w-4" />} onClick={printMode}>Print</Button>
-              <Button variant="soft" size="sm" icon={<Send className="h-4 w-4" />} onClick={shareToWhatsapp}>Share / WhatsApp</Button>
-              <Button variant="ghost" size="sm" icon={<RefreshCw className="h-4 w-4" />} onClick={refreshData}>Refresh</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Download className="h-4 w-4" />}
+                onClick={exportCsv}
+              >
+                CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<FileSpreadsheet className="h-4 w-4" />}
+                onClick={exportExcel}
+              >
+                Excel
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<FileText className="h-4 w-4" />}
+                onClick={exportPdf}
+              >
+                PDF
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Printer className="h-4 w-4" />}
+                onClick={printMode}
+              >
+                Print
+              </Button>
+              <Button
+                variant="soft"
+                size="sm"
+                icon={<Send className="h-4 w-4" />}
+                onClick={shareToWhatsapp}
+              >
+                Share / WhatsApp
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<RefreshCw className="h-4 w-4" />}
+                onClick={refreshData}
+              >
+                Refresh
+              </Button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-2 lg:grid-cols-7">
             <div className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-2 dark:border-[#2a3550] dark:bg-[#131d33]">
-              <p className="text-[10px] uppercase tracking-[0.06em] text-slate-500 dark:text-slate-400">From</p>
-              <input className="mt-1 w-full bg-transparent text-sm outline-none" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              <p className="text-[10px] uppercase tracking-[0.06em] text-slate-500 dark:text-slate-400">
+                From
+              </p>
+              <input
+                className="mt-1 w-full bg-transparent text-sm outline-none"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
             </div>
             <div className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-2 dark:border-[#2a3550] dark:bg-[#131d33]">
-              <p className="text-[10px] uppercase tracking-[0.06em] text-slate-500 dark:text-slate-400">To</p>
-              <input className="mt-1 w-full bg-transparent text-sm outline-none" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              <p className="text-[10px] uppercase tracking-[0.06em] text-slate-500 dark:text-slate-400">
+                To
+              </p>
+              <input
+                className="mt-1 w-full bg-transparent text-sm outline-none"
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+              />
             </div>
-            <select className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-2 text-sm dark:border-[#2a3550] dark:bg-[#131d33]" value={partyFilter} onChange={(e) => setPartyFilter(e.target.value)}>
+            <select
+              className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-2 text-sm dark:border-[#2a3550] dark:bg-[#131d33]"
+              value={partyFilter}
+              onChange={(e) => setPartyFilter(e.target.value)}
+            >
               <option value="all">Party</option>
-              {options.parties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {options.parties.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
             </select>
-            <select className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-2 text-sm dark:border-[#2a3550] dark:bg-[#131d33]" value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)}>
+            <select
+              className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-2 text-sm dark:border-[#2a3550] dark:bg-[#131d33]"
+              value={vehicleFilter}
+              onChange={(e) => setVehicleFilter(e.target.value)}
+            >
               <option value="all">Vehicle</option>
-              {options.vehicles.map((v) => <option key={v} value={v}>{v}</option>)}
+              {options.vehicles.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
             </select>
-            <select className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-2 text-sm dark:border-[#2a3550] dark:bg-[#131d33]" value={itemFilter} onChange={(e) => setItemFilter(e.target.value)}>
+            <select
+              className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-2 text-sm dark:border-[#2a3550] dark:bg-[#131d33]"
+              value={itemFilter}
+              onChange={(e) => setItemFilter(e.target.value)}
+            >
               <option value="all">Item</option>
-              {options.items.map((i) => <option key={i} value={i}>{i}</option>)}
+              {options.items.map((i) => (
+                <option key={i} value={i}>
+                  {i}
+                </option>
+              ))}
             </select>
-            <select className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-2 text-sm dark:border-[#2a3550] dark:bg-[#131d33]" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <select
+              className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-2 text-sm dark:border-[#2a3550] dark:bg-[#131d33]"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
               <option value="all">Status</option>
               <option value="paid">Paid</option>
               <option value="partial">Partial</option>
@@ -940,9 +1193,17 @@ export function ReportsPage() {
               <option value="received">Received</option>
               <option value="paid">Paid Payment</option>
             </select>
-            <select className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-2 text-sm dark:border-[#2a3550] dark:bg-[#131d33]" value={warehouseFilter} onChange={(e) => setWarehouseFilter(e.target.value)}>
+            <select
+              className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-2 text-sm dark:border-[#2a3550] dark:bg-[#131d33]"
+              value={warehouseFilter}
+              onChange={(e) => setWarehouseFilter(e.target.value)}
+            >
               <option value="all">Warehouse</option>
-              {options.warehouses.map((w) => <option key={w} value={w}>{w}</option>)}
+              {options.warehouses.map((w) => (
+                <option key={w} value={w}>
+                  {w}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -958,7 +1219,11 @@ export function ReportsPage() {
                 </button>
               ))}
             </div>
-            <select className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-1.5 text-xs dark:border-[#2a3550] dark:bg-[#131d33]" value={paymentTypeFilter} onChange={(e) => setPaymentTypeFilter(e.target.value)}>
+            <select
+              className="rounded-lg border border-slate-200/70 bg-white/90 px-2.5 py-1.5 text-xs dark:border-[#2a3550] dark:bg-[#131d33]"
+              value={paymentTypeFilter}
+              onChange={(e) => setPaymentTypeFilter(e.target.value)}
+            >
               <option value="all">Payment Type</option>
               <option value="cash">Cash</option>
               <option value="bank">Bank</option>
@@ -971,17 +1236,80 @@ export function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard accent={0} title="Sales Overview" value={formatCurrency(kpis.sales)} subtitle={`${filteredData.bills.length} bills`} icon={<CircleDollarSign className="h-4 w-4" />} trend={kpis.profit >= 0 ? 'up' : 'down'} />
-        <KpiCard accent={1} title="Inventory Analytics" value={`${kpis.stockOnHand.toLocaleString('en-IN')} kg`} subtitle={`In ${kpis.stockInward.toLocaleString('en-IN')} / Out ${kpis.stockOutward.toLocaleString('en-IN')}`} icon={<Package className="h-4 w-4" />} trend={kpis.stockInward >= kpis.stockOutward ? 'up' : 'down'} />
-        <KpiCard accent={2} title="Vehicle Movement" value={`${kpis.vehicleTrips} entries`} subtitle={`${kpis.vehicleWeight.toLocaleString('en-IN')} kg total`} icon={<Truck className="h-4 w-4" />} trend="up" />
-        <KpiCard accent={3} title="Outstanding Payments" value={formatCurrency(kpis.outstandingReceivable)} subtitle={`Payable ${formatCurrency(kpis.outstandingPayable)}`} icon={<Wallet className="h-4 w-4" />} trend={kpis.outstandingReceivable > kpis.outstandingPayable ? 'up' : 'down'} />
-        <KpiCard accent={4} title="Profit / Loss" value={formatCurrency(kpis.profit)} subtitle={`Purchase ${formatCurrency(kpis.purchase)}`} icon={<IndianRupee className="h-4 w-4" />} trend={kpis.profit >= 0 ? 'up' : 'down'} />
-        <KpiCard accent={5} title="Party Ledger Summary" value={formatCurrency(filteredData.ledgerEntries.reduce((s, l) => s + Math.abs(l.runningBalance), 0))} subtitle={`${partyLedgerSummary.length} major parties`} icon={<CalendarRange className="h-4 w-4" />} trend="up" />
-        <KpiCard accent={6} title="Payment Tracking" value={formatCurrency(kpis.paymentsNet)} subtitle={`Received ${formatCurrency(kpis.received)} / Paid ${formatCurrency(kpis.paid)}`} icon={<Filter className="h-4 w-4" />} trend={kpis.paymentsNet >= 0 ? 'up' : 'down'} />
-        <KpiCard accent={7} title="GST Summary" value={formatCurrency(kpis.gstPayable)} subtitle={`Sales GST ${formatCurrency(kpis.gstSales)} | Purchase GST ${formatCurrency(kpis.gstPurchase)}`} icon={<FileText className="h-4 w-4" />} trend={kpis.gstPayable >= 0 ? 'up' : 'down'} />
+        <KpiCard
+          accent={0}
+          title="Sales Overview"
+          value={formatCurrency(kpis.sales)}
+          subtitle={`${filteredData.bills.length} bills`}
+          icon={<CircleDollarSign className="h-4 w-4" />}
+          trend={kpis.profit >= 0 ? "up" : "down"}
+        />
+        <KpiCard
+          accent={1}
+          title="Inventory Analytics"
+          value={`${kpis.stockOnHand.toLocaleString("en-IN")} kg`}
+          subtitle={`In ${kpis.stockInward.toLocaleString("en-IN")} / Out ${kpis.stockOutward.toLocaleString("en-IN")}`}
+          icon={<Package className="h-4 w-4" />}
+          trend={kpis.stockInward >= kpis.stockOutward ? "up" : "down"}
+        />
+        <KpiCard
+          accent={2}
+          title="Vehicle Movement"
+          value={`${kpis.vehicleTrips} entries`}
+          subtitle={`${kpis.vehicleWeight.toLocaleString("en-IN")} kg total`}
+          icon={<Truck className="h-4 w-4" />}
+          trend="up"
+        />
+        <KpiCard
+          accent={3}
+          title="Outstanding Payments"
+          value={formatCurrency(kpis.outstandingReceivable)}
+          subtitle={`Payable ${formatCurrency(kpis.outstandingPayable)}`}
+          icon={<Wallet className="h-4 w-4" />}
+          trend={
+            kpis.outstandingReceivable > kpis.outstandingPayable ? "up" : "down"
+          }
+        />
+        <KpiCard
+          accent={4}
+          title="Profit / Loss"
+          value={formatCurrency(kpis.profit)}
+          subtitle={`Purchase ${formatCurrency(kpis.purchase)}`}
+          icon={<IndianRupee className="h-4 w-4" />}
+          trend={kpis.profit >= 0 ? "up" : "down"}
+        />
+        <KpiCard
+          accent={5}
+          title="Party Ledger Summary"
+          value={formatCurrency(
+            filteredData.ledgerEntries.reduce(
+              (s, l) => s + Math.abs(l.runningBalance),
+              0,
+            ),
+          )}
+          subtitle={`${partyLedgerSummary.length} major parties`}
+          icon={<CalendarRange className="h-4 w-4" />}
+          trend="up"
+        />
+        <KpiCard
+          accent={6}
+          title="Payment Tracking"
+          value={formatCurrency(kpis.paymentsNet)}
+          subtitle={`Received ${formatCurrency(kpis.received)} / Paid ${formatCurrency(kpis.paid)}`}
+          icon={<Filter className="h-4 w-4" />}
+          trend={kpis.paymentsNet >= 0 ? "up" : "down"}
+        />
+        <KpiCard
+          accent={7}
+          title="GST Summary"
+          value={formatCurrency(kpis.gstPayable)}
+          subtitle={`Sales GST ${formatCurrency(kpis.gstSales)} | Purchase GST ${formatCurrency(kpis.gstPurchase)}`}
+          icon={<FileText className="h-4 w-4" />}
+          trend={kpis.gstPayable >= 0 ? "up" : "down"}
+        />
       </div>
 
-      <div className="rounded-xl border border-slate-200/80 bg-gradient-to-r from-white via-slate-50 to-sky-50/70 p-2 dark:border-[#2a3550]/85 dark:bg-gradient-to-r dark:from-[#111a2d] dark:via-[#0f1a30] dark:to-[#10243a]">
+      <div className="rounded-xl border border-slate-200/80 bg-linear-to-r from-white via-slate-50 to-sky-50/70 p-2 dark:border-[#2a3550]/85 dark:bg-linear-to-r dark:from-[#111a2d] dark:via-[#0f1a30] dark:to-[#10243a]">
         <div className="flex flex-wrap gap-1.5">
           {REPORT_TYPES.map((type) => (
             <button
@@ -989,8 +1317,8 @@ export function ReportsPage() {
               onClick={() => setReportType(type.id)}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                 reportType === type.id
-                  ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#1f2a43]'
+                  ? "bg-linear-to-r from-blue-600 to-cyan-500 text-white shadow"
+                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#1f2a43]"
               }`}
             >
               {type.label}
@@ -1000,9 +1328,17 @@ export function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <TrendLineChart data={salesTrend.length ? salesTrend : [{ label: 'No Data', value: 0 }]} />
-        <BarAnalyticsChart data={stockBars.length ? stockBars : [{ label: 'No Data', value: 0 }]} />
-        <PieModeChart data={paymentPie.length ? paymentPie : [{ label: 'none', value: 1 }]} />
+        <TrendLineChart
+          data={
+            salesTrend.length ? salesTrend : [{ label: "No Data", value: 0 }]
+          }
+        />
+        <BarAnalyticsChart
+          data={stockBars.length ? stockBars : [{ label: "No Data", value: 0 }]}
+        />
+        <PieModeChart
+          data={paymentPie.length ? paymentPie : [{ label: "none", value: 1 }]}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -1010,7 +1346,10 @@ export function ReportsPage() {
           <CardHeader className="border-b border-slate-200/80 dark:border-[#23304b]">
             <div>
               <CardTitle>Enterprise Report Table</CardTitle>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Sorting, filtering, pagination, sticky headers, search, visibility control, and row actions.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Sorting, filtering, pagination, sticky headers, search,
+                visibility control, and row actions.
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <div className="relative">
@@ -1023,7 +1362,12 @@ export function ReportsPage() {
                 />
               </div>
               <div className="relative">
-                <Button variant="outline" size="sm" icon={<Filter className="h-3.5 w-3.5" />} onClick={() => setColumnMenuOpen((v) => !v)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Filter className="h-3.5 w-3.5" />}
+                  onClick={() => setColumnMenuOpen((v) => !v)}
+                >
                   Columns
                 </Button>
                 {columnMenuOpen && (
@@ -1051,29 +1395,57 @@ export function ReportsPage() {
               <table className="w-full text-xs">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#0f172a]">
                   <tr className="border-b border-slate-200/80 dark:border-[#2a3550]">
-                    {ALL_COLUMNS.filter((c) => visibleColumns.includes(c.key)).map((column) => (
+                    {ALL_COLUMNS.filter((c) =>
+                      visibleColumns.includes(c.key),
+                    ).map((column) => (
                       <th key={column.key} className="px-3 py-2 text-left">
-                        <button className="inline-flex items-center gap-1 font-semibold uppercase tracking-[0.06em] text-slate-600 dark:text-slate-400" onClick={() => onSort(column.key)}>
+                        <button
+                          className="inline-flex items-center gap-1 font-semibold uppercase tracking-[0.06em] text-slate-600 dark:text-slate-400"
+                          onClick={() => onSort(column.key)}
+                        >
                           {column.label}
-                          {sortBy === column.key ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : null}
+                          {sortBy === column.key ? (
+                            sortDir === "asc" ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3" />
+                            )
+                          ) : null}
                         </button>
                       </th>
                     ))}
-                    <th className="px-3 py-2 text-left font-semibold uppercase tracking-[0.06em] text-slate-600 dark:text-slate-400">Actions</th>
+                    <th className="px-3 py-2 text-left font-semibold uppercase tracking-[0.06em] text-slate-600 dark:text-slate-400">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {pageRows.length === 0 ? (
                     <tr>
-                      <td colSpan={visibleColumns.length + 1} className="px-3 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                      <td
+                        colSpan={visibleColumns.length + 1}
+                        className="px-3 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
+                      >
                         No data found for selected filters.
                       </td>
                     </tr>
                   ) : (
                     pageRows.map((row, idx) => (
-                      <tr key={row.id} className={idx % 2 ? 'bg-slate-50/70 dark:bg-[#111d33]/55' : 'bg-white dark:bg-[#10192b]'}>
-                        {ALL_COLUMNS.filter((c) => visibleColumns.includes(c.key)).map((column) => (
-                          <td key={`${row.id}-${column.key}`} className="px-3 py-2 align-top text-slate-700 dark:text-slate-200">
+                      <tr
+                        key={row.id}
+                        className={
+                          idx % 2
+                            ? "bg-slate-50/70 dark:bg-[#111d33]/55"
+                            : "bg-white dark:bg-[#10192b]"
+                        }
+                      >
+                        {ALL_COLUMNS.filter((c) =>
+                          visibleColumns.includes(c.key),
+                        ).map((column) => (
+                          <td
+                            key={`${row.id}-${column.key}`}
+                            className="px-3 py-2 align-top text-slate-700 dark:text-slate-200"
+                          >
                             {renderCellValue(row, column.key)}
                           </td>
                         ))}
@@ -1083,7 +1455,11 @@ export function ReportsPage() {
                               className="rounded-md border border-slate-200 px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-100 dark:border-[#2a3550] dark:text-slate-300 dark:hover:bg-[#1c2740]"
                               onClick={() => {
                                 const csv = toCsv([row]);
-                                downloadBlob(csv, `${row.reference}.csv`, 'text/csv;charset=utf-8');
+                                downloadBlob(
+                                  csv,
+                                  `${row.reference}.csv`,
+                                  "text/csv;charset=utf-8",
+                                );
                               }}
                             >
                               CSV
@@ -1117,11 +1493,25 @@ export function ReportsPage() {
                   onChange={(e) => setPageSize(Number(e.target.value))}
                 >
                   {[10, 15, 25, 50].map((size) => (
-                    <option key={size} value={size}>{size} / page</option>
+                    <option key={size} value={size}>
+                      {size} / page
+                    </option>
                   ))}
                 </select>
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -1134,17 +1524,27 @@ export function ReportsPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {partyLedgerSummary.length === 0 ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400">No ledger records available.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  No ledger records available.
+                </p>
               ) : (
                 partyLedgerSummary.map((party) => (
-                  <div key={party.party} className="rounded-lg border border-slate-200/75 p-2 dark:border-[#2a3550]">
-                    <p className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{party.party}</p>
+                  <div
+                    key={party.party}
+                    className="rounded-lg border border-slate-200/75 p-2 dark:border-[#2a3550]"
+                  >
+                    <p className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      {party.party}
+                    </p>
                     <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                       <span>Dr {formatCurrency(party.debit)}</span>
                       <span>Cr {formatCurrency(party.credit)}</span>
                     </div>
-                    <p className={`mt-1 text-xs font-semibold ${party.balance >= 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                      {party.balance >= 0 ? 'Receivable' : 'Payable'} {formatCurrency(Math.abs(party.balance))}
+                    <p
+                      className={`mt-1 text-xs font-semibold ${party.balance >= 0 ? "text-amber-600" : "text-emerald-600"}`}
+                    >
+                      {party.balance >= 0 ? "Receivable" : "Payable"}{" "}
+                      {formatCurrency(Math.abs(party.balance))}
                     </p>
                   </div>
                 ))
@@ -1157,12 +1557,28 @@ export function ReportsPage() {
               <CardTitle>Report Coverage</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-              <p>Sales overview, inventory analytics, vehicle movement, outstanding payments, and profit/loss are live from core modules.</p>
-              <p>Report type active: <span className="font-semibold">{REPORT_TYPES.find((r) => r.id === reportType)?.label}</span></p>
-              <p>Auto-sync state: <span className="font-semibold text-emerald-600">Connected</span></p>
+              <p>
+                Sales overview, inventory analytics, vehicle movement,
+                outstanding payments, and profit/loss are live from core
+                modules.
+              </p>
+              <p>
+                Report type active:{" "}
+                <span className="font-semibold">
+                  {REPORT_TYPES.find((r) => r.id === reportType)?.label}
+                </span>
+              </p>
+              <p>
+                Auto-sync state:{" "}
+                <span className="font-semibold text-emerald-600">
+                  Connected
+                </span>
+              </p>
               <p>Filters update analytics instantly on change.</p>
               <div className="rounded-lg bg-blue-50 px-2 py-1.5 text-[11px] text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-                Central analytics hub is now production-wired to Billing, Inventory, Vehicle Register, Ledger, Payments, Purchases, Parties, and Transactions.
+                Central analytics hub is now production-wired to Billing,
+                Inventory, Vehicle Register, Ledger, Payments, Purchases,
+                Parties, and Transactions.
               </div>
             </CardContent>
           </Card>
@@ -1173,9 +1589,10 @@ export function ReportsPage() {
 }
 
 function renderCellValue(row: TableRow, key: TableColumnKey): string {
-  if (key === 'date') return formatDate(row.date);
-  if (key === 'gross' || key === 'net' || key === 'gst') return formatCurrency(row[key]);
-  if (key === 'quantity') return `${row.quantity.toLocaleString('en-IN')}`;
+  if (key === "date") return formatDate(row.date);
+  if (key === "gross" || key === "net" || key === "gst")
+    return formatCurrency(row[key]);
+  if (key === "quantity") return `${row.quantity.toLocaleString("en-IN")}`;
   return String(row[key]);
 }
 
@@ -1192,25 +1609,41 @@ function KpiCard({
   value: string;
   subtitle: string;
   icon: React.ReactNode;
-  trend: 'up' | 'down';
+  trend: "up" | "down";
 }) {
   const theme = KPI_ACCENTS[accent % KPI_ACCENTS.length];
   return (
     <Card className={`relative overflow-hidden ${theme.border}`}>
       <CardContent className="p-0">
-        <div className={`bg-gradient-to-r px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-300 ${theme.strip}`}>
+        <div
+          className={`bg-linear-to-r px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-300 ${theme.strip}`}
+        >
           {title}
         </div>
-        <div className={`pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-gradient-to-br ${theme.glow} blur-xl`} />
+        <div
+          className={`pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-gradient-to-br ${theme.glow} blur-xl`}
+        />
         <div className="flex items-start justify-between p-3">
           <div>
-            <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">{value}</p>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
+            <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+              {value}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              {subtitle}
+            </p>
           </div>
-          <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${theme.icon}`}>{icon}</div>
+          <div
+            className={`flex h-8 w-8 items-center justify-center rounded-lg ${theme.icon}`}
+          >
+            {icon}
+          </div>
         </div>
         <div className="flex items-center gap-1 px-3 pb-2 text-[11px] text-slate-500 dark:text-slate-400">
-          {trend === 'up' ? <ArrowUp className="h-3.5 w-3.5 text-emerald-600" /> : <ArrowDown className="h-3.5 w-3.5 text-red-600" />}
+          {trend === "up" ? (
+            <ArrowUp className="h-3.5 w-3.5 text-emerald-600" />
+          ) : (
+            <ArrowDown className="h-3.5 w-3.5 text-red-600" />
+          )}
           <span>Trend analytics active</span>
           <BarChart3 className="h-3.5 w-3.5" />
           <PieChart className="h-3.5 w-3.5" />
