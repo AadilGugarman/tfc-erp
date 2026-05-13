@@ -1,40 +1,61 @@
-import { useEffect, useState } from 'react';
-import { useAppStore } from '@/stores/useAppStore';
-import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/ui/Button';
-import { Input, Select, TextArea } from '@/components/ui/Input';
-import { Modal } from '@/components/ui/Modal';
-import { BackupRestorePanel } from '@/components/BackupRestorePanel';
-import type { Company, Settings } from '@/db/schema';
-import { updateBackupConfig, type BackupConfig } from '@/services/backup';
-import { Save, RefreshCw, Trash2, Moon, Sun, Globe, Building2, Percent, Plus, Edit, X } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { useAppStore } from "@/stores/useAppStore";
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/Button";
+import { Input, Select, TextArea } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
+import { BackupRestorePanel } from "@/components/BackupRestorePanel";
+import type { Company, Settings } from "@/db/schema";
+import { updateBackupConfig, type BackupConfig } from "@/services/backup";
+import {
+  Save,
+  X,
+  Moon,
+  Sun,
+  Globe,
+  Building2,
+  Percent,
+  Plus,
+  Edit,
+  Trash2,
+  ChevronRight,
+  Check,
+} from "lucide-react";
 
-type AppLanguage = Settings['language'];
-type CompanyLanguage = Company['language'];
+type AppLanguage = Settings["language"];
+type CompanyLanguage = Company["language"];
 
 const languageOptions = [
-  { value: 'english', label: 'English' },
-  { value: 'gujarati', label: 'ગુજરાતી' },
-  { value: 'hindi', label: 'Hindi' },
+  { value: "english", label: "English" },
+  { value: "gujarati", label: "ગુજરાતી" },
 ] as const satisfies readonly { value: AppLanguage; label: string }[];
 
 const companyLanguageOptions = languageOptions;
 
 const normalizeCompanyLanguage = (value: string): CompanyLanguage => {
-  if (value === 'gujarati') return 'gujarati';
-  if (value === 'hindi') return 'hindi';
-  return 'english';
+  if (value === "gujarati") return "gujarati";
+  return "english";
 };
 
 export function SettingsPage() {
   const { t } = useTranslation();
-  const tx = (key: string, fallback: string) => t(key, { defaultValue: fallback });
-  const { 
-    settings, updateSettings, showNotification, language, setLanguage,
-    companies, currentCompany, createCompany, updateCompany, deleteCompany, setCurrentCompany
+  const tx = (key: string, fallback: string) =>
+    t(key, { defaultValue: fallback });
+  const {
+    settings,
+    updateSettings,
+    showNotification,
+    language,
+    setLanguage,
+    companies,
+    currentCompany,
+    createCompany,
+    updateCompany,
+    deleteCompany,
+    setCurrentCompany,
   } = useAppStore();
-  
-  const [activeTab, setActiveTab] = useState('basic');
+
+  const [activeTab, setActiveTab] = useState("basic");
   const [form, setForm] = useState({
     businessName: settings.businessName,
     businessAddress: settings.businessAddress,
@@ -56,18 +77,20 @@ export function SettingsPage() {
   const [showReset, setShowReset] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
-  const [companyForm, setCompanyForm] = useState<Omit<Company, 'createdAt' | 'updatedAt'>>({
-    id: '',
-    name: '',
-    address: '',
-    city: '',
-    state: '',
-    phone: '',
-    email: '',
-    gstin: '',
-    invoicePrefix: '',
-    language: 'english',
-    theme: 'light',
+  const [companyForm, setCompanyForm] = useState<
+    Omit<Company, "createdAt" | "updatedAt">
+  >({
+    id: "",
+    name: "",
+    address: "",
+    city: "",
+    state: "",
+    phone: "",
+    email: "",
+    gstin: "",
+    invoicePrefix: "",
+    language: "english",
+    theme: "light",
     isActive: true,
   });
 
@@ -109,23 +132,23 @@ export function SettingsPage() {
       darkMode: form.darkMode,
       lowStockAlert: form.lowStockAlert,
     });
-    
+
     if (form.language !== language) {
       setLanguage(form.language);
     }
-    
+
     if (form.darkMode) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
-    
-    showNotification(t('notifications.saved'), 'success');
+
+    showNotification(t("notifications.saved"), "success");
   };
 
   const resetAll = () => {
-    if (confirm(t('settings.backup'))) {
-      localStorage.removeItem('fruit_market_erp_db');
+    if (confirm(t("settings.backup"))) {
+      localStorage.removeItem("fruit_market_erp_db");
       window.location.reload();
     }
   };
@@ -136,7 +159,10 @@ export function SettingsPage() {
 
   const handleSaveCompany = () => {
     if (!companyForm.name) {
-      showNotification(tx('validation.required', 'Company name is required'), 'error');
+      showNotification(
+        tx("validation.required", "Company name is required"),
+        "error",
+      );
       return;
     }
 
@@ -147,7 +173,7 @@ export function SettingsPage() {
         createdAt: editingCompany.createdAt,
         updatedAt: new Date().toISOString(),
       });
-      showNotification(t('notifications.updated'), 'success');
+      showNotification(t("notifications.updated"), "success");
     } else {
       createCompany({
         ...companyForm,
@@ -155,23 +181,23 @@ export function SettingsPage() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
-      showNotification(t('notifications.created'), 'success');
+      showNotification(t("notifications.created"), "success");
     }
 
     setShowCompanyModal(false);
     setEditingCompany(null);
     setCompanyForm({
-      id: '',
-      name: '',
-      address: '',
-      city: '',
-      state: '',
-      phone: '',
-      email: '',
-      gstin: '',
-      invoicePrefix: '',
-      language: 'english',
-      theme: 'light',
+      id: "",
+      name: "",
+      address: "",
+      city: "",
+      state: "",
+      phone: "",
+      email: "",
+      gstin: "",
+      invoicePrefix: "",
+      language: "english",
+      theme: "light",
       isActive: true,
     });
   };
@@ -196,17 +222,17 @@ export function SettingsPage() {
     } else {
       setEditingCompany(null);
       setCompanyForm({
-        id: '',
-        name: '',
-        address: '',
-        city: '',
-        state: '',
-        phone: '',
-        email: '',
-        gstin: '',
-        invoicePrefix: '',
-        language: 'english',
-        theme: 'light',
+        id: "",
+        name: "",
+        address: "",
+        city: "",
+        state: "",
+        phone: "",
+        email: "",
+        gstin: "",
+        invoicePrefix: "",
+        language: "english",
+        theme: "light",
         isActive: true,
       });
     }
@@ -214,316 +240,613 @@ export function SettingsPage() {
   };
 
   const tabs = [
-    { id: 'basic', label: t('settings.basic') },
-    { id: 'company', label: t('settings.company') },
-    { id: 'billing', label: t('settings.billing') },
-    { id: 'language', label: t('settings.language') },
-    { id: 'theme', label: t('settings.theme') },
-    { id: 'backup', label: t('settings.backup') },
+    { id: "basic", label: t("settings.basic"), icon: Building2 },
+    { id: "billing", label: t("settings.billing"), icon: Percent },
+    { id: "language", label: t("settings.language"), icon: Globe },
+    { id: "theme", label: t("settings.theme"), icon: Sun },
+    { id: "company", label: t("settings.company"), icon: Building2 },
+    { id: "backup", label: t("settings.backup"), icon: Trash2 },
   ];
 
-  const card = 'bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#2a3550] rounded-xl p-5';
-
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="sticky top-[4.15rem] z-20 rounded-xl border border-slate-200/85 dark:border-[#2a3550]/90 bg-white/94 dark:bg-[#0f1628]/94 backdrop-blur-xl shadow-[0_14px_28px_-22px_rgba(15,23,42,0.65)]">
-        <div className="p-3.5 sm:p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-500 dark:text-slate-400">System Controls / Operations Workspace</p>
-          <h1 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-slate-100">{tx('settings.title', 'Settings')}</h1>
-        </div>
-      </div>
-
-      <div className="flex gap-1.5 overflow-x-auto rounded-xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#2a3550] p-1.5">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-3.5 py-2 text-[12px] font-semibold whitespace-nowrap rounded-lg transition-colors ${
-              activeTab === tab.id
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#1b2335]'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'basic' && (
-        <div className={`${card} max-w-xl space-y-4`}>
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#1a1f2e]">
-            <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{t('settings.businessName')}</span>
-          </div>
-          <Input
-            label={t('settings.businessName')}
-            value={form.businessName}
-            onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))}
-          />
-          <TextArea
-            label={t('settings.businessAddress')}
-            value={form.businessAddress}
-            onChange={e => setForm(f => ({ ...f, businessAddress: e.target.value }))}
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('settings.city')}
-              value={form.city}
-              onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
-            />
-            <Input
-              label={t('settings.state')}
-              value={form.state}
-              onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
-            />
-          </div>
-          <Input
-            label={t('settings.phone')}
-            value={form.phone}
-            onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-          />
-          <Input
-            label={t('settings.email')}
-            type="email"
-            value={form.email}
-            onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-          />
-          <Input
-            label={t('settings.gstin')}
-            value={form.gstin}
-            onChange={e => setForm(f => ({ ...f, gstin: e.target.value }))}
-          />
-        </div>
-      )}
-
-      {activeTab === 'company' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{t('settings.manageCompanies')}</span>
-            <Button size="sm" onClick={() => openCompanyModal()}>
-              <Plus className="h-3.5 w-3.5" />
-              {t('settings.createCompany')}
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            {companies.map(company => (
-              <div key={company.id} className={`${card} flex items-center justify-between ${currentCompany?.id === company.id ? 'border-blue-500 dark:border-blue-600' : ''}`}>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{company.name}</span>
-                    {currentCompany?.id === company.id && (
-                      <span className="text-[10px] bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded font-semibold uppercase tracking-[0.06em]">
-                        {tx('settings.active', 'Active')}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[12px] text-slate-500 mt-0.5">{company.address}</p>
-                  <p className="text-[11px] text-slate-400">{company.email}</p>
-                </div>
-                <div className="flex gap-2">
-                  {currentCompany?.id !== company.id && (
-                    <Button variant="outline" size="sm" onClick={() => setCurrentCompany(company.id)}>
-                      {tx('buttons.switchCompany', 'Switch')}
-                    </Button>
-                  )}
-                  <Button variant="outline" size="sm" onClick={() => openCompanyModal(company)}>
-                    <Edit className="h-3.5 w-3.5" />
-                  </Button>
-                  {companies.length > 1 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => { if (confirm(tx('dialogs.deleteConfirmation', 'Delete this company?'))) { deleteCompany(company.id); showNotification(t('notifications.deleted'), 'success'); } }}
-                    >
-                      <X className="h-3.5 w-3.5 text-red-500" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'billing' && (
-        <div className={`${card} max-w-xl space-y-4`}>
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#1a1f2e]">
-            <Percent className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{t('settings.billing')}</span>
-          </div>
-          <Input
-            label={t('settings.commissionPercent')}
-            type="number"
-            value={form.commissionPercent}
-            onChange={e => setForm(f => ({ ...f, commissionPercent: parseFloat(e.target.value) || 0 }))}
-            suffix="%"
-          />
-          <Input
-            label={t('settings.taxPercent')}
-            type="number"
-            value={form.taxPercent}
-            onChange={e => setForm(f => ({ ...f, taxPercent: parseFloat(e.target.value) || 0 }))}
-            suffix="%"
-          />
-          <Input
-            label={t('settings.currency')}
-            value={form.currency}
-            onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('settings.billPrefix')}
-              value={form.billPrefix}
-              onChange={e => setForm(f => ({ ...f, billPrefix: e.target.value }))}
-            />
-            <Input
-              label={t('settings.purchasePrefix')}
-              value={form.purchasePrefix}
-              onChange={e => setForm(f => ({ ...f, purchasePrefix: e.target.value }))}
-            />
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'language' && (
-        <div className={`${card} max-w-xl space-y-4`}>
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#1a1f2e]">
-            <Globe className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{t('settings.selectLanguage')}</span>
-          </div>
-          <div className="space-y-3">
-            {languageOptions.map(lang => (
-              <button
-                key={lang.value}
-                onClick={() => setForm(f => ({ ...f, language: lang.value }))}
-                className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg border-2 transition-all text-left ${
-                  form.language === lang.value
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20'
-                    : 'border-slate-200 dark:border-[#2a3550] hover:border-slate-300 dark:hover:border-slate-600'
-                }`}
-              >
-                <p className="text-[13px] font-medium flex-1 text-slate-800 dark:text-slate-200">{lang.label}</p>
-                <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
-                    form.language === lang.value ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
-                }`}>
-                  {form.language === lang.value && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'theme' && (
-        <div className={`${card} max-w-xl space-y-4`}>
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#1a1f2e]">
-            <Sun className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{t('settings.theme')}</span>
-          </div>
-          <div className="space-y-3">
-            {[
-              { value: false, label: t('settings.lightMode'), icon: Sun },
-              { value: true, label: t('settings.darkMode'), icon: Moon },
-            ].map(theme => {
-              const Icon = theme.icon;
+    <div className="animate-fade-in h-full flex flex-col">
+      {/* Main Layout */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar Navigation */}
+        <div className="w-56 border-r border-slate-200 dark:border-[#2a3550] bg-slate-50 dark:bg-[#0f1628] flex flex-col">
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
               return (
                 <button
-                  key={String(theme.value)}
-                  onClick={() => setForm(f => ({ ...f, darkMode: theme.value }))}
-                  className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg border-2 transition-all text-left ${
-                    form.darkMode === theme.value
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20'
-                        : 'border-slate-200 dark:border-[#2a3550] hover:border-slate-300 dark:hover:border-slate-600'
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#1a2332]"
                   }`}
                 >
-                  <Icon className="h-5 w-5 text-slate-500" />
-                  <p className="text-[13px] font-medium flex-1 text-slate-800 dark:text-slate-200">{theme.label}</p>
-                  <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
-                    form.darkMode === theme.value ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
-                  }`}>
-                    {form.darkMode === theme.value && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
-                  </div>
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="flex-1 text-left">{tab.label}</span>
+                  {activeTab === tab.id && <ChevronRight className="h-4 w-4" />}
                 </button>
               );
             })}
-          </div>
+          </nav>
         </div>
-      )}
 
-      {activeTab === 'backup' && (
-        <div className="space-y-4">
-          <BackupRestorePanel
-            onNotify={showNotification}
-            onSaveConfig={saveBackupConfig}
-          />
+        {/* Right Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto px-8 py-5">
+            {activeTab === "basic" && (
+              <div className="max-w-2xl space-y-5">
+                <div className="mb-5">
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    {tx("settings.businessInformation", "Business Information")}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {tx(
+                      "settings.businessInfoDesc",
+                      "Your primary business details",
+                    )}
+                  </p>
+                </div>
 
-          <div className={`${card} space-y-3 max-w-xl`}>
-            <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200 block">{tx('settings.dangerZone', 'Danger Zone')}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-2 text-red-500 border-red-300 hover:bg-red-50 dark:hover:bg-red-950"
-              onClick={() => setShowReset(true)}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              {tx('settings.resetAllData', 'Reset All Data')}
+                <div className="space-y-4">
+                  <Input
+                    label={t("settings.businessName")}
+                    value={form.businessName}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        businessName: e.target.value,
+                      }))
+                    }
+                    placeholder={tx(
+                      "placeholders.businessName",
+                      "e.g., TFC Billing",
+                    )}
+                  />
+
+                  <TextArea
+                    label={t("settings.businessAddress")}
+                    value={form.businessAddress}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        businessAddress: e.target.value,
+                      }))
+                    }
+                    placeholder={tx(
+                      "placeholders.address",
+                      "Your business address",
+                    )}
+                    rows={2}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label={t("settings.city")}
+                      value={form.city}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, city: e.target.value }))
+                      }
+                      placeholder={tx("placeholders.city", "City")}
+                    />
+                    <Input
+                      label={t("settings.state")}
+                      value={form.state}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, state: e.target.value }))
+                      }
+                      placeholder={tx("placeholders.state", "State")}
+                    />
+                  </div>
+
+                  <Input
+                    label={t("settings.phone")}
+                    value={form.phone}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, phone: e.target.value }))
+                    }
+                    placeholder={tx("placeholders.phone", "+91 XXXXX XXXXX")}
+                    type="tel"
+                  />
+
+                  <Input
+                    label={t("settings.email")}
+                    value={form.email}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, email: e.target.value }))
+                    }
+                    placeholder={tx(
+                      "placeholders.email",
+                      "business@example.com",
+                    )}
+                    type="email"
+                  />
+
+                  <Input
+                    label={t("settings.gstin")}
+                    value={form.gstin}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, gstin: e.target.value }))
+                    }
+                    placeholder={tx(
+                      "placeholders.gstin",
+                      "GST Identification Number",
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTab === "billing" && (
+              <div className="max-w-2xl space-y-5">
+                <div className="mb-5">
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    {t("settings.billing")}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {tx(
+                      "settings.billingDesc",
+                      "Configure billing and taxation settings",
+                    )}
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label={t("settings.commissionPercent")}
+                      type="number"
+                      value={form.commissionPercent}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          commissionPercent: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      suffix="%"
+                      placeholder="0"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                    />
+                    <Input
+                      label={t("settings.taxPercent")}
+                      type="number"
+                      value={form.taxPercent}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          taxPercent: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      suffix="%"
+                      placeholder="0"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                    />
+                  </div>
+
+                  <Input
+                    label={t("settings.currency")}
+                    value={form.currency}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, currency: e.target.value }))
+                    }
+                    placeholder="₹"
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label={t("settings.billPrefix")}
+                      value={form.billPrefix}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          billPrefix: e.target.value,
+                        }))
+                      }
+                      placeholder="INV"
+                    />
+                    <Input
+                      label={t("settings.purchasePrefix")}
+                      value={form.purchasePrefix}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          purchasePrefix: e.target.value,
+                        }))
+                      }
+                      placeholder="PO"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "language" && (
+              <div className="max-w-2xl space-y-5">
+                <div className="mb-5">
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    {t("settings.selectLanguage")}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {tx(
+                      "settings.languageDesc",
+                      "Choose your preferred language",
+                    )}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {languageOptions.map((lang) => (
+                    <button
+                      key={lang.value}
+                      onClick={() =>
+                        setForm((f) => ({ ...f, language: lang.value }))
+                      }
+                      className={`relative p-4 rounded-lg border-2 transition-all ${
+                        form.language === lang.value
+                          ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
+                          : "border-slate-200 dark:border-[#2a3550] hover:border-slate-300 dark:hover:border-slate-600"
+                      }`}
+                    >
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {lang.label}
+                      </p>
+                      {form.language === lang.value && (
+                        <div className="absolute top-2 right-2">
+                          <Check className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "theme" && (
+              <div className="max-w-2xl space-y-5">
+                <div className="mb-5">
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    {t("settings.theme")}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {tx(
+                      "settings.themeDesc",
+                      "Choose your preferred appearance",
+                    )}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: false, label: t("settings.lightMode"), icon: Sun },
+                    { value: true, label: t("settings.darkMode"), icon: Moon },
+                  ].map((theme) => {
+                    const Icon = theme.icon;
+                    return (
+                      <button
+                        key={String(theme.value)}
+                        onClick={() =>
+                          setForm((f) => ({ ...f, darkMode: theme.value }))
+                        }
+                        className={`relative p-4 rounded-lg border-2 transition-all ${
+                          form.darkMode === theme.value
+                            ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
+                            : "border-slate-200 dark:border-[#2a3550] hover:border-slate-300 dark:hover:border-slate-600"
+                        }`}
+                      >
+                        <Icon className="h-6 w-6 text-slate-600 dark:text-slate-400 mb-2" />
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                          {theme.label}
+                        </p>
+                        {form.darkMode === theme.value && (
+                          <div className="absolute top-2 right-2">
+                            <Check className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "company" && (
+              <div className="max-w-4xl space-y-5">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                      {t("settings.manageCompanies")}
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {tx(
+                        "settings.companyDesc",
+                        "Manage multiple business entities",
+                      )}
+                    </p>
+                  </div>
+                  <Button onClick={() => openCompanyModal()}>
+                    <Plus className="h-4 w-4" />
+                    {t("settings.createCompany")}
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  {companies.length === 0 ? (
+                    <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-[#2a3550] rounded-lg">
+                      <Building2 className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                      <p className="text-slate-500 dark:text-slate-400">
+                        {tx("settings.noCompanies", "No companies yet")}
+                      </p>
+                    </div>
+                  ) : (
+                    companies.map((company) => (
+                      <div
+                        key={company.id}
+                        className={`p-4 rounded-lg border-2 transition-colors ${
+                          currentCompany?.id === company.id
+                            ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
+                            : "border-slate-200 dark:border-[#2a3550] hover:border-slate-300 dark:hover:border-slate-500"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+                                {company.name}
+                              </h3>
+                              {currentCompany?.id === company.id && (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-semibold rounded">
+                                  <Check className="h-3 w-3" />
+                                  {tx("settings.active", "Active")}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                              {company.address}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-500 mt-0.5">
+                              {company.email}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            {currentCompany?.id !== company.id && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentCompany(company.id)}
+                              >
+                                {tx("buttons.switchCompany", "Switch")}
+                              </Button>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openCompanyModal(company)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            {companies.length > 1 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  if (
+                                    confirm(
+                                      tx(
+                                        "dialogs.deleteConfirmation",
+                                        "Delete this company?",
+                                      ),
+                                    )
+                                  ) {
+                                    deleteCompany(company.id);
+                                    showNotification(
+                                      t("notifications.deleted"),
+                                      "success",
+                                    );
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "backup" && (
+              <div className="max-w-2xl space-y-5">
+                <div className="mb-5">
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    {t("settings.backup")}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {tx("settings.backupDesc", "Backup and restore your data")}
+                  </p>
+                </div>
+
+                <BackupRestorePanel
+                  onNotify={showNotification}
+                  onSaveConfig={saveBackupConfig}
+                />
+
+                <div className="pt-5 border-t border-slate-200 dark:border-[#2a3550]">
+                  <h3 className="text-sm font-semibold text-red-600 dark:text-red-400">
+                    {tx("settings.dangerZone", "Danger Zone")}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {tx("settings.dangerZoneDesc", "Irreversible actions")}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 gap-2 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/30 hover:bg-red-50 dark:hover:bg-red-950/20"
+                    onClick={() => setShowReset(true)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {tx("settings.resetAllData", "Reset All Data")}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sticky Action Bar */}
+          <div className="sticky bottom-0 border-t border-slate-200 dark:border-[#2a3550] bg-slate-50/50 dark:bg-slate-900/20 px-8 py-3.5 flex justify-end gap-3 backdrop-blur-sm">
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={save}>
+              <Save className="h-4 w-4" />
+              {t("settings.save")}
             </Button>
           </div>
         </div>
-      )}
-
-      <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-[#22304a]">
-        <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-          {t('common.cancel')}
-        </Button>
-        <Button size="sm" onClick={save}>
-          <Save className="h-3.5 w-3.5" />
-          {t('settings.save')}
-        </Button>
       </div>
 
       <Modal
         open={showCompanyModal}
-        onClose={() => { setShowCompanyModal(false); setEditingCompany(null); }}
-        title={editingCompany ? t('settings.editCompany') : t('settings.createCompany')}
+        onClose={() => {
+          setShowCompanyModal(false);
+          setEditingCompany(null);
+        }}
+        title={
+          editingCompany
+            ? t("settings.editCompany")
+            : t("settings.createCompany")
+        }
       >
         <div className="space-y-4">
-          <Input label={t('settings.companyName')} value={companyForm.name} onChange={e => setCompanyForm(f => ({ ...f, name: e.target.value }))} />
-          <Input label={t('settings.businessAddress')} value={companyForm.address} onChange={e => setCompanyForm(f => ({ ...f, address: e.target.value }))} />
+          <Input
+            label={t("settings.companyName")}
+            value={companyForm.name}
+            onChange={(e) =>
+              setCompanyForm((f) => ({ ...f, name: e.target.value }))
+            }
+          />
+          <Input
+            label={t("settings.businessAddress")}
+            value={companyForm.address}
+            onChange={(e) =>
+              setCompanyForm((f) => ({ ...f, address: e.target.value }))
+            }
+          />
           <div className="grid grid-cols-2 gap-4">
-            <Input label={t('settings.city')} value={companyForm.city} onChange={e => setCompanyForm(f => ({ ...f, city: e.target.value }))} />
-            <Input label={t('settings.state')} value={companyForm.state} onChange={e => setCompanyForm(f => ({ ...f, state: e.target.value }))} />
+            <Input
+              label={t("settings.city")}
+              value={companyForm.city}
+              onChange={(e) =>
+                setCompanyForm((f) => ({ ...f, city: e.target.value }))
+              }
+            />
+            <Input
+              label={t("settings.state")}
+              value={companyForm.state}
+              onChange={(e) =>
+                setCompanyForm((f) => ({ ...f, state: e.target.value }))
+              }
+            />
           </div>
-          <Input label={t('settings.phone')} value={companyForm.phone} onChange={e => setCompanyForm(f => ({ ...f, phone: e.target.value }))} />
-          <Input label={t('settings.email')} type="email" value={companyForm.email} onChange={e => setCompanyForm(f => ({ ...f, email: e.target.value }))} />
-          <Input label={t('settings.gstin')} value={companyForm.gstin} onChange={e => setCompanyForm(f => ({ ...f, gstin: e.target.value }))} />
-          <Input label={t('settings.invoicePrefix')} value={companyForm.invoicePrefix} onChange={e => setCompanyForm(f => ({ ...f, invoicePrefix: e.target.value }))} />
+          <Input
+            label={t("settings.phone")}
+            value={companyForm.phone}
+            onChange={(e) =>
+              setCompanyForm((f) => ({ ...f, phone: e.target.value }))
+            }
+          />
+          <Input
+            label={t("settings.email")}
+            type="email"
+            value={companyForm.email}
+            onChange={(e) =>
+              setCompanyForm((f) => ({ ...f, email: e.target.value }))
+            }
+          />
+          <Input
+            label={t("settings.gstin")}
+            value={companyForm.gstin}
+            onChange={(e) =>
+              setCompanyForm((f) => ({ ...f, gstin: e.target.value }))
+            }
+          />
+          <Input
+            label={t("settings.invoicePrefix")}
+            value={companyForm.invoicePrefix}
+            onChange={(e) =>
+              setCompanyForm((f) => ({
+                ...f,
+                invoicePrefix: e.target.value,
+              }))
+            }
+          />
           <Select
-            label={t('settings.language')}
+            label={t("settings.language")}
             value={companyForm.language}
-            onChange={e => setCompanyForm(f => ({ ...f, language: normalizeCompanyLanguage(e.target.value) }))}
-            options={companyLanguageOptions.map(lang => ({
+            onChange={(e) =>
+              setCompanyForm((f) => ({
+                ...f,
+                language: normalizeCompanyLanguage(e.target.value),
+              }))
+            }
+            options={companyLanguageOptions.map((lang) => ({
               value: lang.value,
               label: t(`settings.${lang.value}`, lang.label),
             }))}
           />
           <div className="flex gap-3 justify-end pt-4">
-            <Button variant="outline" size="sm" onClick={() => { setShowCompanyModal(false); setEditingCompany(null); }}>
-              {t('common.cancel')}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowCompanyModal(false);
+                setEditingCompany(null);
+              }}
+            >
+              {t("common.cancel")}
             </Button>
-            <Button size="sm" onClick={handleSaveCompany}>{t('common.save')}</Button>
+            <Button size="sm" onClick={handleSaveCompany}>
+              {t("common.save")}
+            </Button>
           </div>
         </div>
       </Modal>
 
-      <Modal open={showReset} onClose={() => setShowReset(false)} title={tx('settings.resetAllData', 'Reset All Data')} size="sm">
+      <Modal
+        open={showReset}
+        onClose={() => setShowReset(false)}
+        title={tx("settings.resetAllData", "Reset All Data")}
+        size="sm"
+      >
         <p className="text-[12px] text-slate-600 dark:text-slate-300 mb-4">
-          {tx('settings.resetWarning', 'This will permanently delete all parties, suppliers, bills, payments, inventory, and settings. This action cannot be undone.')}
+          {tx(
+            "settings.resetWarning",
+            "This will permanently delete all parties, suppliers, bills, payments, inventory, and settings. This action cannot be undone.",
+          )}
         </p>
         <div className="flex gap-3 justify-end">
-          <Button variant="outline" size="sm" onClick={() => setShowReset(false)}>{t('common.cancel')}</Button>
-          <Button variant="destructive" size="sm" onClick={resetAll}>{tx('settings.confirmResetAll', 'Yes, Reset Everything')}</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowReset(false)}
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button variant="destructive" size="sm" onClick={resetAll}>
+            {tx("settings.confirmResetAll", "Yes, Reset Everything")}
+          </Button>
         </div>
       </Modal>
     </div>

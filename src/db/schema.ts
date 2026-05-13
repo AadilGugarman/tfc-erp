@@ -1,12 +1,12 @@
 // Database Schema Types for Fruit Market Commission ERP
 // Simulating SQLite schema with TypeScript types
 
-export type LedgerType = 'debit' | 'credit';
-export type PaymentMode = 'cash' | 'bank' | 'upi' | 'cheque' | 'other';
-export type TaxType = 'gst' | 'none';
-export type StockStatus = 'in_stock' | 'low_stock' | 'out_of_stock';
-export type VehicleRegisterStatus = 'draft' | 'posted' | 'cancelled';
-export type UserRole = 'admin' | 'operator' | 'viewer';
+export type LedgerType = "debit" | "credit";
+export type PaymentMode = "cash" | "bank" | "upi" | "cheque" | "other";
+export type TaxType = "gst" | "none";
+export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
+export type VehicleRegisterStatus = "draft" | "posted" | "cancelled";
+export type UserRole = "admin" | "operator" | "viewer";
 
 export interface Party {
   id: string;
@@ -50,7 +50,13 @@ export interface LedgerEntry {
   type: LedgerType;
   amount: number;
   description: string;
-  referenceType: 'bill' | 'payment' | 'purchase' | 'manual' | 'commission' | 'vehicle_register';
+  referenceType:
+    | "bill"
+    | "payment"
+    | "purchase"
+    | "manual"
+    | "commission"
+    | "vehicle_register";
   referenceId: string;
   runningBalance: number;
   createdAt: string;
@@ -112,7 +118,7 @@ export interface Bill {
   paidAmount: number;
   netBalance: number;
   notes: string;
-  status: 'paid' | 'partial' | 'unpaid';
+  status: "paid" | "partial" | "unpaid";
   createdAt: string;
   updatedAt: string;
 }
@@ -147,10 +153,15 @@ export interface InventoryTransaction {
   id: string;
   itemId: string;
   itemName: string;
-  type: 'inward' | 'outward';
+  type: "inward" | "outward";
   quantity: number;
   rate: number;
-  referenceType: 'purchase' | 'bill' | 'manual' | 'adjustment' | 'vehicle_register';
+  referenceType:
+    | "purchase"
+    | "bill"
+    | "manual"
+    | "adjustment"
+    | "vehicle_register";
   referenceId: string;
   date: string;
   notes: string;
@@ -170,7 +181,7 @@ export interface Purchase {
   paidAmount: number;
   netBalance: number;
   notes: string;
-  status: 'paid' | 'partial' | 'unpaid';
+  status: "paid" | "partial" | "unpaid";
   createdAt: string;
   updatedAt: string;
 }
@@ -193,7 +204,7 @@ export interface Payment {
   partyName: string;
   amount: number;
   mode: PaymentMode;
-  type: 'received' | 'paid';
+  type: "received" | "paid";
   referenceNo: string;
   notes: string;
   ledgerEntryId: string;
@@ -217,7 +228,7 @@ export interface Settings {
   nextBillNo: number;
   nextPurchaseNo: number;
   nextVehicleEntryNo: number;
-  language: 'english' | 'gujarati' | 'hindi';
+  language: "english" | "gujarati";
   darkMode: boolean;
   lowStockAlert: boolean;
   logoUrl?: string;
@@ -233,8 +244,11 @@ export interface Company {
   city: string;
   state: string;
   phone: string;
-  language: 'english' | 'gujarati' | 'hindi';
-  theme: 'light' | 'dark';
+  email: string;
+  gstin: string;
+  invoicePrefix: string;
+  language: "english" | "gujarati";
+  theme: "light" | "dark";
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

@@ -44,8 +44,8 @@ interface AppState {
   updateCompany: (company: Company) => void;
   deleteCompany: (companyId: string) => void;
 
-  language: "english" | "gujarati" | "hindi";
-  setLanguage: (lang: "english" | "gujarati" | "hindi") => void;
+  language: "english" | "gujarati";
+  setLanguage: (lang: "english" | "gujarati") => void;
 
   settings: Settings;
   loadSettings: () => void;
@@ -104,41 +104,9 @@ interface AppState {
   setInvoiceCreationMode: (mode: "sales" | "purchase" | null) => void;
 }
 
-const DEFAULT_COMPANY: Company = {
-  id: "default-company",
-  name: "TFC - Talha Fruit Co.",
-  address: "123 Market Street",
-  city: "Ahmedabad",
-  state: "Gujarat",
-  phone: "+91-9999999999",
-  email: "info@tfc.com",
-  gstin: "24AABCT1234H1Z0",
-  language: "english",
-  theme: "light",
-  isActive: true,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-};
-
-const getStoredLanguage = (): "english" | "gujarati" | "hindi" => {
-  const stored = localStorage.getItem("appLanguage");
-  if (stored === "gu" || stored === "gujarati") return "gujarati";
-  if (stored === "hi" || stored === "hindi") return "hindi";
-  return "english";
-};
-
-const getStoredCompanies = (): Company[] => {
-  try {
-    const stored = localStorage.getItem("talha-fruit-companies");
-    if (stored) return JSON.parse(stored);
-  } catch {
-    return [DEFAULT_COMPANY];
-  }
-  return [DEFAULT_COMPANY];
-};
-
-const saveCompanies = (companies: Company[]) => {
-  localStorage.setItem("talha-fruit-companies", JSON.stringify(companies));
+const getStoredLanguage = (): "english" | "gujarati" => {
+  const settings = db.getSettings();
+  return settings.language || "english";
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -157,14 +125,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ authenticated: false, currentPage: "dashboard", userId: "guest" });
   },
 
-  companies: getStoredCompanies(),
-  currentCompany: getStoredCompanies()[0] || DEFAULT_COMPANY,
+  companies: db.getCompanies(),
+  currentCompany: db.getCompanies()[0] || null,
   loadCompanies: () => {
-    const companies = getStoredCompanies();
+    const companies = db.getCompanies();
     set({ companies });
   },
   setCurrentCompany: (companyId: string) => {
-    const companies = get().companies;
+    const companies = db.getCompanies();
     const company = companies.find((c) => c.id === companyId);
     if (company) {
       localStorage.setItem("talha-fruit-company", companyId);
@@ -172,23 +140,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   createCompany: (company: Company) => {
-    const companies = [...get().companies, company];
-    saveCompanies(companies);
+    const newCompany = db.createCompany({
+      name: company.name,
+      address: company.address,
+      city: company.city,
+      state: company.state,
+      phone: company.phone,
+      email: company.email,
+      gstin: company.gstin,
+      invoicePrefix: company.invoicePrefix,
+      language: company.language,
+      theme: company.theme,
+      isActive: company.isActive,
+    });
+    const companies = db.getCompanies();
     set({ companies });
   },
   updateCompany: (company: Company) => {
-    const companies = get().companies.map((c) =>
-      c.id === company.id ? company : c,
-    );
-    saveCompanies(companies);
+    db.updateCompany(company.id, company);
+    const companies = db.getCompanies();
     set({ companies });
     if (get().currentCompany?.id === company.id) {
       set({ currentCompany: company });
     }
   },
   deleteCompany: (companyId: string) => {
-    const companies = get().companies.filter((c) => c.id !== companyId);
-    saveCompanies(companies);
+    db.deleteCompany(companyId);
+    const companies = db.getCompanies();
     set({ companies });
     if (get().currentCompany?.id === companyId && companies.length > 0) {
       set({ currentCompany: companies[0] });
@@ -197,9 +175,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   language: getStoredLanguage(),
   setLanguage: (lang) => {
-    const i18nLang =
-      lang === "gujarati" ? "gu" : lang === "hindi" ? "hi" : "en";
+    const i18nLang = lang === "gujarati" ? "gu" : "en";
     localStorage.setItem("appLanguage", i18nLang);
+    db.updateSettings({ language: lang });
     set({ language: lang });
     const i18n = window.__i18n;
     if (i18n) {

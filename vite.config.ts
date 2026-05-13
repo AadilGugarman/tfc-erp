@@ -13,7 +13,11 @@ const isProduction = process.env.NODE_ENV === "production";
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), ...(isProduction ? [viteSingleFile()] : [])],
+  plugins: [
+    react(),
+    tailwindcss(),
+    ...(isProduction ? [viteSingleFile()] : []),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
@@ -28,14 +32,16 @@ export default defineConfig({
       },
     },
     rollupOptions: {
-      output: {
-        manualChunks: {
-          // Split large dependencies into chunks
-          tauri: ["@tauri-apps/api"],
-          ag_grid: ["ag-grid-react", "ag-grid-community"],
-          i18n: ["react-i18next", "i18next"],
-        },
-      },
+      output: isProduction
+        ? {}
+        : {
+            manualChunks: {
+              // Split large dependencies into chunks
+              tauri: ["@tauri-apps/api"],
+              ag_grid: ["ag-grid-react", "ag-grid-community"],
+              i18n: ["react-i18next", "i18next"],
+            },
+          },
     },
   },
   optimizeDeps: {

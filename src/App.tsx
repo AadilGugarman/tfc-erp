@@ -34,6 +34,11 @@ function App() {
 
   // Load data from database when app mounts or authentication status changes
   useEffect(() => {
+    // Auto-seed test data if database is empty (first app load)
+    if (db.getParties().length === 0) {
+      db.seedRealisticTestData();
+    }
+
     refreshDataFromDb();
     const unsubscribe = db.subscribeDbChanges(() => {
       refreshDataFromDb();
