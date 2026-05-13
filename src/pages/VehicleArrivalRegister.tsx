@@ -28,8 +28,6 @@ type Row = {
   carat: number;
   weight: number;
   rate: number;
-  commission: number;
-  hamali: number;
   remarks: string;
   inventoryItemId?: string;
 };
@@ -43,8 +41,6 @@ const blank = (id: string): Row => ({
   carat: 0,
   weight: 0,
   rate: 0,
-  commission: 0,
-  hamali: 0,
   remarks: "",
   inventoryItemId: undefined,
 });
@@ -61,8 +57,6 @@ const cols: {
   { key: "carat", label: "Carat", guj: "કેરેટ", numeric: true },
   { key: "weight", label: "Weight (kg)", guj: "વજન", numeric: true },
   { key: "rate", label: "Rate (₹)", guj: "ભાવ", numeric: true },
-  { key: "commission", label: "Commission", guj: "કમીશન", numeric: true },
-  { key: "hamali", label: "Hamali", guj: "હમાલી", numeric: true },
   { key: "remarks", label: "Remarks", guj: "નોંધ" },
 ];
 
@@ -93,18 +87,13 @@ export function VehicleArrivalRegisterPage() {
   const entryTotal = useMemo(() => {
     return rows.reduce((sum, row) => {
       const base = row.carat * row.weight * row.rate;
-      return sum + base + row.commission + row.hamali;
+      return sum + base;
     }, 0);
   }, [rows]);
 
   const entryWeight = useMemo(() => {
     return rows.reduce((sum, row) => sum + Number(row.weight || 0), 0);
   }, [rows]);
-
-  const nextEntryNo = useMemo(
-    () => db.getNextVehicleEntryNo(),
-    [vehicleRegisters],
-  );
 
   useEffect(() => {
     loadParties();
@@ -207,8 +196,6 @@ export function VehicleArrivalRegisterPage() {
           carat: row.carat,
           weight: row.weight,
           rate: row.rate,
-          commission: row.commission,
-          hamali: row.hamali,
           remarks: row.remarks,
           inventoryItemId: row.inventoryItemId,
         })),
@@ -218,8 +205,8 @@ export function VehicleArrivalRegisterPage() {
       });
 
       setStatus("Saved");
-      toast.success(`Vehicle entry ${saved.entryNo} saved!`);
-      showNotification(`Vehicle entry ${saved.entryNo} saved`, "success");
+      toast.success(`Vehicle saved successfully!`);
+      showNotification(`Vehicle saved successfully`, "success");
       loadVehicleRegisters();
       loadInventory();
       resetForm();
@@ -296,24 +283,19 @@ export function VehicleArrivalRegisterPage() {
               value={driverName}
               onChange={setDriverName}
             />
-            <div>
-              <p className="text-[11px] font-bold uppercase text-gray-400">
-                Entry Number
-              </p>
-              <div className="mt-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2">
-                <span className="font-extrabold text-blue-700 dark:text-blue-300">
-                  {nextEntryNo}
-                </span>
-                <span
-                  className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
-                    status === "Saved"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-amber-100 text-amber-700"
-                  }`}
-                >
-                  {status}
-                </span>
-              </div>
+            <div className="grid grid-cols-1">
+              <label className="text-[11px] font-bold uppercase text-gray-400 mb-2">
+                Status
+              </label>
+              <span
+                className={`inline-block text-xs px-3 py-1 rounded-full font-semibold w-fit ${
+                  status === "Saved"
+                    ? "bg-green-100 text-green-700"
+                    : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {status}
+              </span>
             </div>
           </div>
 
@@ -427,9 +409,7 @@ export function VehicleArrivalRegisterPage() {
                         </td>
                       ))}
                       <td className="border border-gray-200 dark:border-gray-700 px-3 py-1 text-right font-bold text-blue-700 dark:text-blue-300 whitespace-nowrap">
-                        {fmt(
-                          row.weight * row.rate + row.commission + row.hamali,
-                        )}
+                        {fmt(row.weight * row.rate)}
                       </td>
                       <td className="border border-gray-200 dark:border-gray-700 p-1 text-center">
                         <button
