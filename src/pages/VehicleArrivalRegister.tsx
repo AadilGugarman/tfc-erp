@@ -202,6 +202,7 @@ export function VehicleArrivalRegisterPage() {
         pendingAmount: entryTotal,
         outstandingBalance: entryTotal,
         notes,
+        companyId: currentCompanyId || undefined,
       });
 
       setStatus("Saved");

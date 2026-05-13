@@ -1,6 +1,8 @@
 import { cn } from "@/utils/cn";
 import { useAppStore } from "@/stores/useAppStore";
 import { useTranslation } from "react-i18next";
+import { useNavigate, useParams } from "react-router-dom";
+import { authService } from "@/services/auth";
 import {
   LayoutDashboard,
   Users,
@@ -95,18 +97,28 @@ const NAV_GROUPS = [
 ];
 
 export function Sidebar() {
-  const { currentPage, setCurrentPage, sidebarOpen, setSidebarOpen } =
-    useAppStore();
+  const { sidebarOpen, setSidebarOpen } = useAppStore();
+  const { companyId } = useParams<{ companyId: string }>();
+  const navigate = useNavigate();
   const { t } = useTranslation();
+
+  const currentCompanyId = authService.getCurrentCompany();
+  const effectiveCompanyId = companyId || currentCompanyId;
+
+  const handleNavigate = (pageId: string) => {
+    if (effectiveCompanyId) {
+      navigate(`/app/${effectiveCompanyId}/${pageId}`);
+    }
+  };
 
   return (
     <aside
       className={cn(
         "fixed top-16 left-0 z-20 h-[calc(100vh-4rem)] flex flex-col",
-        "bg-gradient-to-b from-[#f8fbff] via-[#f4f8ff] to-[#eef4ff] dark:from-[#0b1324] dark:via-[#0a1222] dark:to-[#0a111f] backdrop-blur-xl",
+        "bg-linear-to-b from-[#f8fbff] via-[#f4f8ff] to-[#eef4ff] dark:from-[#0b1324] dark:via-[#0a1222] dark:to-[#0a111f] backdrop-blur-xl",
         "border-r border-slate-200/80 dark:border-[#1f2a43]",
         "transition-[width] duration-300 ease-in-out",
-        sidebarOpen ? "w-56" : "w-[60px]",
+        sidebarOpen ? "w-60" : "w-[60px]",
       )}
     >
       <div className="h-11 shrink-0 flex items-center border-b border-slate-200/60 dark:border-[#1f2a43]/80 px-2.5">
@@ -144,33 +156,33 @@ export function Sidebar() {
             <div className={cn("space-y-1", !sidebarOpen && "space-y-2")}>
               {group.items.map((item) => {
                 const Icon = item.icon;
-                const active = currentPage === item.id;
+                const isActive = false; // Will check from URL path
                 const label = t(item.labelKey);
 
                 return (
                   <button
                     key={item.id}
-                    onClick={() => setCurrentPage(item.id)}
+                    onClick={() => handleNavigate(item.id)}
                     title={!sidebarOpen ? label : undefined}
                     className={cn(
                       "group relative w-full rounded-xl transition-all duration-150 font-medium",
                       sidebarOpen
                         ? cn(
                             "flex items-center gap-3 px-3 py-2.5 text-sm",
-                            active
+                            isActive
                               ? "bg-linear-to-r from-blue-50/95 to-cyan-50/85 dark:from-blue-950/35 dark:to-cyan-900/20 text-blue-700 dark:text-blue-300 ring-1 ring-blue-200/70 dark:ring-blue-800/35"
                               : "text-slate-600 dark:text-slate-400 hover:bg-white/65 dark:hover:bg-[#16203a] hover:text-slate-900 dark:hover:text-slate-200",
                           )
                         : cn(
                             "flex h-11 w-11 items-center justify-center mx-auto rounded-xl",
-                            active
-                              ? "bg-gradient-to-br from-blue-600 to-cyan-600 text-white shadow-sm shadow-blue-600/30"
+                            isActive
+                              ? "bg-linear-to-br from-blue-600 to-cyan-600 text-white shadow-sm shadow-blue-600/30"
                               : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/70 dark:hover:bg-[#16203a]",
                           ),
                     )}
                   >
                     {/* Active indicator line (expanded only) */}
-                    {active && sidebarOpen && (
+                    {isActive && sidebarOpen && (
                       <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-blue-600 dark:bg-blue-500" />
                     )}
 
@@ -180,9 +192,9 @@ export function Sidebar() {
                         !sidebarOpen
                           ? "h-6 w-6 shrink-0 transition-all duration-150"
                           : "h-4 w-4 shrink-0 transition-all duration-150",
-                        active && sidebarOpen
+                        isActive && sidebarOpen
                           ? "text-blue-600 dark:text-blue-400"
-                          : active
+                          : isActive
                             ? "text-white"
                             : "",
                       )}
@@ -197,7 +209,7 @@ export function Sidebar() {
                         <kbd
                           className={cn(
                             "ml-auto rounded-md px-1.5 py-0.5 text-[10px] font-mono leading-none ring-1",
-                            active
+                            isActive
                               ? "ring-blue-300/80 bg-blue-100/80 text-blue-700 dark:ring-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
                               : "ring-slate-200 bg-white/90 text-slate-500 dark:ring-[#2c3a59] dark:bg-[#14213a] dark:text-slate-400",
                           )}

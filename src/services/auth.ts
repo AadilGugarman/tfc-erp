@@ -1,3 +1,5 @@
+import * as db from "@/db/db";
+
 let tauriInvokePromise: Promise<
   ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null
 > | null = null;
@@ -5,17 +7,31 @@ let tauriInvokePromise: Promise<
 export interface AuthResponse {
   user_id: string;
   username: string;
+  email: string;
+  name: string;
   role: string;
+  company_ids: string[];
+  default_company_id?: string;
   access_token: string;
   refresh_token: string;
   expires_in: number;
 }
 
+export interface Company {
+  id: string;
+  name: string;
+  email: string;
+  gstin: string;
+}
+
 export interface User {
   id: string;
   username: string;
+  email: string;
   name: string;
   role: string;
+  companyIds: string[];
+  defaultCompanyId?: string;
   is_active: boolean;
 }
 
@@ -24,6 +40,8 @@ const ACCESS_TOKEN_KEY = "tfc-erp-access-token";
 const REFRESH_TOKEN_KEY = "tfc-erp-refresh-token";
 const USER_KEY = "tfc-erp-user";
 const TOKEN_EXPIRY_KEY = "tfc-erp-token-expiry";
+const CURRENT_COMPANY_ID_KEY = "tfc-erp-current-company-id";
+const COMPANY_IDS_KEY = "tfc-erp-company-ids";
 
 function isTauriRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -76,13 +94,36 @@ const safeInvoke = async <T>(
 
   const invokeFn = await getTauriInvoke();
   if (!invokeFn) {
-    console.error(
-      "Tauri backend is not available. Make sure:\n" +
-        '1. The app was launched with "npm run desktop:dev"\n' +
-        "2. The Tauri process is running\n" +
-        "3. No port conflicts (default: 11433, 11434)\n" +
-        `Failed command: ${command}`,
+    console.warn(
+      "Tauri backend is not available. Using development fallback mode.",
     );
+
+    // Development fallback for login command
+    if (command === "login" && args?.request) {
+      const req = args.request as { username: string; password: string };
+      if (req.username === "admin" && req.password === "admin123") {
+        // Get actual companies from database
+        const companies = db.getCompanies();
+        const companyIds = companies.map((c) => c.id);
+        const defaultCompanyId =
+          companyIds.length > 0 ? companyIds[0] : undefined;
+
+        return {
+          user_id: "dev-user-1",
+          username: "admin",
+          email: "admin@talhafruitco.com",
+          name: "Administrator",
+          role: "admin",
+          company_ids: companyIds,
+          default_company_id: defaultCompanyId,
+          access_token: "dev-access-token-" + Date.now(),
+          refresh_token: "dev-refresh-token-" + Date.now(),
+          expires_in: 3600,
+        } as T;
+      }
+      throw new Error("Invalid username or password");
+    }
+
     throw new Error(
       'Backend service unavailable. Please make sure you started the app with "npm run desktop:dev" and not just "npm run dev".',
     );
@@ -115,10 +156,22 @@ class AuthService {
       this.storeUser({
         id: response.user_id,
         username: response.username,
-        name: response.username,
+        email: response.email,
+        name: response.name,
         role: response.role,
+        companyIds: response.company_ids || [],
+        defaultCompanyId: response.default_company_id,
         is_active: true,
       });
+
+      // Store accessible companies and set current company
+      const companyIds = response.company_ids || [];
+      this.storeAccessibleCompanies(companyIds);
+      if (response.default_company_id) {
+        this.setCurrentCompany(response.default_company_id);
+      } else if (companyIds.length > 0) {
+        this.setCurrentCompany(companyIds[0]);
+      }
 
       this.scheduleTokenRefresh(response.expires_in);
       return response;
@@ -176,6 +229,8 @@ class AuthService {
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(TOKEN_EXPIRY_KEY);
+    // Clear company data
+    this.clearCompanyData();
   }
 
   /**
@@ -375,6 +430,51 @@ class AuthService {
       clearTimeout(this.tokenRefreshTimeout);
       this.tokenRefreshTimeout = null;
     }
+  }
+
+  /**
+   * Set current company for the logged-in user
+   */
+  setCurrentCompany(companyId: string): void {
+    localStorage.setItem(CURRENT_COMPANY_ID_KEY, companyId);
+  }
+
+  /**
+   * Get current company ID (last selected company)
+   */
+  getCurrentCompany(): string | null {
+    return localStorage.getItem(CURRENT_COMPANY_ID_KEY);
+  }
+
+  /**
+   * Get all companies accessible to current user
+   */
+  getAccessibleCompanies(): string[] {
+    const companiesStr = localStorage.getItem(COMPANY_IDS_KEY);
+    return companiesStr ? JSON.parse(companiesStr) : [];
+  }
+
+  /**
+   * Store accessible companies for logged-in user
+   */
+  private storeAccessibleCompanies(companyIds: string[] = []): void {
+    // Ensure we have an array
+    const ids = Array.isArray(companyIds) ? companyIds : [];
+    localStorage.setItem(COMPANY_IDS_KEY, JSON.stringify(ids));
+
+    // Set default to first company or restore previously selected
+    const currentCompany = this.getCurrentCompany();
+    if (!currentCompany && ids.length > 0) {
+      this.setCurrentCompany(ids[0]);
+    }
+  }
+
+  /**
+   * Clear company data on logout
+   */
+  private clearCompanyData(): void {
+    localStorage.removeItem(CURRENT_COMPANY_ID_KEY);
+    localStorage.removeItem(COMPANY_IDS_KEY);
   }
 }
 

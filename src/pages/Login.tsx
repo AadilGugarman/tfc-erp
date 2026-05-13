@@ -1,15 +1,15 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { authService } from "@/services/auth";
+import { useAppStore } from "@/stores/useAppStore";
 import { toast } from "sonner";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
-type LoginPageProps = {
-  onLogin: (username: string, password: string) => Promise<void>;
-};
-
-export function LoginPage({ onLogin }: LoginPageProps) {
+export function LoginPage() {
+  const navigate = useNavigate();
+  const setCurrentCompanyId = useAppStore((state) => state.setCurrentCompanyId);
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin123");
   const [loading, setLoading] = useState(false);
@@ -54,8 +54,27 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       setSuccess(`✓ Welcome, ${response.username}!`);
       toast.success(`Welcome, ${response.username}! Redirecting...`);
 
-      // Call the onLogin hook to update auth state
-      await onLogin(username, password);
+      // Set the current company in the store
+      if (response.default_company_id) {
+        setCurrentCompanyId(response.default_company_id);
+        // Redirect to dashboard with company ID
+        setTimeout(() => {
+          navigate(`/app/${response.default_company_id}/dashboard`);
+        }, 500);
+      } else if (response.company_ids && response.company_ids.length > 0) {
+        const firstCompanyId = response.company_ids[0];
+        setCurrentCompanyId(firstCompanyId);
+        // Redirect to dashboard with company ID
+        setTimeout(() => {
+          navigate(`/app/${firstCompanyId}/dashboard`);
+        }, 500);
+      } else {
+        // No companies assigned
+        setError(
+          "No companies assigned to your account. Please contact administrator.",
+        );
+        toast.error("No companies assigned to your account.");
+      }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Login failed. Please try again.";

@@ -110,6 +110,7 @@ export function PaymentsPage() {
         type: fType,
         referenceNo: fRef,
         notes: fNotes,
+        companyId: currentCompanyId || undefined,
       });
       success(
         `Payment ${fType === "received" ? "Received" : "Paid"}`,

@@ -101,6 +101,7 @@ export function SuppliersPage() {
         balanceType: fBalType,
         commissionPercent: fComm,
         notes: fNotes,
+        companyId: currentCompanyId || undefined,
       });
       showNotification(t("messages.supplierCreated"), "success");
     }

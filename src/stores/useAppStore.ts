@@ -38,8 +38,10 @@ interface AppState {
 
   companies: Company[];
   currentCompany: Company | null;
+  currentCompanyId: string | null;
   loadCompanies: () => void;
   setCurrentCompany: (companyId: string) => void;
+  setCurrentCompanyId: (companyId: string) => void;
   createCompany: (company: Company) => void;
   updateCompany: (company: Company) => void;
   deleteCompany: (companyId: string) => void;
@@ -126,7 +128,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   companies: db.getCompanies(),
-  currentCompany: db.getCompanies()[0] || null,
+  currentCompanyId: authService.getCurrentCompany(),
+  currentCompany: (() => {
+    const companies = db.getCompanies();
+    const currentCompanyId = authService.getCurrentCompany();
+    if (currentCompanyId) {
+      return (
+        companies.find((c) => c.id === currentCompanyId) ?? companies[0] ?? null
+      );
+    }
+    return companies[0] ?? null;
+  })(),
   loadCompanies: () => {
     const companies = db.getCompanies();
     set({ companies });
@@ -135,8 +147,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     const companies = db.getCompanies();
     const company = companies.find((c) => c.id === companyId);
     if (company) {
-      localStorage.setItem("talha-fruit-company", companyId);
-      set({ currentCompany: company });
+      authService.setCurrentCompany(companyId);
+      set({ currentCompany: company, currentCompanyId: companyId });
+      // Refresh all data for the new company
+      get().refreshDataFromDb();
+    }
+  },
+  setCurrentCompanyId: (companyId: string) => {
+    const companies = db.getCompanies();
+    const company = companies.find((c) => c.id === companyId);
+    if (company) {
+      authService.setCurrentCompany(companyId);
+      set({ currentCompany: company, currentCompanyId: companyId });
+      // Refresh all data for the new company
+      get().refreshDataFromDb();
     }
   },
   createCompany: (company: Company) => {
@@ -201,57 +225,151 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  parties: db.getParties(),
-  loadParties: () => set({ parties: db.getParties() }),
+  parties: [],
+  loadParties: () => {
+    const { currentCompanyId } = get();
+    if (!currentCompanyId) {
+      set({ parties: [] });
+      return;
+    }
+    const parties = db.getPartiesByCompany(currentCompanyId);
+    set({ parties });
+  },
   searchParties: (query) => {
-    const parties = db.getParties();
+    const { currentCompanyId, parties } = get();
+    if (!currentCompanyId) return [];
     const q = query.toLowerCase();
     return parties.filter(
       (p) => p.name.toLowerCase().includes(q) || p.phone.includes(q),
     );
   },
 
-  suppliers: db.getSuppliers(),
-  loadSuppliers: () => set({ suppliers: db.getSuppliers() }),
+  suppliers: [],
+  loadSuppliers: () => {
+    const { currentCompanyId } = get();
+    if (!currentCompanyId) {
+      set({ suppliers: [] });
+      return;
+    }
+    const suppliers = db.getSuppliersByCompany(currentCompanyId);
+    set({ suppliers });
+  },
   searchSuppliers: (query) => {
-    const suppliers = db.getSuppliers();
+    const { currentCompanyId, suppliers } = get();
+    if (!currentCompanyId) return [];
     const q = query.toLowerCase();
     return suppliers.filter(
       (s) => s.name.toLowerCase().includes(q) || s.phone.includes(q),
     );
   },
 
-  inventoryItems: db.getInventoryItems(),
-  loadInventory: () => set({ inventoryItems: db.getInventoryItems() }),
+  inventoryItems: [],
+  loadInventory: () => {
+    const { currentCompanyId } = get();
+    if (!currentCompanyId) {
+      set({ inventoryItems: [] });
+      return;
+    }
+    const inventoryItems = db.getInventoryByCompany(currentCompanyId);
+    set({ inventoryItems });
+  },
 
-  payments: db.getPayments(),
-  loadPayments: () => set({ payments: db.getPayments() }),
+  payments: [],
+  loadPayments: () => {
+    const { currentCompanyId } = get();
+    if (!currentCompanyId) {
+      set({ payments: [] });
+      return;
+    }
+    const payments = db.getPaymentsByCompany(currentCompanyId);
+    set({ payments });
+  },
 
-  bills: db.getBills(),
-  loadBills: () => set({ bills: db.getBills() }),
+  bills: [],
+  loadBills: () => {
+    const { currentCompanyId } = get();
+    if (!currentCompanyId) {
+      set({ bills: [] });
+      return;
+    }
+    const bills = db.getBillsByCompany(currentCompanyId);
+    set({ bills });
+  },
 
-  purchases: db.getPurchases(),
-  loadPurchases: () => set({ purchases: db.getPurchases() }),
+  purchases: [],
+  loadPurchases: () => {
+    const { currentCompanyId } = get();
+    if (!currentCompanyId) {
+      set({ purchases: [] });
+      return;
+    }
+    const purchases = db.getPurchasesByCompany(currentCompanyId);
+    set({ purchases });
+  },
 
-  ledgerEntries: db.getLedgerEntries(),
-  loadLedgerEntries: () => set({ ledgerEntries: db.getLedgerEntries() }),
+  ledgerEntries: [],
+  loadLedgerEntries: () => {
+    const { currentCompanyId } = get();
+    if (!currentCompanyId) {
+      set({ ledgerEntries: [] });
+      return;
+    }
+    const ledgerEntries = db.getLedgerEntriesByCompany(currentCompanyId);
+    set({ ledgerEntries });
+  },
 
-  vehicleRegisters: db.getVehicleRegisters(),
-  loadVehicleRegisters: () =>
-    set({ vehicleRegisters: db.getVehicleRegisters() }),
+  vehicleRegisters: [],
+  loadVehicleRegisters: () => {
+    const { currentCompanyId } = get();
+    if (!currentCompanyId) {
+      set({ vehicleRegisters: [] });
+      return;
+    }
+    const vehicleRegisters = db.getVehicleRegistersByCompany(currentCompanyId);
+    set({ vehicleRegisters });
+  },
 
-  refreshDataFromDb: () =>
+  refreshDataFromDb: () => {
+    const { currentCompanyId } = get();
+
+    // ENFORCE: No data loading without a company context
+    if (!currentCompanyId) {
+      console.warn("[Store] No company selected - refusing to load data");
+      set({
+        parties: [],
+        suppliers: [],
+        inventoryItems: [],
+        payments: [],
+        bills: [],
+        purchases: [],
+        ledgerEntries: [],
+        vehicleRegisters: [],
+      });
+      return;
+    }
+
+    // Load ONLY company-specific data
+    const parties = db.getPartiesByCompany(currentCompanyId);
+    const suppliers = db.getSuppliersByCompany(currentCompanyId);
+    const inventoryItems = db.getInventoryByCompany(currentCompanyId);
+    const payments = db.getPaymentsByCompany(currentCompanyId);
+    const bills = db.getBillsByCompany(currentCompanyId);
+    const purchases = db.getPurchasesByCompany(currentCompanyId);
+    const ledgerEntries = db.getLedgerEntriesByCompany(currentCompanyId);
+    const vehicleRegisters = db.getVehicleRegistersByCompany(currentCompanyId);
+
     set({
       settings: db.getSettings(),
-      parties: db.getParties(),
-      suppliers: db.getSuppliers(),
-      inventoryItems: db.getInventoryItems(),
-      payments: db.getPayments(),
-      bills: db.getBills(),
-      purchases: db.getPurchases(),
-      ledgerEntries: db.getLedgerEntries(),
-      vehicleRegisters: db.getVehicleRegisters(),
-    }),
+      parties,
+      suppliers,
+      inventoryItems,
+      payments,
+      bills,
+      purchases,
+      ledgerEntries,
+      vehicleRegisters,
+    });
+  },
 
   sidebarOpen: true,
   toggleSidebar: () => set({ sidebarOpen: !get().sidebarOpen }),

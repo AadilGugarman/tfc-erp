@@ -1484,6 +1484,47 @@ export function seedDemoData() {
   saveDb(db);
 }
 
+/**
+ * ============================================
+ * Company-Filtered Query Methods
+ * ============================================
+ * These methods filter data by companyId for multi-company support
+ */
+
+export function getPartiesByCompany(companyId: string): Party[] {
+  return getDb().parties.filter((p) => p.companyId === companyId);
+}
+
+export function getSuppliersByCompany(companyId: string): Supplier[] {
+  return getDb().suppliers.filter((s) => s.companyId === companyId);
+}
+
+export function getBillsByCompany(companyId: string): Bill[] {
+  return getDb().bills.filter((b) => b.companyId === companyId);
+}
+
+export function getPurchasesByCompany(companyId: string): Purchase[] {
+  return getDb().purchases.filter((p) => p.companyId === companyId);
+}
+
+export function getPaymentsByCompany(companyId: string): Payment[] {
+  return getDb().payments.filter((p) => p.companyId === companyId);
+}
+
+export function getInventoryByCompany(companyId: string): InventoryItem[] {
+  return getDb().inventoryItems.filter((i) => i.companyId === companyId);
+}
+
+export function getLedgerEntriesByCompany(companyId: string): LedgerEntry[] {
+  return getDb().ledgerEntries.filter((l) => l.companyId === companyId);
+}
+
+export function getVehicleRegistersByCompany(
+  companyId: string,
+): VehicleRegister[] {
+  return getDb().vehicleRegisters.filter((v) => v.companyId === companyId);
+}
+
 export function seedRealisticTestData() {
   /**
    * Seeds comprehensive realistic test data (20+ records per module).

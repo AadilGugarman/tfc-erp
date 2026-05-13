@@ -10,6 +10,7 @@ export type UserRole = "admin" | "operator" | "viewer";
 
 export interface Party {
   id: string;
+  companyId: string;
   name: string;
   phone: string;
   email: string;
@@ -28,6 +29,7 @@ export interface Party {
 
 export interface Supplier {
   id: string;
+  companyId: string;
   name: string;
   phone: string;
   email: string;
@@ -44,6 +46,7 @@ export interface Supplier {
 
 export interface LedgerEntry {
   id: string;
+  companyId: string;
   partyId: string;
   partyName: string;
   date: string;
@@ -84,6 +87,7 @@ export interface VehicleRegisterRow {
 
 export interface VehicleRegister {
   id: string;
+  companyId: string;
   entryNo: string;
   date: string;
   vehicleNumber: string;
@@ -104,6 +108,7 @@ export interface VehicleRegister {
 
 export interface Bill {
   id: string;
+  companyId: string;
   billNo: string;
   date: string;
   partyId: string;
@@ -137,6 +142,7 @@ export interface BillItem {
 
 export interface InventoryItem {
   id: string;
+  companyId: string;
   name: string;
   grade: string;
   category: string;
@@ -170,6 +176,7 @@ export interface InventoryTransaction {
 
 export interface Purchase {
   id: string;
+  companyId: string;
   purchaseNo: string;
   date: string;
   supplierId: string;
@@ -199,6 +206,7 @@ export interface PurchaseItem {
 
 export interface Payment {
   id: string;
+  companyId: string;
   date: string;
   partyId: string;
   partyName: string;
@@ -249,6 +257,9 @@ export interface Company {
   invoicePrefix: string;
   language: "english" | "gujarati";
   theme: "light" | "dark";
+  financialYearStart: number; // Month: 1-12
+  financialYearEnd: number; // Month: 1-12
+  ownerId: string; // User who created it
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -258,7 +269,11 @@ export interface User {
   id: string;
   name: string;
   username: string;
+  email: string;
   role: UserRole;
+  companyIds: string[]; // List of company IDs user has access to
+  defaultCompanyId?: string; // Last selected company
+  passwordHash: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

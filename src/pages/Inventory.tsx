@@ -132,6 +132,7 @@ export function InventoryPage() {
           unit: fUnit,
           lowStockThreshold: fThreshold,
           warehouse: fWarehouse,
+          companyId: currentCompanyId || undefined,
         });
         success("Item Created", "Inventory item added successfully");
       }

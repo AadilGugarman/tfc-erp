@@ -79,11 +79,35 @@ pub fn ensure_database() -> Result<(), String> {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       username TEXT NOT NULL UNIQUE,
+      email TEXT NOT NULL,
       role TEXT NOT NULL,
+      company_ids TEXT NOT NULL DEFAULT '[]', -- JSON array of company IDs
+      default_company_id TEXT,
       password_hash TEXT NOT NULL DEFAULT '',
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS companies (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      address TEXT NOT NULL,
+      city TEXT NOT NULL,
+      state TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      email TEXT NOT NULL,
+      gstin TEXT NOT NULL,
+      invoice_prefix TEXT NOT NULL,
+      language TEXT NOT NULL,
+      theme TEXT NOT NULL,
+      financial_year_start INTEGER NOT NULL,
+      financial_year_end INTEGER NOT NULL,
+      owner_id TEXT NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (owner_id) REFERENCES users(id)
     );
 
     CREATE TABLE IF NOT EXISTS settings (

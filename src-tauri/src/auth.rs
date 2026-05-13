@@ -27,7 +27,11 @@ pub struct LoginRequest {
 pub struct AuthResponse {
     pub user_id: String,
     pub username: String,
+    pub email: String,
+    pub name: String,
     pub role: String,
+    pub company_ids: Vec<String>,
+    pub default_company_id: Option<String>,
     pub access_token: String,
     pub refresh_token: String,
     pub expires_in: i64,
@@ -38,7 +42,10 @@ pub struct User {
     pub id: String,
     pub username: String,
     pub name: String,
+    pub email: String,
     pub role: String,
+    pub company_ids: Vec<String>,
+    pub default_company_id: Option<String>,
     pub is_active: bool,
 }
 
@@ -62,10 +69,84 @@ pub fn init_default_user() -> Result<(), String> {
         let password_hash = bcrypt::hash("admin123", 12).map_err(|e| e.to_string())?;
         let now = Utc::now().to_rfc3339();
 
+        // Create admin user first
         conn.execute(
-            "INSERT INTO users (id, username, name, role, password_hash, is_active, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
-            params![admin_id, "admin", "Administrator", "admin", password_hash, now, now],
+            "INSERT INTO users (id, username, name, email, role, company_ids, default_company_id, password_hash, is_active, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+            params![
+                admin_id,
+                "admin",
+                "Administrator",
+                "admin@talhafruitco.com",
+                "admin",
+                "[]", // Empty array initially
+                None::<String>, // No default company yet
+                password_hash,
+                now,
+                now
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+
+        // Create default companies
+        let company1_id = Uuid::new_v4().to_string();
+        let company2_id = Uuid::new_v4().to_string();
+        
+        conn.execute(
+            "INSERT INTO companies (id, name, address, city, state, phone, email, gstin, invoice_prefix, language, theme, financial_year_start, financial_year_end, owner_id, is_active, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+            params![
+                company1_id,
+                "TFC Billing મુખ્ય",
+                "123, આર્જે પ્લાજા",
+                "અમદાવાદ",
+                "ગુજરાત",
+                "9876543210",
+                "main@tfcbilling.com",
+                "24AABCT1234F1Z5",
+                "INV",
+                "gujarati",
+                "light",
+                4, // April
+                3, // March
+                admin_id,
+                now,
+                now
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+
+        conn.execute(
+            "INSERT INTO companies (id, name, address, city, state, phone, email, gstin, invoice_prefix, language, theme, financial_year_start, financial_year_end, owner_id, is_active, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+            params![
+                company2_id,
+                "TFC બ્રાંચ - સુરત",
+                "456, કમર્શિયલ પ્લાજા",
+                "સુરત",
+                "ગુજરાત",
+                "9988776655",
+                "surat@tfcbilling.com",
+                "24AABCT5678F1Z5",
+                "SR",
+                "gujarati",
+                "light",
+                4, // April
+                3, // March
+                admin_id,
+                now,
+                now
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+
+        // Update user with company access
+        let company_ids = serde_json::to_string(&vec![company1_id.clone(), company2_id.clone()])
+            .map_err(|e| e.to_string())?;
+
+        conn.execute(
+            "UPDATE users SET company_ids = ?, default_company_id = ? WHERE id = ?",
+            params![company_ids, company1_id, admin_id],
         )
         .map_err(|e| e.to_string())?;
     }
@@ -124,9 +205,9 @@ pub fn login(request: LoginRequest) -> Result<AuthResponse, String> {
     
     let conn = get_db_connection()?;
 
-    let (user_id, _name, role, password_hash): (String, String, String, String) = conn
+    let (user_id, name, email, role, company_ids_str, default_company_id, password_hash): (String, String, String, String, String, Option<String>, String) = conn
         .query_row(
-            "SELECT id, name, role, password_hash FROM users WHERE username = ? AND is_active = 1",
+            "SELECT id, name, email, role, company_ids, default_company_id, password_hash FROM users WHERE username = ? AND is_active = 1",
             params![&request.username],
             |row| {
                 Ok((
@@ -134,6 +215,9 @@ pub fn login(request: LoginRequest) -> Result<AuthResponse, String> {
                     row.get(1)?,
                     row.get(2)?,
                     row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
                 ))
             },
         )
@@ -152,6 +236,10 @@ pub fn login(request: LoginRequest) -> Result<AuthResponse, String> {
             }
         })?;
 
+    // Parse company IDs from JSON
+    let company_ids: Vec<String> = serde_json::from_str(&company_ids_str)
+        .unwrap_or_else(|_| vec![]);
+
     // Generate tokens
     let access_token = generate_access_token(&user_id, &request.username, &role)?;
     let refresh_token = generate_refresh_token(&user_id, &request.username, &role)?;
@@ -159,7 +247,11 @@ pub fn login(request: LoginRequest) -> Result<AuthResponse, String> {
     Ok(AuthResponse {
         user_id,
         username: request.username,
+        email,
+        name,
         role,
+        company_ids,
+        default_company_id,
         access_token,
         refresh_token,
         expires_in: 900, // 15 minutes in seconds
@@ -176,13 +268,41 @@ pub fn refresh_access_token(refresh_token: String) -> Result<AuthResponse, Strin
         return Err("Invalid token type".to_string());
     }
 
+    let conn = get_db_connection()?;
+    
+    let (name, email, role, company_ids_str, default_company_id): (String, String, String, String, Option<String>) = conn
+        .query_row(
+            "SELECT name, email, role, company_ids, default_company_id FROM users WHERE id = ? AND is_active = 1",
+            params![&claims.sub],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "User not found".to_string())?;
+
+    // Parse company IDs from JSON
+    let company_ids: Vec<String> = serde_json::from_str(&company_ids_str)
+        .unwrap_or_else(|_| vec![]);
+
     // Generate new access token
-    let access_token = generate_access_token(&claims.sub, &claims.username, &claims.role)?;
+    let access_token = generate_access_token(&claims.sub, &claims.username, &role)?;
 
     Ok(AuthResponse {
         user_id: claims.sub,
         username: claims.username,
-        role: claims.role,
+        email,
+        name,
+        role,
+        company_ids,
+        default_company_id,
         access_token,
         refresh_token, // Return same refresh token
         expires_in: 900,
@@ -198,12 +318,40 @@ pub fn verify_access_token(token: String) -> Result<User, String> {
         return Err("Invalid token type".to_string());
     }
 
+    let conn = get_db_connection()?;
+    
+    let (name, email, role, company_ids_str, default_company_id, is_active): (String, String, String, String, Option<String>, i64) = conn
+        .query_row(
+            "SELECT name, email, role, company_ids, default_company_id, is_active FROM users WHERE id = ?",
+            params![&claims.sub],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "User not found".to_string())?;
+
+    // Parse company IDs from JSON
+    let company_ids: Vec<String> = serde_json::from_str(&company_ids_str)
+        .unwrap_or_else(|_| vec![]);
+
     Ok(User {
         id: claims.sub,
-        username: claims.username.clone(),
-        name: claims.username, // Could fetch from DB if needed
-        role: claims.role,
-        is_active: true,
+        username: claims.username,
+        name,
+        email,
+        role,
+        company_ids,
+        default_company_id,
+        is_active: is_active != 0,
     })
 }
 
@@ -212,9 +360,9 @@ pub fn verify_access_token(token: String) -> Result<User, String> {
 pub fn get_user(user_id: String) -> Result<User, String> {
     let conn = get_db_connection()?;
 
-    let user: (String, String, String, String, i64) = conn
+    let (id, username, name, email, role, company_ids_str, default_company_id, is_active): (String, String, String, String, String, String, Option<String>, i64) = conn
         .query_row(
-            "SELECT id, username, name, role, is_active FROM users WHERE id = ?",
+            "SELECT id, username, name, email, role, company_ids, default_company_id, is_active FROM users WHERE id = ?",
             params![user_id],
             |row| {
                 Ok((
@@ -223,6 +371,9 @@ pub fn get_user(user_id: String) -> Result<User, String> {
                     row.get(2)?,
                     row.get(3)?,
                     row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
                 ))
             },
         )
@@ -230,12 +381,19 @@ pub fn get_user(user_id: String) -> Result<User, String> {
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "User not found".to_string())?;
 
+    // Parse company IDs from JSON
+    let company_ids: Vec<String> = serde_json::from_str(&company_ids_str)
+        .unwrap_or_else(|_| vec![]);
+
     Ok(User {
-        id: user.0,
-        username: user.1,
-        name: user.2,
-        role: user.3,
-        is_active: user.4 != 0,
+        id,
+        username,
+        name,
+        email,
+        role,
+        company_ids,
+        default_company_id,
+        is_active: is_active != 0,
     })
 }
 
@@ -244,17 +402,24 @@ pub fn get_user(user_id: String) -> Result<User, String> {
 pub fn list_users() -> Result<Vec<User>, String> {
     let conn = get_db_connection()?;
     let mut stmt = conn
-        .prepare("SELECT id, username, name, role, is_active FROM users ORDER BY created_at DESC")
+        .prepare("SELECT id, username, name, email, role, company_ids, default_company_id, is_active FROM users ORDER BY created_at DESC")
         .map_err(|e| e.to_string())?;
 
     let users = stmt
         .query_map([], |row| {
+            let company_ids_str: String = row.get(5)?;
+            let company_ids: Vec<String> = serde_json::from_str(&company_ids_str)
+                .unwrap_or_else(|_| vec![]);
+            
             Ok(User {
                 id: row.get(0)?,
                 username: row.get(1)?,
                 name: row.get(2)?,
-                role: row.get(3)?,
-                is_active: row.get::<_, i64>(4)? != 0,
+                email: row.get(3)?,
+                role: row.get(4)?,
+                company_ids,
+                default_company_id: row.get(6)?,
+                is_active: row.get::<_, i64>(7)? != 0,
             })
         })
         .map_err(|e| e.to_string())?

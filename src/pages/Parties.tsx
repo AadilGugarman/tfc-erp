@@ -123,6 +123,7 @@ export function PartiesPage() {
           commissionPercent: formComm,
           notes: formNotes,
           isSupplier: false,
+          companyId: currentCompanyId || undefined,
         });
         success("Party Created", "New party added successfully");
       }

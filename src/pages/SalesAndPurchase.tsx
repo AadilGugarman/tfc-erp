@@ -210,6 +210,7 @@ export function SalesAndPurchasePage() {
           netBalance: netBalance,
           notes: formData.notes,
           status: "unpaid",
+          companyId: currentCompanyId || undefined,
         };
 
       const result = db.createBill(billData);
@@ -245,6 +246,7 @@ export function SalesAndPurchasePage() {
         netBalance: netBalance,
         notes: formData.notes,
         status: "unpaid",
+        companyId: currentCompanyId || undefined,
       };
 
       const result = db.createPurchase(purchaseData);
