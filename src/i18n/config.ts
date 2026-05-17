@@ -28,6 +28,8 @@ import enTableHeaders from "../locales/en/tableHeaders.json";
 import enValidation from "../locales/en/validation.json";
 import enVehicle from "../locales/en/vehicle.json";
 import enVehicleRegister from "../locales/en/vehicleRegister.json";
+import enVehicleArrival from "../locales/en/vehicleArrival.json";
+import enSalesBilling from "../locales/en/salesBilling.json";
 
 import guApp from "../locales/gu/app.json";
 import guButtons from "../locales/gu/buttons.json";
@@ -56,6 +58,8 @@ import guTableHeaders from "../locales/gu/tableHeaders.json";
 import guValidation from "../locales/gu/validation.json";
 import guVehicle from "../locales/gu/vehicle.json";
 import guVehicleRegister from "../locales/gu/vehicleRegister.json";
+import guVehicleArrival from "../locales/gu/vehicleArrival.json";
+import guSalesBilling from "../locales/gu/salesBilling.json";
 
 type LocaleNamespaceBundle = Record<string, unknown>;
 type LocaleResources = Record<string, LocaleNamespaceBundle>;
@@ -77,6 +81,8 @@ const namespaces = [
   "settings",
   "vehicle",
   "vehicleRegister",
+  "vehicleArrival",
+  "salesBilling",
   "reports",
   "parties",
   "payments",
@@ -126,6 +132,8 @@ const enTranslations = {
   validation: enValidation,
   vehicle: enVehicle,
   vehicleRegister: enVehicleRegister,
+  vehicleArrival: enVehicleArrival,
+  salesBilling: enSalesBilling,
 };
 
 const guTranslations = {
@@ -156,6 +164,8 @@ const guTranslations = {
   validation: guValidation,
   vehicle: guVehicle,
   vehicleRegister: guVehicleRegister,
+  vehicleArrival: guVehicleArrival,
+  salesBilling: guSalesBilling,
 };
 
 function buildResources(translations: LocaleResources) {

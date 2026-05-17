@@ -90,14 +90,20 @@ export interface VehicleRegister {
   companyId: string;
   entryNo: string;
   date: string;
+  dayOfWeek?: string;
   vehicleNumber: string;
   driverName: string;
   brokerName: string;
   arrivalTime: string;
+  vehicleDescription?: string;
+  scaleWeight?: number;
+  fruitTypeCategory?: string;
   status: VehicleRegisterStatus;
   rows: VehicleRegisterRow[];
   totalRows: number;
   totalWeight: number;
+  totalBoxes?: number;
+  totalCarats?: number;
   grandTotal: number;
   pendingAmount: number;
   outstandingBalance: number;
@@ -148,9 +154,9 @@ export interface InventoryItem {
   category: string;
   currentStock: number;
   unit: string;
-  lowStockThreshold: number;
   status: StockStatus;
   warehouse: string;
+  lowStockThreshold: number;
   lastUpdated: string;
   createdAt: string;
 }

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "@/stores/useAppStore";
+import type { PageId } from "@/stores/useAppStore";
 import { formatCurrency, formatDate } from "@/utils/formatters";
 import { cn } from "@/utils/cn";
 import { useEffect } from "react";
@@ -20,7 +21,7 @@ interface ActivityItem {
   date: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
-  page: string;
+  page: PageId;
 }
 
 export function RecentActivitySection() {
@@ -75,10 +76,10 @@ export function RecentActivitySection() {
     activities.push({
       id: `i-${i.id}`,
       type: "inventory",
-      title: `Inventory: ${i.itemName}`,
-      description: `Qty: ${i.quantity}`,
-      amount: formatCurrency(i.unitPrice * i.quantity),
-      date: i.updatedAt || new Date().toISOString(),
+      title: `Inventory: ${i.name}`,
+      description: `Stock: ${i.currentStock}${i.unit}`,
+      amount: formatCurrency(i.currentStock * 100), // placeholder for display
+      date: i.lastUpdated || new Date().toISOString(),
       icon: Package,
       color: "text-amber-600 dark:text-amber-400",
       page: "inventory",

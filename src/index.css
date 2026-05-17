@@ -509,3 +509,276 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 :focus-visible {
   outline: none;
 }
+
+@keyframes background-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-background-flow {
+  background: linear-gradient(-45deg, #0a0c10, #1a1f2e, #0a0c10, #1a1f2e);
+  background-size: 400% 400%;
+  animation: background-flow 15s ease infinite;
+}
+
+/* ============================================================
+   NEW LOGIN UI UTILITIES (REFINE)
+   ============================================================ */
+.glass {
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.02)
+  );
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 30px 80px -20px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.glow-border {
+  position: relative;
+  border-radius: 24px;
+  isolation: isolate;
+}
+
+.glow-border::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: 25.5px;
+  padding: 1.5px;
+  /* Stable gradient border */
+  background: linear-gradient(
+    135deg,
+    #6366f1,
+    #ec4899,
+    #f59e0b,
+    #10b981,
+    #3b82f6
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.8;
+  z-index: -1;
+  filter: blur(0.5px);
+}
+
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes spin {
+  to {
+    --angle: 360deg;
+  }
+}
+
+.input-shine {
+  background: rgba(13, 17, 23, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.25s ease;
+}
+
+.input-shine input {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: white !important;
+  -webkit-appearance: none;
+}
+
+/* Force dark background for any potential browser overrides */
+input {
+  background-color: transparent !important;
+}
+
+/* Handle autofill background - Re-added correctly */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0d1117 inset !important;
+  -webkit-text-fill-color: white !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.input-shine:focus-within {
+  background: rgba(13, 17, 23, 0.8) !important;
+  border-color: rgba(139, 92, 246, 0.6);
+  box-shadow:
+    0 0 0 4px rgba(139, 92, 246, 0.1),
+    0 0 30px rgba(139, 92, 246, 0.15);
+}
+
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%);
+  background-size: 200% 200%;
+  animation: gradMove 5s ease infinite;
+}
+
+.btn-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.9s ease;
+}
+
+.btn-shimmer:hover::after {
+  transform: translateX(100%);
+}
+
+@keyframes gradMove {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.mesh-bg {
+  background:
+    radial-gradient(
+      60% 50% at 20% 20%,
+      rgba(99, 102, 241, 0.35),
+      transparent 60%
+    ),
+    radial-gradient(
+      50% 50% at 80% 30%,
+      rgba(236, 72, 153, 0.3),
+      transparent 60%
+    ),
+    radial-gradient(
+      60% 60% at 70% 80%,
+      rgba(16, 185, 129, 0.28),
+      transparent 60%
+    ),
+    radial-gradient(
+      50% 50% at 30% 80%,
+      rgba(59, 130, 246, 0.3),
+      transparent 60%
+    ),
+    #05060f;
+  filter: blur(0px);
+  animation: meshShift 18s ease-in-out infinite alternate;
+}
+
+@keyframes meshShift {
+  0% {
+    background-position:
+      0% 0%,
+      100% 0%,
+      100% 100%,
+      0% 100%,
+      0 0;
+  }
+  50% {
+    background-position:
+      20% 10%,
+      80% 20%,
+      60% 90%,
+      10% 70%,
+      0 0;
+  }
+  100% {
+    background-position:
+      10% 30%,
+      90% 10%,
+      80% 70%,
+      20% 90%,
+      0 0;
+  }
+}
+
+.grid-overlay {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(
+    ellipse 60% 50% at 50% 50%,
+    #000 40%,
+    transparent 90%
+  );
+}
+
+.orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  opacity: 0.55;
+  animation: float 12s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(20px, -30px, 0) scale(1.08);
+  }
+}
+
+.marquee {
+  animation: marquee 28s linear infinite;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.mask-fade {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 15%,
+    black 85%,
+    transparent
+  );
+}
+
+.caret::after {
+  content: "▍";
+  margin-left: 2px;
+  color: #a78bfa;
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}

@@ -6,6 +6,7 @@ import { PartiesPage } from "@/pages/Parties";
 import { SuppliersPage } from "@/pages/Suppliers";
 import { LedgerPage } from "@/pages/Ledger";
 import { SalesAndPurchasePage } from "@/pages/SalesAndPurchase";
+import { PurchasePage } from "@/pages/PurchasePage";
 import { InventoryPage } from "@/pages/Inventory";
 import { PaymentsPage } from "@/pages/Payments";
 import { ReportsPage } from "@/pages/Reports";
@@ -13,12 +14,13 @@ import { SettingsPage } from "@/pages/Settings";
 import { SearchPage } from "@/pages/Search";
 import { CreateCompanyPage } from "@/pages/CreateCompany";
 import { ManageCompaniesPage } from "@/pages/ManageCompanies";
+import { SelectCompanyPage } from "@/pages/SelectCompany";
+import { NoCompanyAssignedPage } from "@/pages/NoCompanyAssigned";
 import {
   ProtectedCompanyRoute,
   ProtectedRoute,
 } from "@/components/ProtectedCompanyRoute";
 import { AppLayout } from "@/components/AppLayout";
-import { SelectCompanyState } from "@/components/SelectCompanyState";
 
 /**
  * Main router configuration with multi-company routes
@@ -49,44 +51,67 @@ export function AppRoutes() {
         }
       />
 
-      {/* Main App Routes with Company Context */}
+      {/* Main App Routes (Authenticated users) */}
       <Route
-        path="/app/:companyId"
+        path="/app"
         element={
-          <ProtectedCompanyRoute>
+          <ProtectedRoute>
             <AppLayout />
-          </ProtectedCompanyRoute>
+          </ProtectedRoute>
         }
       >
-        {/* Dashboard */}
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
 
-        {/* Operations */}
+        {/* Nested routes requiring company context */}
         <Route
-          path="vehicle-register"
-          element={<VehicleArrivalRegisterPage />}
-        />
+          path=":companyId"
+          element={<ProtectedCompanyRoute />}
+        >
+          {/* Operations */}
+          <Route
+            path="vehicle-register"
+            element={<VehicleArrivalRegisterPage />}
+          />
 
-        {/* Masters */}
-        <Route path="parties" element={<PartiesPage />} />
-        <Route path="suppliers" element={<SuppliersPage />} />
+          {/* Masters */}
+          <Route path="parties" element={<PartiesPage />} />
+          <Route path="suppliers" element={<SuppliersPage />} />
 
-        {/* Ledger & Transactions */}
-        <Route path="ledger" element={<LedgerPage />} />
-        <Route path="transactions" element={<SalesAndPurchasePage />} />
+          {/* Ledger & Transactions */}
+          <Route path="ledger" element={<LedgerPage />} />
+          <Route path="transactions" element={<SalesAndPurchasePage />} />
+          <Route path="purchases" element={<PurchasePage />} />
 
-        {/* Inventory */}
-        <Route path="inventory" element={<InventoryPage />} />
+          {/* Inventory */}
+          <Route path="inventory" element={<InventoryPage />} />
 
-        {/* Finance */}
-        <Route path="payments" element={<PaymentsPage />} />
-        <Route path="reports" element={<ReportsPage />} />
+          {/* Finance */}
+          <Route path="payments" element={<PaymentsPage />} />
+          <Route path="reports" element={<ReportsPage />} />
 
-        {/* Tools */}
-        <Route path="search" element={<SearchPage />} />
-        <Route path="settings" element={<SettingsPage />} />
+          {/* Tools */}
+          <Route path="search" element={<SearchPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
       </Route>
+
+      <Route
+        path="/select-company"
+        element={
+          <ProtectedRoute>
+            <SelectCompanyPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/no-company"
+        element={
+          <ProtectedRoute>
+            <NoCompanyAssignedPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Catch-all redirects to login */}
       <Route path="/" element={<Navigate to="/login" replace />} />

@@ -5,7 +5,7 @@ export function DashboardHero() {
   const { t } = useTranslation();
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-slate-200/70 dark:border-[#223150] bg-linear-to-br from-[#f8fcff] via-[#eef7ff] to-[#e6f0ff] dark:from-[#0c172b] dark:via-[#0d1d36] dark:to-[#122648]">
+    <div className="relative overflow-hidden rounded-xl border border-slate-200/70 dark:border-[#223150] bg-linear-to-br from-[#f8fcff] via-[#eef7ff] to-[#e6f0ff] dark:from-[#0c172b] dark:via-[#0d1d36] dark:to-[#122648]">
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(56,189,248,0.22),transparent_36%),radial-gradient(circle_at_86%_12%,rgba(14,116,144,0.2),transparent_32%),radial-gradient(circle_at_50%_100%,rgba(59,130,246,0.16),transparent_40%)]" />
         <div className="absolute -top-20 right-2 h-60 w-60 rounded-full bg-cyan-300/30 dark:bg-cyan-500/20 blur-3xl" />

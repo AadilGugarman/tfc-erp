@@ -3,9 +3,61 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use argon2::Argon2;
+use bcrypt;
+use password_hash::{
+    rand_core::OsRng,
+    PasswordHash, PasswordHasher, PasswordVerifier, SaltString
+};
+use std::fs;
+use std::io::Write;
 
-// JWT Secret Key - In production, load from environment or secure config
-const JWT_SECRET: &str = "fruit-market-erp-secret-key-change-in-production";
+fn get_jwt_secret() -> Vec<u8> {
+    let base_dir = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    let app_dir = base_dir.join("Fruit Market ERP");
+    let secret_path = app_dir.join(".jwt_secret");
+
+    if let Ok(secret) = fs::read(&secret_path) {
+        if secret.len() >= 32 {
+            return secret;
+        }
+    }
+
+    // Generate a new secure random secret if not found or invalid
+    let mut new_secret = [0u8; 32];
+    use rand::RngCore;
+    rand::thread_rng().fill_bytes(&mut new_secret);
+    
+    if let Err(e) = fs::create_dir_all(&app_dir) {
+        eprintln!("[Auth] Failed to create app directory for JWT secret: {}", e);
+    }
+
+    match fs::File::create(&secret_path) {
+        Ok(mut file) => {
+            if let Err(e) = file.write_all(&new_secret) {
+                eprintln!("[Auth] Failed to write JWT secret to file: {}", e);
+            }
+        }
+        Err(e) => {
+            eprintln!("[Auth] Failed to create JWT secret file: {}", e);
+        }
+    }
+    
+    new_secret.to_vec()
+}
+
+fn verify_any_password(password: &str, stored_hash: &str) -> Result<bool, String> {
+    // Check if it's a bcrypt hash (usually starts with $2a$, $2b$, or $2y$)
+    if stored_hash.starts_with("$2a$") || stored_hash.starts_with("$2b$") || stored_hash.starts_with("$2y$") {
+        return bcrypt::verify(password, stored_hash).map_err(|e| e.to_string());
+    }
+
+    // Otherwise assume Argon2
+    let parsed_hash = PasswordHash::new(stored_hash).map_err(|e| e.to_string())?;
+    Ok(Argon2::default()
+        .verify_password(password.as_bytes(), &parsed_hash)
+        .is_ok())
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
@@ -57,100 +109,10 @@ fn get_db_connection() -> Result<Connection, String> {
 }
 
 /// Initialize default admin user if no users exist
+///
+/// Default user seeding is disabled to avoid demo data and hardcoded credentials.
+/// Seed users and companies explicitly through your own import or setup flow.
 pub fn init_default_user() -> Result<(), String> {
-    let conn = get_db_connection()?;
-    
-    let count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
-        .map_err(|e| e.to_string())?;
-
-    if count == 0 {
-        let admin_id = Uuid::new_v4().to_string();
-        let password_hash = bcrypt::hash("admin123", 12).map_err(|e| e.to_string())?;
-        let now = Utc::now().to_rfc3339();
-
-        // Create admin user first
-        conn.execute(
-            "INSERT INTO users (id, username, name, email, role, company_ids, default_company_id, password_hash, is_active, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
-            params![
-                admin_id,
-                "admin",
-                "Administrator",
-                "admin@talhafruitco.com",
-                "admin",
-                "[]", // Empty array initially
-                None::<String>, // No default company yet
-                password_hash,
-                now,
-                now
-            ],
-        )
-        .map_err(|e| e.to_string())?;
-
-        // Create default companies
-        let company1_id = Uuid::new_v4().to_string();
-        let company2_id = Uuid::new_v4().to_string();
-        
-        conn.execute(
-            "INSERT INTO companies (id, name, address, city, state, phone, email, gstin, invoice_prefix, language, theme, financial_year_start, financial_year_end, owner_id, is_active, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
-            params![
-                company1_id,
-                "TFC Billing મુખ્ય",
-                "123, આર્જે પ્લાજા",
-                "અમદાવાદ",
-                "ગુજરાત",
-                "9876543210",
-                "main@tfcbilling.com",
-                "24AABCT1234F1Z5",
-                "INV",
-                "gujarati",
-                "light",
-                4, // April
-                3, // March
-                admin_id,
-                now,
-                now
-            ],
-        )
-        .map_err(|e| e.to_string())?;
-
-        conn.execute(
-            "INSERT INTO companies (id, name, address, city, state, phone, email, gstin, invoice_prefix, language, theme, financial_year_start, financial_year_end, owner_id, is_active, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
-            params![
-                company2_id,
-                "TFC બ્રાંચ - સુરત",
-                "456, કમર્શિયલ પ્લાજા",
-                "સુરત",
-                "ગુજરાત",
-                "9988776655",
-                "surat@tfcbilling.com",
-                "24AABCT5678F1Z5",
-                "SR",
-                "gujarati",
-                "light",
-                4, // April
-                3, // March
-                admin_id,
-                now,
-                now
-            ],
-        )
-        .map_err(|e| e.to_string())?;
-
-        // Update user with company access
-        let company_ids = serde_json::to_string(&vec![company1_id.clone(), company2_id.clone()])
-            .map_err(|e| e.to_string())?;
-
-        conn.execute(
-            "UPDATE users SET company_ids = ?, default_company_id = ? WHERE id = ?",
-            params![company_ids, company1_id, admin_id],
-        )
-        .map_err(|e| e.to_string())?;
-    }
-
     Ok(())
 }
 
@@ -168,7 +130,8 @@ pub fn generate_access_token(user_id: &str, username: &str, role: &str) -> Resul
         token_type: "access".to_string(),
     };
 
-    let secret = EncodingKey::from_secret(JWT_SECRET.as_bytes());
+    let secret_bytes = get_jwt_secret();
+    let secret = EncodingKey::from_secret(&secret_bytes);
     encode(&Header::default(), &claims, &secret).map_err(|e| e.to_string())
 }
 
@@ -186,23 +149,101 @@ pub fn generate_refresh_token(user_id: &str, username: &str, role: &str) -> Resu
         token_type: "refresh".to_string(),
     };
 
-    let secret = EncodingKey::from_secret(JWT_SECRET.as_bytes());
+    let secret_bytes = get_jwt_secret();
+    let secret = EncodingKey::from_secret(&secret_bytes);
     encode(&Header::default(), &claims, &secret).map_err(|e| e.to_string())
 }
 
 /// Verify and decode JWT token
 pub fn verify_token(token: &str) -> Result<Claims, String> {
-    let secret = DecodingKey::from_secret(JWT_SECRET.as_bytes());
+    let secret_bytes = get_jwt_secret();
+    let secret = DecodingKey::from_secret(&secret_bytes);
     decode::<Claims>(token, &secret, &Validation::default())
         .map(|data| data.claims)
-        .map_err(|e| format!("Token verification failed: {}", e))
+        .map_err(|e| format!("Unauthorized: {}", e))
+}
+
+/// Helper to validate access token and return claims
+pub fn authorize(token: &str) -> Result<Claims, String> {
+    let claims = verify_token(token)?;
+    if claims.token_type != "access" {
+        return Err("Unauthorized: Invalid token type".to_string());
+    }
+    Ok(claims)
+}
+
+/// Check if any user exists in the database
+#[tauri::command]
+pub fn has_users() -> Result<bool, String> {
+    let conn = get_db_connection()?;
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    Ok(count > 0)
+}
+
+/// Create the initial admin user
+#[tauri::command]
+pub fn setup_initial_admin(username: String, password: String, name: String, email: String) -> Result<AuthResponse, String> {
+    let conn = get_db_connection()?;
+    
+    // Check if users already exist
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    
+    if count > 0 {
+        return Err("Initial setup already completed".to_string());
+    }
+
+    let admin_id = Uuid::new_v4().to_string();
+    
+    // Use Argon2 for production-grade password hashing
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let password_hash = argon2.hash_password(password.as_bytes(), &salt)
+        .map_err(|e| e.to_string())?
+        .to_string();
+
+    let now = Utc::now().to_rfc3339();
+
+    // Create admin user
+    conn.execute(
+        "INSERT INTO users (id, username, name, email, role, company_ids, default_company_id, password_hash, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'admin', '[]', NULL, ?, 1, ?, ?)",
+        params![
+            admin_id,
+            username,
+            name,
+            email,
+            password_hash,
+            now,
+            now
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Log the user in immediately after setup
+    let access_token = generate_access_token(&admin_id, &username, "admin")?;
+    let refresh_token = generate_refresh_token(&admin_id, &username, "admin")?;
+
+    Ok(AuthResponse {
+        user_id: admin_id,
+        username,
+        email,
+        name,
+        role: "admin".to_string(),
+        company_ids: vec![],
+        default_company_id: None,
+        access_token,
+        refresh_token,
+        expires_in: 900,
+    })
 }
 
 /// Login user with username and password
 #[tauri::command]
 pub fn login(request: LoginRequest) -> Result<AuthResponse, String> {
-    init_default_user()?;
-    
     let conn = get_db_connection()?;
 
     let (user_id, name, email, role, company_ids_str, default_company_id, password_hash): (String, String, String, String, String, Option<String>, String) = conn
@@ -225,16 +266,23 @@ pub fn login(request: LoginRequest) -> Result<AuthResponse, String> {
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Invalid username or password".to_string())?;
 
-    // Verify password
-    bcrypt::verify(&request.password, &password_hash)
-        .map_err(|e| e.to_string())
-        .and_then(|valid| {
-            if !valid {
-                Err("Invalid username or password".to_string())
-            } else {
-                Ok(())
-            }
-        })?;
+    // Verify password using legacy-aware helper
+    if !verify_any_password(&request.password, &password_hash)? {
+        return Err("Invalid username or password".to_string());
+    }
+
+    // Migration path: if the hash was bcrypt, rehash with Argon2
+    if password_hash.starts_with("$2a$") || password_hash.starts_with("$2b$") || password_hash.starts_with("$2y$") {
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+        if let Ok(new_hash) = argon2.hash_password(request.password.as_bytes(), &salt) {
+            let now = Utc::now().to_rfc3339();
+            let _ = conn.execute(
+                "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
+                params![new_hash.to_string(), now, user_id],
+            );
+        }
+    }
 
     // Parse company IDs from JSON
     let company_ids: Vec<String> = serde_json::from_str(&company_ids_str)
@@ -355,9 +403,7 @@ pub fn verify_access_token(token: String) -> Result<User, String> {
     })
 }
 
-/// Get user by ID
-#[tauri::command]
-pub fn get_user(user_id: String) -> Result<User, String> {
+fn get_user_internal(user_id: String) -> Result<User, String> {
     let conn = get_db_connection()?;
 
     let (id, username, name, email, role, company_ids_str, default_company_id, is_active): (String, String, String, String, String, String, Option<String>, i64) = conn
@@ -397,9 +443,17 @@ pub fn get_user(user_id: String) -> Result<User, String> {
     })
 }
 
+/// Get user by ID
+#[tauri::command]
+pub fn get_user(token: String, user_id: String) -> Result<User, String> {
+    authorize(&token)?;
+    get_user_internal(user_id)
+}
+
 /// List all users (admin only)
 #[tauri::command]
-pub fn list_users() -> Result<Vec<User>, String> {
+pub fn list_users(token: String) -> Result<Vec<User>, String> {
+    authorize(&token)?;
     let conn = get_db_connection()?;
     let mut stmt = conn
         .prepare("SELECT id, username, name, email, role, company_ids, default_company_id, is_active FROM users ORDER BY created_at DESC")
@@ -432,14 +486,21 @@ pub fn list_users() -> Result<Vec<User>, String> {
 /// Create new user (admin only)
 #[tauri::command]
 pub fn create_user(
+    token: String,
     username: String,
     password: String,
     name: String,
     role: String,
 ) -> Result<User, String> {
+    authorize(&token)?;
     let conn = get_db_connection()?;
     let user_id = Uuid::new_v4().to_string();
-    let password_hash = bcrypt::hash(&password, 12).map_err(|e| e.to_string())?;
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let password_hash = argon2
+        .hash_password(password.as_bytes(), &salt)
+        .map_err(|e| e.to_string())?
+        .to_string();
     let now = Utc::now().to_rfc3339();
 
     conn.execute(
@@ -449,12 +510,13 @@ pub fn create_user(
     )
     .map_err(|e| e.to_string())?;
 
-    get_user(user_id)
+    get_user_internal(user_id)
 }
 
 /// Update user
 #[tauri::command]
-pub fn update_user(user_id: String, name: String, role: String, is_active: bool) -> Result<User, String> {
+pub fn update_user(token: String, user_id: String, name: String, role: String, is_active: bool) -> Result<User, String> {
+    authorize(&token)?;
     let conn = get_db_connection()?;
     let now = Utc::now().to_rfc3339();
     let is_active_int = if is_active { 1 } else { 0 };
@@ -465,12 +527,35 @@ pub fn update_user(user_id: String, name: String, role: String, is_active: bool)
     )
     .map_err(|e| e.to_string())?;
 
-    get_user(user_id)
+    get_user_internal(user_id)
+}
+
+/// Update user's accessible company IDs and default company
+#[tauri::command]
+pub fn update_user_companies(
+    token: String,
+    user_id: String,
+    company_ids: Vec<String>,
+    default_company_id: Option<String>,
+) -> Result<User, String> {
+    authorize(&token)?;
+    let conn = get_db_connection()?;
+    let company_ids_json = serde_json::to_string(&company_ids).map_err(|e| e.to_string())?;
+    let now = Utc::now().to_rfc3339();
+
+    conn.execute(
+        "UPDATE users SET company_ids = ?, default_company_id = ?, updated_at = ? WHERE id = ?",
+        params![company_ids_json, default_company_id, now, user_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    get_user_internal(user_id)
 }
 
 /// Change user password
 #[tauri::command]
-pub fn change_password(user_id: String, old_password: String, new_password: String) -> Result<(), String> {
+pub fn change_password(token: String, user_id: String, old_password: String, new_password: String) -> Result<(), String> {
+    authorize(&token)?;
     let conn = get_db_connection()?;
     
     let password_hash: String = conn
@@ -481,18 +566,17 @@ pub fn change_password(user_id: String, old_password: String, new_password: Stri
         )
         .map_err(|e| e.to_string())?;
 
-    // Verify old password
-    bcrypt::verify(&old_password, &password_hash)
-        .map_err(|e| e.to_string())
-        .and_then(|valid| {
-            if !valid {
-                Err("Invalid current password".to_string())
-            } else {
-                Ok(())
-            }
-        })?;
+    // Verify old password using legacy-aware helper
+    if !verify_any_password(&old_password, &password_hash)? {
+        return Err("Invalid current password".to_string());
+    }
 
-    let new_hash = bcrypt::hash(&new_password, 12).map_err(|e| e.to_string())?;
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let new_hash = argon2
+        .hash_password(new_password.as_bytes(), &salt)
+        .map_err(|e| e.to_string())?
+        .to_string();
     let now = Utc::now().to_rfc3339();
 
     conn.execute(

@@ -1,26 +1,21 @@
-import { ReactNode, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { authService } from "@/services/auth";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Outlet } from "react-router-dom";
 import { useAppStore } from "@/stores/useAppStore";
-
-interface ProtectedCompanyRouteProps {
-  children: ReactNode;
-}
 
 /**
  * Protects routes that require both authentication and company access
- * Usage: <ProtectedCompanyRoute><YourComponent /></ProtectedCompanyRoute>
+ * This component assumes a companyId is present in the URL (`/app/:companyId/*`)
+ * Usage: Used as a nested route element in AppRoutes
  */
-export function ProtectedCompanyRoute({
-  children,
-}: ProtectedCompanyRouteProps) {
+export function ProtectedCompanyRoute() {
   const { isAuthenticated } = useAuth();
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { companies, loadCompanies } = useAppStore();
+  const { companies, loadCompanies, setCurrentCompanyId } = useAppStore();
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -29,63 +24,45 @@ export function ProtectedCompanyRoute({
         return;
       }
 
-      // Ensure companies are loaded first
-      loadCompanies();
-
-      // Small delay to ensure state is updated
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      // Get accessible companies from auth service
-      let accessibleCompanies = authService.getAccessibleCompanies();
-
-      // Fallback: if no accessible companies from auth, use all companies from DB
-      // This handles cases where authentication doesn't provide company IDs
-      if (accessibleCompanies.length === 0 && companies.length > 0) {
-        accessibleCompanies = companies.map((c) => c.id);
+      // Ensure companies are loaded
+      if (companies.length === 0) {
+        await loadCompanies(); // Ensure companies are loaded before checking access
       }
 
+      const accessibleCompanies = authService.getAccessibleCompanies();
+
+      // This route MUST have a companyId in the URL
       if (!companyId) {
-        if (accessibleCompanies.length > 0) {
-          // Redirect to first accessible company
-          navigate(`/app/${accessibleCompanies[0]}/dashboard`);
-        } else {
-          // No companies available, redirect to select company page
-          navigate("/select-company");
-        }
+        // If we somehow landed here without a companyId, redirect to generic dashboard
+        navigate("/app/dashboard");
         return;
       }
 
       // Check if user has access to this company
       if (accessibleCompanies.includes(companyId)) {
+        setCurrentCompanyId(companyId); // Set the company in the store
         setIsAuthorized(true);
-        authService.setCurrentCompany(companyId);
-        setIsLoading(false);
-      } else if (companies.length > 0) {
-        // Fallback: allow access to any company if authenticated and companies exist
-        setIsAuthorized(true);
-        authService.setCurrentCompany(companyId);
         setIsLoading(false);
       } else {
-        // Redirect to first accessible company or dashboard
-        const firstCompany = accessibleCompanies[0];
-        if (firstCompany) {
-          navigate(`/app/${firstCompany}/dashboard`);
+        // Company in URL is not accessible, or user has no companies at all
+        if (accessibleCompanies.length > 0) {
+          navigate("/select-company"); // User has companies, but not this one
         } else {
-          navigate("/select-company");
+          navigate("/no-company"); // User has no accessible companies
         }
         setIsLoading(false);
       }
     };
 
     checkAccess();
-  }, [isAuthenticated, companyId, navigate, loadCompanies, companies]);
+  }, [isAuthenticated, companyId, navigate, loadCompanies, companies.length, setCurrentCompanyId]);
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading company context...</p>
         </div>
       </div>
     );
@@ -98,20 +75,23 @@ export function ProtectedCompanyRoute({
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Access Denied
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            You don't have access to this company.
-          </p>
+          <p className="text-gray-600 dark:text-gray-400">You do not have access to this company or it does not exist.</p>
+          <button onClick={() => navigate("/app/dashboard")} className="mt-4 px-4 py-2 bg-emerald-500 text-white rounded-md">
+            Go to Dashboard
+          </button>
         </div>
       </div>
     );
   }
 
-  return <>{children}</>;
+  return <Outlet />;
 }
 
 /**
  * Simple authentication guard - redirects to login if not authenticated
  */
+import { ReactNode } from "react";
+
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();

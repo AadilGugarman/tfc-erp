@@ -1,10 +1,24 @@
 use chrono::Utc;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::{fs, path::PathBuf};
+use std::path::{Path, PathBuf};
+use std::{fs};
+use crate::auth::authorize;
+
+/// Mask sensitive database errors in production while logging them locally
+pub fn map_db_error<E: std::fmt::Display>(e: E) -> String {
+  let err_msg = e.to_string();
+  eprintln!("[Database Error] {}", err_msg);
+  
+  if cfg!(debug_assertions) {
+    err_msg
+  } else {
+    "A database error occurred. Please try again.".to_string()
+  }
+}
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardSummary {
   pub total_parties: i64,
   pub total_suppliers: i64,
@@ -14,36 +28,20 @@ pub struct DashboardSummary {
   pub low_stock_items: i64,
 }
 
-#[derive(Debug, Serialize)]
-pub struct VehicleRegisterSummary {
-  pub id: String,
-  pub entry_no: String,
-  pub date: String,
-  pub vehicle_number: String,
-  pub driver_name: String,
-  pub status: String,
-  pub total_rows: i64,
-  pub total_weight: f64,
-  pub grand_total: f64,
-}
 
 #[derive(Debug, Deserialize)]
-pub struct VehicleRegisterRowInput {
-  pub party_id: Option<String>,
-  pub party_name: String,
-  pub vakkal: String,
-  pub carat: f64,
-  pub weight: f64,
-  pub rate: f64,
-  pub remarks: String,
-  pub inventory_item_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VehicleRegisterInput {
+  pub company_id: String,
   pub date: String,
+  pub day_of_week: Option<String>,
   pub vehicle_number: String,
   pub driver_name: String,
+  pub broker_name: Option<String>,
+  pub arrival_time: Option<String>,
+  pub vehicle_description: Option<String>,
+  pub scale_weight: Option<f64>,
+  pub fruit_type_category: Option<String>,
   pub status: String,
   pub pending_amount: f64,
   pub outstanding_balance: f64,
@@ -51,29 +49,192 @@ pub struct VehicleRegisterInput {
   pub rows: Vec<VehicleRegisterRowInput>,
 }
 
-fn db_path() -> Result<PathBuf, String> {
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VehicleRegisterRowInput {
+  pub party_id: Option<String>,
+  pub party_name: String,
+  pub lot_no: Option<String>,
+  pub vakkal: String,
+  pub boxes: Option<f64>,
+  pub carat: f64,
+  pub weight: f64,
+  pub rate: f64,
+  pub commission: Option<f64>,
+  pub hamali: Option<f64>,
+  pub total: Option<f64>,
+  pub remarks: String,
+  pub inventory_item_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VehicleRegisterRow {
+  pub id: String,
+  pub vehicle_register_id: String,
+  pub party_id: Option<String>,
+  pub party_name: String,
+  pub lot_no: Option<String>,
+  pub vakkal: String,
+  pub boxes: Option<f64>,
+  pub carat: f64,
+  pub weight: f64,
+  pub rate: f64,
+  pub commission: Option<f64>,
+  pub hamali: Option<f64>,
+  pub total: f64,
+  pub remarks: String,
+  pub inventory_item_id: Option<String>,
+  pub created_at: String,
+  pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VehicleRegister {
+  pub id: String,
+  pub company_id: String,
+  pub entry_no: String,
+  pub date: String,
+  pub day_of_week: Option<String>,
+  pub vehicle_number: String,
+  pub driver_name: String,
+  pub broker_name: Option<String>,
+  pub arrival_time: Option<String>,
+  pub vehicle_description: Option<String>,
+  pub scale_weight: Option<f64>,
+  pub fruit_type_category: Option<String>,
+  pub status: String,
+  pub total_rows: i64,
+  pub total_weight: f64,
+  pub total_boxes: Option<f64>,
+  pub total_carats: Option<f64>,
+  pub grand_total: f64,
+  pub pending_amount: f64,
+  pub outstanding_balance: f64,
+  pub notes: String,
+  pub created_at: String,
+  pub updated_at: String,
+  pub rows: Vec<VehicleRegisterRow>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompanyInput {
+  pub name: String,
+  pub address: String,
+  pub city: String,
+  pub state: String,
+  pub phone: String,
+  pub email: String,
+  pub gstin: String,
+  pub invoice_prefix: String,
+  pub language: String,
+  pub theme: String,
+  pub financial_year_start: i32,
+  pub financial_year_end: i32,
+  pub owner_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Company {
+  pub id: String,
+  pub name: String,
+  pub address: String,
+  pub city: String,
+  pub state: String,
+  pub phone: String,
+  pub email: String,
+  pub gstin: String,
+  pub invoice_prefix: String,
+  pub language: String,
+  pub theme: String,
+  pub financial_year_start: i32,
+  pub financial_year_end: i32,
+  pub owner_id: String,
+  pub is_active: bool,
+  pub created_at: String,
+  pub updated_at: String,
+}
+
+pub fn db_path() -> Result<PathBuf, String> {
   let base_dir = dirs::data_dir().ok_or_else(|| "unable to locate application data directory".to_string())?;
   let app_dir = base_dir.join("Fruit Market ERP");
   fs::create_dir_all(&app_dir).map_err(|error| error.to_string())?;
   Ok(app_dir.join("fruit-market-erp.sqlite"))
 }
 
-fn open_connection() -> Result<Connection, String> {
-  Connection::open(db_path()?).map_err(|error| error.to_string())
+pub fn open_connection() -> Result<Connection, String> {
+  let path = db_path()?;
+  
+  // Perform automatic backup before opening
+  if path.exists() {
+    if let Err(e) = backup_database(&path) {
+      eprintln!("[Database] Non-critical backup failure: {}. Continuing to open database.", e);
+    }
+  }
+  
+  Connection::open(path).map_err(|error| error.to_string())
 }
 
-pub fn ensure_database() -> Result<(), String> {
-  let connection = open_connection()?;
-  connection.execute_batch(
-    r#"
-    PRAGMA foreign_keys = ON;
+/// Backup database to a timestamped file in the backups folder
+fn backup_database(db_path: &Path) -> Result<(), String> {
+  let app_dir = db_path.parent().ok_or("Invalid DB path")?;
+  let backup_dir = app_dir.join("backups");
+  fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
 
-    CREATE TABLE IF NOT EXISTS app_state_snapshots (
-      id TEXT PRIMARY KEY,
-      data TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
+  // Simple daily backup logic
+  let now = Utc::now();
+  let backup_name = format!("backup_{}.sqlite", now.format("%Y-%m-%d"));
+  let backup_path = backup_dir.join(backup_name);
+
+  // Only backup once a day
+  if !backup_path.exists() {
+    fs::copy(db_path, backup_path).map_err(|e| e.to_string())?;
+    
+    // Cleanup old backups (keep last 7)
+    let mut backups: Vec<_> = fs::read_dir(&backup_dir)
+      .map_err(|e| e.to_string())?
+      .filter_map(|r| r.ok())
+      .collect();
+      
+    backups.sort_by_key(|a| a.metadata().and_then(|m| m.modified()).ok());
+    
+    if backups.len() > 7 {
+      for old_backup in backups.iter().take(backups.len() - 7) {
+        let _ = fs::remove_file(old_backup.path());
+      }
+    }
+  }
+
+  Ok(())
+}
+
+#[tauri::command]
+pub fn reset_database_dev(token: String) -> Result<(), String> {
+  authorize(&token)?;
+  #[cfg(debug_assertions)]
+  {
+    let path = db_path()?;
+    if path.exists() {
+      fs::remove_file(path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+  }
+  #[cfg(not(debug_assertions))]
+  {
+    Err("Database reset is only allowed in development mode".to_string())
+  }
+}
+
+#[tauri::command]
+pub fn init_database() -> Result<(), String> {
+  let connection = open_connection()?;
+
+  // Enable foreign keys
+  connection.execute_batch("
+    PRAGMA foreign_keys = ON;
 
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -81,7 +242,7 @@ pub fn ensure_database() -> Result<(), String> {
       username TEXT NOT NULL UNIQUE,
       email TEXT NOT NULL,
       role TEXT NOT NULL,
-      company_ids TEXT NOT NULL DEFAULT '[]', -- JSON array of company IDs
+      company_ids TEXT NOT NULL DEFAULT '[]',
       default_company_id TEXT,
       password_hash TEXT NOT NULL DEFAULT '',
       is_active INTEGER NOT NULL DEFAULT 1,
@@ -137,6 +298,7 @@ pub fn ensure_database() -> Result<(), String> {
 
     CREATE TABLE IF NOT EXISTS parties (
       id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       phone TEXT NOT NULL,
       email TEXT NOT NULL,
@@ -152,11 +314,12 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_parties_company ON parties(company_id);
     CREATE INDEX IF NOT EXISTS idx_parties_name ON parties(name);
-    CREATE INDEX IF NOT EXISTS idx_parties_phone ON parties(phone);
 
     CREATE TABLE IF NOT EXISTS suppliers (
       id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       phone TEXT NOT NULL,
       email TEXT NOT NULL,
@@ -170,11 +333,12 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_suppliers_company ON suppliers(company_id);
     CREATE INDEX IF NOT EXISTS idx_suppliers_name ON suppliers(name);
-    CREATE INDEX IF NOT EXISTS idx_suppliers_phone ON suppliers(phone);
 
     CREATE TABLE IF NOT EXISTS ledger_entries (
       id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       party_id TEXT NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
       party_name TEXT NOT NULL,
       date TEXT NOT NULL,
@@ -187,10 +351,11 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS idx_ledger_party_date ON ledger_entries(party_id, date);
+    CREATE INDEX IF NOT EXISTS idx_ledger_company_party_date ON ledger_entries(company_id, party_id, date);
 
     CREATE TABLE IF NOT EXISTS inventory_items (
       id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       grade TEXT NOT NULL,
       category TEXT NOT NULL,
@@ -203,7 +368,7 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_name_grade_warehouse ON inventory_items(name, grade, warehouse);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_company_name_grade_warehouse ON inventory_items(company_id, name, grade, warehouse);
     CREATE INDEX IF NOT EXISTS idx_inventory_status ON inventory_items(status);
 
     CREATE TABLE IF NOT EXISTS inventory_transactions (
@@ -221,10 +386,10 @@ pub fn ensure_database() -> Result<(), String> {
       updated_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_inventory_txn_item_date ON inventory_transactions(item_id, date);
-    CREATE INDEX IF NOT EXISTS idx_inventory_txn_ref ON inventory_transactions(reference_type, reference_id);
 
     CREATE TABLE IF NOT EXISTS bills (
       id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       bill_no TEXT NOT NULL UNIQUE,
       date TEXT NOT NULL,
       party_id TEXT NOT NULL REFERENCES parties(id) ON DELETE RESTRICT,
@@ -242,6 +407,7 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_bills_company ON bills(company_id);
 
     CREATE TABLE IF NOT EXISTS bill_items (
       id TEXT PRIMARY KEY,
@@ -257,10 +423,10 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS idx_bill_items_bill ON bill_items(bill_id);
 
     CREATE TABLE IF NOT EXISTS purchases (
       id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       purchase_no TEXT NOT NULL UNIQUE,
       date TEXT NOT NULL,
       supplier_id TEXT NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
@@ -275,8 +441,7 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS idx_purchases_date ON purchases(date);
-    CREATE INDEX IF NOT EXISTS idx_purchases_supplier ON purchases(supplier_id);
+    CREATE INDEX IF NOT EXISTS idx_purchases_company ON purchases(company_id);
 
     CREATE TABLE IF NOT EXISTS purchase_items (
       id TEXT PRIMARY KEY,
@@ -291,10 +456,10 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase ON purchase_items(purchase_id);
 
     CREATE TABLE IF NOT EXISTS payments (
       id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       date TEXT NOT NULL,
       party_id TEXT NOT NULL REFERENCES parties(id) ON DELETE RESTRICT,
       party_name TEXT NOT NULL,
@@ -307,18 +472,26 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(date);
-    CREATE INDEX IF NOT EXISTS idx_payments_party ON payments(party_id);
+    CREATE INDEX IF NOT EXISTS idx_payments_company ON payments(company_id);
 
     CREATE TABLE IF NOT EXISTS vehicle_registers (
       id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       entry_no TEXT NOT NULL UNIQUE,
       date TEXT NOT NULL,
+      day_of_week TEXT,
       vehicle_number TEXT NOT NULL,
       driver_name TEXT NOT NULL,
+      broker_name TEXT,
+      arrival_time TEXT,
+      vehicle_description TEXT,
+      scale_weight REAL,
+      fruit_type_category TEXT,
       status TEXT NOT NULL,
       total_rows INTEGER NOT NULL,
       total_weight REAL NOT NULL,
+      total_boxes REAL,
+      total_carats REAL,
       grand_total REAL NOT NULL,
       pending_amount REAL NOT NULL,
       outstanding_balance REAL NOT NULL,
@@ -326,17 +499,21 @@ pub fn ensure_database() -> Result<(), String> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS idx_vehicle_register_date ON vehicle_registers(date);
+    CREATE INDEX IF NOT EXISTS idx_vehicle_register_company ON vehicle_registers(company_id);
 
     CREATE TABLE IF NOT EXISTS vehicle_register_rows (
       id TEXT PRIMARY KEY,
       vehicle_register_id TEXT NOT NULL REFERENCES vehicle_registers(id) ON DELETE CASCADE,
       party_id TEXT REFERENCES parties(id) ON DELETE SET NULL,
       party_name TEXT NOT NULL,
+      lot_no TEXT,
       vakkal TEXT NOT NULL,
+      boxes REAL,
       carat REAL NOT NULL,
       weight REAL NOT NULL,
       rate REAL NOT NULL,
+      commission REAL,
+      hamali REAL,
       total REAL NOT NULL,
       remarks TEXT NOT NULL DEFAULT '',
       inventory_item_id TEXT REFERENCES inventory_items(id) ON DELETE SET NULL,
@@ -346,104 +523,272 @@ pub fn ensure_database() -> Result<(), String> {
     CREATE INDEX IF NOT EXISTS idx_vehicle_rows_register ON vehicle_register_rows(vehicle_register_id);
     CREATE INDEX IF NOT EXISTS idx_vehicle_rows_party ON vehicle_register_rows(party_id);
     CREATE INDEX IF NOT EXISTS idx_vehicle_rows_inventory ON vehicle_register_rows(inventory_item_id);
-    "#,
-  ).map_err(|error| error.to_string())?;
+  ")
+  .map_err(|error| error.to_string())?;
 
   seed_default_settings(&connection)?;
   Ok(())
 }
 
-fn seed_default_settings(connection: &Connection) -> Result<(), String> {
-  let count: i64 = connection
-    .query_row("SELECT COUNT(1) FROM settings", [], |row| row.get(0))
-    .map_err(|error| error.to_string())?;
+fn seed_mock_data(connection: &Connection) -> Result<(), String> {
+  let now = now_iso();
+  let company_id = "mock-company";
+  
+  // Seed a mock company if it doesn't exist
+  connection.execute(
+    "INSERT OR IGNORE INTO companies (id, name, address, city, state, phone, email, gstin, invoice_prefix, language, theme, financial_year_start, financial_year_end, owner_id, is_active, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16)",
+    params![
+      company_id,
+      "Talha Fruit Co.",
+      "Mandi Road",
+      "Nadiad",
+      "Gujarat",
+      "9876543210",
+      "info@talhafruit.com",
+      "24AAAAA0000A1Z5",
+      "TFC",
+      "english",
+      "dark",
+      2024,
+      2025,
+      "admin",
+      1,
+      now
+    ],
+  ).map_err(|e| e.to_string())?;
 
-  if count == 0 {
-    connection
-      .execute(
-        "INSERT INTO settings (id, business_name, business_address, city, state, phone, email, gstin, commission_percent, tax_percent, currency, bill_prefix, purchase_prefix, vehicle_prefix, next_bill_no, next_purchase_no, next_vehicle_entry_no, language, dark_mode, low_stock_alert, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
-        params![
-          "default",
-          "ફળ માર્કેટ કમિશન એજન્ટ",
-          "મુખ્ય બજાર યાર્ડ",
-          "અમદાવાદ",
-          "ગુજરાત",
-          "+91 98765 43210",
-          "info@fruitmarket.com",
-          "24ABCDE1234F1Z5",
-          3.0_f64,
-          5.0_f64,
-          "₹",
-          "FM",
-          "PO",
-          "VR",
-          1001_i64,
-          5001_i64,
-          2001_i64,
-          "gujarati",
-          false,
-          true,
-          now_iso(),
-          now_iso(),
-        ],
-      )
-      .map_err(|error| error.to_string())?;
+  // Seed Mock Parties
+  connection.execute(
+    "INSERT OR IGNORE INTO parties (id, company_id, name, phone, email, gstin, address, city, state, opening_balance, balance_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12)",
+    params!["mock-party", company_id, "Mumbai Fresh Fruits", "9988776655", "mumbai@fruits.com", "27AAAAA0000A1Z5", "APMC Market", "Mumbai", "Maharashtra", 120000.0, "debit", now],
+  ).map_err(|e| e.to_string())?;
+
+  connection.execute(
+     "INSERT OR IGNORE INTO parties (id, company_id, name, phone, email, gstin, address, city, state, opening_balance, balance_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12)",
+     params!["mock-party-2", company_id, "Surat Fruit Mart", "9988774433", "surat@fruits.com", "24AAAAA0000A1Z5", "Ring Road", "Surat", "Gujarat", 0.0, "debit", now],
+   ).map_err(|e| e.to_string())?;
+
+   // Seed Mock Suppliers
+   connection.execute(
+     "INSERT OR IGNORE INTO suppliers (id, company_id, name, phone, email, address, city, state, opening_balance, balance_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
+     params!["mock-supplier", company_id, "Kashmir Apple Growers", "9900112233", "kashmir@apples.com", "Main Road", "Srinagar", "J&K", 0.0, "credit", now],
+   ).map_err(|e| e.to_string())?;
+
+   // Seed 3 Mock Vehicle Registers
+  let mock_data = vec![
+    ("2026-05-14", "GJ-06-AB-1234", "Tuesday", "Mango", "Sukhdev Singh", 4200.0, 380000.0, vec![
+      ("Ramesh Bhai Junagadh", "Kesar", 150.0, 2500.0, 90.0, 225000.0, "A-Grade Big Size"),
+      ("Ramesh Bhai Junagadh", "Alphonso", 60.0, 1000.0, 120.0, 120000.0, "Premium export pack"),
+      ("Patel Agro Farms", "Rajapuri", 40.0, 700.0, 50.0, 35000.0, "Semi-ripe"),
+    ], "Saurashtra Mango Consignment"),
+    ("2026-05-15", "HP-38-D-8899", "Friday", "Apple", "Gurpreet Singh", 1800.0, 215000.0, vec![
+      ("Kashmir Apple Growers", "Royal Delicious", 100.0, 1800.0, 120.0, 215000.0, "Grade A+"),
+    ], "Fresh Kashmiri Apples"),
+    ("2026-05-16", "MH-12-RS-4567", "Saturday", "Banana", "Rahul Kumar", 3500.0, 150000.0, vec![
+      ("Jalgaon Farmers Co.", "Grand Naine", 200.0, 3500.0, 42.0, 150000.0, "Uniform size"),
+    ], "Jalgaon Banana Lot"),
+  ];
+
+  for (idx, (date, v_no, day, fruit, driver, weight, total, rows, notes)) in mock_data.into_iter().enumerate() {
+    let reg_id = format!("mock-reg-{}", idx);
+    let entry_no = format!("VR-{}", 2001 + idx);
+
+    connection.execute(
+      "INSERT OR IGNORE INTO vehicle_registers (id, company_id, entry_no, date, day_of_week, vehicle_number, driver_name, fruit_type_category, status, total_rows, total_weight, grand_total, pending_amount, outstanding_balance, notes, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16)",
+      params![reg_id, company_id, entry_no, date, day, v_no, driver, fruit, "posted", rows.len() as i64, weight, total, total, total, notes, now],
+    ).map_err(|e| e.to_string())?;
+
+    for (r_idx, (p_name, variety, carats, wt, rate, amt, rem)) in rows.into_iter().enumerate() {
+      connection.execute(
+        "INSERT OR IGNORE INTO vehicle_register_rows (id, vehicle_register_id, party_name, vakkal, carat, weight, rate, total, remarks, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
+        params![format!("mock-row-{}-{}", idx, r_idx), reg_id, p_name, variety, carats, wt, rate, amt, rem, now],
+      ).map_err(|e| e.to_string())?;
+    }
+  }
+
+  // Seed 2 Mock Sales Invoices (Bills)
+  let mock_bills = vec![
+    ("mock-bill-1", "INV-2026-001", "2026-05-15", "mock-party", "Mumbai Fresh Fruits", 69000.0, 50000.0, "UPI"),
+    ("mock-bill-2", "INV-2026-002", "2026-05-16", "mock-party-2", "Surat Fruit Mart", 58000.0, 75000.0, "Cash"),
+  ];
+
+  for (id, bill_no, date, party_id, customer, value, paid, mode) in mock_bills {
+    connection.execute(
+      "INSERT OR IGNORE INTO bills (id, company_id, bill_no, date, party_id, party_name, subtotal, commission, tax_amount, tax_percent, total, previous_balance, paid_amount, net_balance, status, notes, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?17)",
+      params![id, company_id, bill_no, date, party_id, customer, value, 0.0, 0.0, 0.0, value, 120000.0, paid, value + 120000.0 - paid, "partial", format!("Paid via {}", mode), now],
+    ).map_err(|e| e.to_string())?;
+
+    // Add mock bill item
+    connection.execute(
+      "INSERT OR IGNORE INTO bill_items (id, bill_id, fruit_name, grade, box_count, weight_per_box, total_weight, rate, amount, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
+      params![format!("item-{}", id), id, "Mango", "A", 10.0, 20.0, 200.0, value/200.0, value, now],
+    ).map_err(|e| e.to_string())?;
   }
 
   Ok(())
 }
 
 #[tauri::command]
-pub fn init_database() -> Result<String, String> {
-  ensure_database()?;
-  Ok("ok".to_string())
+pub fn wipe_database(token: String) -> Result<(), String> {
+  authorize(&token)?;
+  #[cfg(debug_assertions)]
+  {
+    let connection = open_connection()?;
+
+    connection.execute_batch("
+      PRAGMA foreign_keys = OFF;
+      DROP TABLE IF EXISTS vehicle_register_rows;
+      DROP TABLE IF EXISTS vehicle_registers;
+      DROP TABLE IF EXISTS payments;
+      DROP TABLE IF EXISTS purchase_items;
+      DROP TABLE IF EXISTS purchases;
+      DROP TABLE IF EXISTS bill_items;
+      DROP TABLE IF EXISTS bills;
+      DROP TABLE IF EXISTS inventory_transactions;
+      DROP TABLE IF EXISTS inventory_items;
+      DROP TABLE IF EXISTS ledger_entries;
+      DROP TABLE IF EXISTS suppliers;
+      DROP TABLE IF EXISTS parties;
+      DROP TABLE IF EXISTS settings;
+      DROP TABLE IF EXISTS companies;
+      DROP TABLE IF EXISTS users;
+      DROP TABLE IF EXISTS app_state_snapshots;
+      PRAGMA foreign_keys = ON;
+    ")
+    .map_err(|error| error.to_string())?;
+
+    init_database()
+  }
+  #[cfg(not(debug_assertions))]
+  {
+    Err("Database wipe is only allowed in development mode".to_string())
+  }
+}
+
+fn seed_default_settings(connection: &Connection) -> Result<(), String> {
+  let now = now_iso();
+  connection
+    .execute(
+      "INSERT OR REPLACE INTO settings (id, business_name, business_address, city, state, phone, email, gstin, commission_percent, tax_percent, currency, bill_prefix, purchase_prefix, vehicle_prefix, next_bill_no, next_purchase_no, next_vehicle_entry_no, language, dark_mode, low_stock_alert, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+      params![
+        "default",
+        "Talha Fruit Co.",
+        "near chamak factory",
+        "Nadiad",
+        "Gujarat",
+        "",
+        "",
+        "",
+        3.0_f64,
+        5.0_f64,
+        "₹",
+        "FM",
+        "PO",
+        "VR",
+        1001_i64,
+        5001_i64,
+        2001_i64,
+        "english",
+        false,
+        true,
+        now,
+        now,
+      ],
+    )
+    .map_err(|error| error.to_string())?;
+
+  Ok(())
 }
 
 #[tauri::command]
-pub fn get_dashboard_summary() -> Result<DashboardSummary, String> {
-  let connection = open_connection()?;
+pub fn get_dashboard_summary(token: String) -> Result<DashboardSummary, String> {
+  authorize(&token)?;
+  let connection = open_connection().map_err(map_db_error)?;
   Ok(DashboardSummary {
-    total_parties: scalar_count(&connection, "SELECT COUNT(1) FROM parties")?,
-    total_suppliers: scalar_count(&connection, "SELECT COUNT(1) FROM suppliers")?,
-    total_vehicles: scalar_count(&connection, "SELECT COUNT(1) FROM vehicle_registers")?,
-    total_weight: scalar_float(&connection, "SELECT COALESCE(SUM(total_weight), 0) FROM vehicle_registers")?,
-    outstanding_payments: scalar_float(&connection, "SELECT COALESCE(SUM(outstanding_balance), 0) FROM vehicle_registers")?,
-    low_stock_items: scalar_count(&connection, "SELECT COUNT(1) FROM inventory_items WHERE status IN ('low_stock', 'out_of_stock')")?,
+    total_parties: scalar_count(&connection, "SELECT COUNT(1) FROM parties").map_err(map_db_error)?,
+    total_suppliers: scalar_count(&connection, "SELECT COUNT(1) FROM suppliers").map_err(map_db_error)?,
+    total_vehicles: scalar_count(&connection, "SELECT COUNT(1) FROM vehicle_registers").map_err(map_db_error)?,
+    total_weight: scalar_float(&connection, "SELECT COALESCE(SUM(total_weight), 0) FROM vehicle_registers").map_err(map_db_error)?,
+    outstanding_payments: scalar_float(&connection, "SELECT COALESCE(SUM(outstanding_balance), 0) FROM vehicle_registers").map_err(map_db_error)?,
+    low_stock_items: scalar_count(&connection, "SELECT COUNT(1) FROM inventory_items WHERE status IN ('low_stock', 'out_of_stock')").map_err(map_db_error)?,
   })
 }
 
 #[tauri::command]
-pub fn list_vehicle_registers() -> Result<Vec<VehicleRegisterSummary>, String> {
+pub fn get_vehicle_registers(token: String) -> Result<Vec<VehicleRegister>, String> {
+  authorize(&token)?;
   let connection = open_connection()?;
   let mut statement = connection
-    .prepare(
-      "SELECT id, entry_no, date, vehicle_number, driver_name, status, total_rows, total_weight, grand_total FROM vehicle_registers ORDER BY date DESC, created_at DESC",
-    )
+    .prepare("SELECT id, company_id, entry_no, date, day_of_week, vehicle_number, driver_name, broker_name, arrival_time, vehicle_description, scale_weight, fruit_type_category, status, total_rows, total_weight, total_boxes, total_carats, grand_total, pending_amount, outstanding_balance, notes, created_at, updated_at FROM vehicle_registers ORDER BY date DESC")
     .map_err(|error| error.to_string())?;
 
   let registers = statement
     .query_map([], |row| {
-      Ok(VehicleRegisterSummary {
-        id: row.get(0)?,
-        entry_no: row.get(1)?,
-        date: row.get(2)?,
-        vehicle_number: row.get(3)?,
-        driver_name: row.get(4)?,
-        status: row.get(5)?,
-        total_rows: row.get(6)?,
-        total_weight: row.get(7)?,
-        grand_total: row.get(8)?,
+      let id: String = row.get(0)?;
+      
+      // Load rows for each register
+      let mut row_statement = connection.prepare("SELECT id, vehicle_register_id, party_id, party_name, lot_no, vakkal, boxes, carat, weight, rate, commission, hamali, total, remarks, inventory_item_id, created_at, updated_at FROM vehicle_register_rows WHERE vehicle_register_id = ?").map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+      let rows_iter = row_statement.query_map([&id], |r| {
+        Ok(VehicleRegisterRow {
+          id: r.get(0)?,
+          vehicle_register_id: r.get(1)?,
+          party_id: r.get(2)?,
+          party_name: r.get(3)?,
+          lot_no: r.get(4)?,
+          vakkal: r.get(5)?,
+          boxes: r.get(6)?,
+          carat: r.get(7)?,
+          weight: r.get(8)?,
+          rate: r.get(9)?,
+          commission: r.get(10)?,
+          hamali: r.get(11)?,
+          total: r.get(12)?,
+          remarks: r.get(13)?,
+          inventory_item_id: r.get(14)?,
+          created_at: r.get(15)?,
+          updated_at: r.get(16)?,
+        })
+      }).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+
+      let rows: Vec<VehicleRegisterRow> = rows_iter.filter_map(|r| r.ok()).collect();
+
+      Ok(VehicleRegister {
+        id,
+        company_id: row.get(1)?,
+        entry_no: row.get(2)?,
+        date: row.get(3)?,
+        day_of_week: row.get(4)?,
+        vehicle_number: row.get(5)?,
+        driver_name: row.get(6)?,
+        broker_name: row.get(7)?,
+        arrival_time: row.get(8)?,
+        vehicle_description: row.get(9)?,
+        scale_weight: row.get(10)?,
+        fruit_type_category: row.get(11)?,
+        status: row.get(12)?,
+        total_rows: row.get(13)?,
+        total_weight: row.get(14)?,
+        total_boxes: row.get(15)?,
+        total_carats: row.get(16)?,
+        grand_total: row.get(17)?,
+        pending_amount: row.get(18)?,
+        outstanding_balance: row.get(19)?,
+        notes: row.get(20)?,
+        created_at: row.get(21)?,
+        updated_at: row.get(22)?,
+        rows,
       })
     })
     .map_err(|error| error.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|error| error.to_string())?;
+    .filter_map(|r| r.ok())
+    .collect();
 
   Ok(registers)
 }
 
 #[tauri::command]
-pub fn save_vehicle_register(input: VehicleRegisterInput) -> Result<String, String> {
+pub fn create_vehicle_register(token: String, input: VehicleRegisterInput) -> Result<String, String> {
+  authorize(&token)?;
   let mut connection = open_connection()?;
   let transaction = connection.transaction().map_err(|error| error.to_string())?;
 
@@ -454,30 +799,40 @@ pub fn save_vehicle_register(input: VehicleRegisterInput) -> Result<String, Stri
   let register_id = uuid_like_id();
   let now = now_iso();
 
-  let totals = input.rows.iter().fold((0.0_f64, 0.0_f64), |mut acc, row| {
-    let total = row.carat * row.weight * row.rate;
+  let totals = input.rows.iter().fold((0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64), |mut acc, row| {
+    let row_total = row.total.unwrap_or(row.carat * row.weight * row.rate);
     acc.0 += row.weight;
-    acc.1 += total;
+    acc.1 += row_total;
+    acc.2 += row.boxes.unwrap_or(0.0);
+    acc.3 += row.carat;
     acc
   });
 
   transaction
     .execute(
-      "INSERT INTO vehicle_registers (id, entry_no, date, vehicle_number, driver_name, status, total_rows, total_weight, grand_total, pending_amount, outstanding_balance, notes, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+      "INSERT INTO vehicle_registers (id, company_id, entry_no, date, day_of_week, vehicle_number, driver_name, broker_name, arrival_time, vehicle_description, scale_weight, fruit_type_category, status, total_rows, total_weight, total_boxes, total_carats, grand_total, pending_amount, outstanding_balance, notes, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?22)",
       params![
         register_id,
+        input.company_id,
         entry_no,
         input.date,
+        input.day_of_week,
         input.vehicle_number,
         input.driver_name,
+        input.broker_name,
+        input.arrival_time,
+        input.vehicle_description,
+        input.scale_weight,
+        input.fruit_type_category,
         input.status,
         input.rows.len() as i64,
         totals.0,
+        totals.2,
+        totals.3,
         totals.1,
         input.pending_amount,
         input.outstanding_balance,
         input.notes,
-        now,
         now,
       ],
     )
@@ -485,23 +840,26 @@ pub fn save_vehicle_register(input: VehicleRegisterInput) -> Result<String, Stri
 
   for row in &input.rows {
     let row_id = uuid_like_id();
-    let row_total = row.carat * row.weight * row.rate;
+    let row_total = row.total.unwrap_or(row.carat * row.weight * row.rate);
     transaction
       .execute(
-        "INSERT INTO vehicle_register_rows (id, vehicle_register_id, party_id, party_name, vakkal, carat, weight, rate, total, remarks, inventory_item_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+        "INSERT INTO vehicle_register_rows (id, vehicle_register_id, party_id, party_name, lot_no, vakkal, boxes, carat, weight, rate, commission, hamali, total, remarks, inventory_item_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16)",
         params![
           row_id,
           register_id,
           row.party_id,
           row.party_name,
+          row.lot_no,
           row.vakkal,
+          row.boxes,
           row.carat,
           row.weight,
           row.rate,
+          row.commission,
+          row.hamali,
           row_total,
           row.remarks,
           row.inventory_item_id,
-          now,
           now,
         ],
       )
@@ -510,9 +868,10 @@ pub fn save_vehicle_register(input: VehicleRegisterInput) -> Result<String, Stri
     if let Some(party_id) = &row.party_id {
       transaction
         .execute(
-          "INSERT INTO ledger_entries (id, party_id, party_name, date, type, amount, description, reference_type, reference_id, running_balance, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 'debit', ?5, ?6, 'vehicle_register', ?7, 0, ?8, ?9)",
+          "INSERT INTO ledger_entries (id, company_id, party_id, party_name, date, type, amount, description, reference_type, reference_id, running_balance, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 'debit', ?6, ?7, 'vehicle_register', ?8, 0, ?9, ?10)",
           params![
             uuid_like_id(),
+            input.company_id,
             party_id,
             row.party_name,
             input.date,
@@ -539,35 +898,134 @@ pub fn save_vehicle_register(input: VehicleRegisterInput) -> Result<String, Stri
 }
 
 #[tauri::command]
-pub fn load_app_state() -> Result<Option<String>, String> {
+pub fn get_companies(token: String) -> Result<Vec<Company>, String> {
+  authorize(&token)?;
   let connection = open_connection()?;
-  let data = connection
-    .query_row(
-      "SELECT data FROM app_state_snapshots WHERE id = 'default' LIMIT 1",
-      [],
-      |row| row.get::<_, String>(0),
-    )
-    .optional()
+  let mut statement = connection
+    .prepare("SELECT id, name, address, city, state, phone, email, gstin, invoice_prefix, language, theme, financial_year_start, financial_year_end, owner_id, is_active, created_at, updated_at FROM companies")
     .map_err(|error| error.to_string())?;
 
-  Ok(data)
+  let companies = statement
+    .query_map([], |row| {
+      Ok(Company {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        address: row.get(2)?,
+        city: row.get(3)?,
+        state: row.get(4)?,
+        phone: row.get(5)?,
+        email: row.get(6)?,
+        gstin: row.get(7)?,
+        invoice_prefix: row.get(8)?,
+        language: row.get(9)?,
+        theme: row.get(10)?,
+        financial_year_start: row.get(11)?,
+        financial_year_end: row.get(12)?,
+        owner_id: row.get(13)?,
+        is_active: row.get::<_, i64>(14)? != 0,
+        created_at: row.get(15)?,
+        updated_at: row.get(16)?,
+      })
+    })
+    .map_err(|error| error.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|error| error.to_string())?;
+
+  Ok(companies)
 }
 
 #[tauri::command]
-pub fn save_app_state(data: String) -> Result<String, String> {
-  let _: Value = serde_json::from_str(&data).map_err(|error| error.to_string())?;
+pub fn create_company(token: String, data: CompanyInput) -> Result<Company, String> {
+  authorize(&token)?;
+  let connection = open_connection()?;
+  let id = uuid_like_id();
+  let now = now_iso();
+
+  connection
+    .execute(
+      "INSERT INTO companies (id, name, address, city, state, phone, email, gstin, invoice_prefix, language, theme, financial_year_start, financial_year_end, owner_id, is_active, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 1, ?15, ?15)",
+      params![
+        id,
+        data.name,
+        data.address,
+        data.city,
+        data.state,
+        data.phone,
+        data.email,
+        data.gstin,
+        data.invoice_prefix,
+        data.language,
+        data.theme,
+        data.financial_year_start,
+        data.financial_year_end,
+        data.owner_id,
+        now,
+      ],
+    )
+    .map_err(|error| error.to_string())?;
+
+  Ok(Company {
+    id: id.clone(),
+    name: data.name,
+    address: data.address,
+    city: data.city,
+    state: data.state,
+    phone: data.phone,
+    email: data.email,
+    gstin: data.gstin,
+    invoice_prefix: data.invoice_prefix,
+    language: data.language,
+    theme: data.theme,
+    financial_year_start: data.financial_year_start,
+    financial_year_end: data.financial_year_end,
+    owner_id: data.owner_id,
+    is_active: true,
+    created_at: now.clone(),
+    updated_at: now,
+  })
+}
+
+#[tauri::command]
+pub fn update_company(token: String, data: Company) -> Result<Company, String> {
+  authorize(&token)?;
   let connection = open_connection()?;
   let now = now_iso();
 
   connection
     .execute(
-      "INSERT INTO app_state_snapshots (id, data, created_at, updated_at) VALUES ('default', ?1, ?2, ?2)
-       ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
-      params![data, now],
+      "UPDATE companies SET name = ?1, address = ?2, city = ?3, state = ?4, phone = ?5, email = ?6, gstin = ?7, invoice_prefix = ?8, language = ?9, theme = ?10, financial_year_start = ?11, financial_year_end = ?12, is_active = ?13, updated_at = ?14 WHERE id = ?15",
+      params![
+        data.name,
+        data.address,
+        data.city,
+        data.state,
+        data.phone,
+        data.email,
+        data.gstin,
+        data.invoice_prefix,
+        data.language,
+        data.theme,
+        data.financial_year_start,
+        data.financial_year_end,
+        if data.is_active { 1 } else { 0 },
+        now,
+        data.id,
+      ],
     )
     .map_err(|error| error.to_string())?;
 
-  Ok("ok".to_string())
+  let mut updated = data;
+  updated.updated_at = now;
+  Ok(updated)
+}
+
+#[tauri::command]
+pub fn delete_company(id: String) -> Result<(), String> {
+  let connection = open_connection()?;
+  connection
+    .execute("DELETE FROM companies WHERE id = ?", params![id])
+    .map_err(|error| error.to_string())?;
+  Ok(())
 }
 
 fn scalar_count(connection: &Connection, query: &str) -> Result<i64, String> {

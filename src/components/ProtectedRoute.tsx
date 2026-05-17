@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { LoginPage } from "@/pages/Login";
+import { useNavigate } from "react-router-dom";
 
 export interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -15,11 +15,29 @@ export function ProtectedRoute({
   children,
   requiredRole,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, user, login } = useAuth();
+  const { isAuthenticated, user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
 
-  // Show login page if not authenticated
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={login} />;
+  useEffect(() => {
+    if (!authLoading) {
+      if (!isAuthenticated) {
+        navigate("/login");
+      } else {
+        setLoading(false);
+      }
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
+  if (authLoading || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Authenticating...</p>
+        </div>
+      </div>
+    );
   }
 
   // Check role if required

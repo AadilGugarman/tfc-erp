@@ -5,7 +5,6 @@ import {
   Users,
   CreditCard,
   BookOpen,
-  BarChart3,
   ShoppingCart,
   FileText,
 } from "lucide-react";
@@ -60,14 +59,6 @@ const QUICK_ACTIONS: QuickAction[] = [
     color: "from-blue-500 to-blue-600",
     page: "ledger",
     shortcut: "Alt+L",
-  },
-  {
-    id: "search",
-    label: "Search Transactions",
-    icon: BarChart3,
-    color: "from-cyan-500 to-cyan-600",
-    page: "search",
-    shortcut: "Ctrl+K",
   },
   {
     id: "sales",

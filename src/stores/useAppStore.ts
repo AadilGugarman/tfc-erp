@@ -37,13 +37,15 @@ interface AppState {
   logout: () => void;
 
   companies: Company[];
-  currentCompany: Company | null;
+  currentCompany?: Company | null; // Make optional
   currentCompanyId: string | null;
   loadCompanies: () => void;
   setCurrentCompany: (companyId: string) => void;
   setCurrentCompanyId: (companyId: string) => void;
-  createCompany: (company: Company) => void;
-  updateCompany: (company: Company) => void;
+  createCompany: (
+    company: Omit<Company, "id" | "createdAt" | "updatedAt">,
+  ) => Promise<Company>;
+  updateCompany: (company: Company) => Company | null;
   deleteCompany: (companyId: string) => void;
 
   language: "english" | "gujarati";
@@ -115,7 +117,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentPage: "dashboard",
   setCurrentPage: (page) => set({ currentPage: page }),
 
-  authenticated: authService.isAuthenticated(),
+  authenticated: authService.isAuthenticatedSync(),
   userId: authService.getCurrentUser()?.id || "guest",
   login: (userId: string) => {
     // This is kept for backward compatibility
@@ -127,24 +129,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ authenticated: false, currentPage: "dashboard", userId: "guest" });
   },
 
-  companies: db.getCompanies(),
+  companies: db.getCompaniesSync(),
   currentCompanyId: authService.getCurrentCompany(),
   currentCompany: (() => {
-    const companies = db.getCompanies();
-    const currentCompanyId = authService.getCurrentCompany();
-    if (currentCompanyId) {
-      return (
-        companies.find((c) => c.id === currentCompanyId) ?? companies[0] ?? null
-      );
-    }
-    return companies[0] ?? null;
+    const storedCompanyId = authService.getCurrentCompany();
+    if (!storedCompanyId) return undefined;
+    return (
+      db.getCompaniesSync().find((c) => c.id === storedCompanyId) ?? undefined
+    );
   })(),
-  loadCompanies: () => {
-    const companies = db.getCompanies();
-    set({ companies });
+  loadCompanies: async () => {
+    const companies = await db.getCompanies();
+    const storedCompanyId = authService.getCurrentCompany(); // Get remembered company from localStorage
+    const currentCompany = storedCompanyId
+      ? companies.find((c) => c.id === storedCompanyId)
+      : undefined; // Set if remembered and valid, otherwise undefined
+    set({ companies, currentCompany, currentCompanyId: currentCompany?.id || null });
+    console.log("Loaded companies:", companies);
+    console.log("Current company after load:", currentCompany);
   },
   setCurrentCompany: (companyId: string) => {
-    const companies = db.getCompanies();
+    const companies = get().companies;
     const company = companies.find((c) => c.id === companyId);
     if (company) {
       authService.setCurrentCompany(companyId);
@@ -154,46 +159,93 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   setCurrentCompanyId: (companyId: string) => {
-    const companies = db.getCompanies();
+    const { companies } = get();
     const company = companies.find((c) => c.id === companyId);
     if (company) {
       authService.setCurrentCompany(companyId);
-      set({ currentCompany: company, currentCompanyId: companyId });
-      // Refresh all data for the new company
+      set({ currentCompanyId: companyId, currentCompany: company });
       get().refreshDataFromDb();
     }
   },
-  createCompany: (company: Company) => {
-    const newCompany = db.createCompany({
-      name: company.name,
-      address: company.address,
-      city: company.city,
-      state: company.state,
-      phone: company.phone,
-      email: company.email,
-      gstin: company.gstin,
-      invoicePrefix: company.invoicePrefix,
-      language: company.language,
-      theme: company.theme,
-      isActive: company.isActive,
-    });
-    const companies = db.getCompanies();
-    set({ companies });
-  },
-  updateCompany: (company: Company) => {
-    db.updateCompany(company.id, company);
-    const companies = db.getCompanies();
-    set({ companies });
-    if (get().currentCompany?.id === company.id) {
-      set({ currentCompany: company });
+  createCompany: async (
+    company: Omit<Company, "id" | "createdAt" | "updatedAt">,
+  ) => {
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser) {
+      throw new Error("User is not logged in.");
     }
+
+    const ownerId = currentUser.id;
+    const newCompany = await db.createCompany({
+      ...company,
+      ownerId,
+      financialYearStart: company.financialYearStart || 4,
+      financialYearEnd: company.financialYearEnd || 3,
+    });
+
+    const accessibleCompanyIds = authService.getAccessibleCompanies();
+    const updatedCompanyIds = [
+      ...new Set([...accessibleCompanyIds, newCompany.id]),
+    ];
+    await authService.updateUserCompanies(
+      currentUser.id,
+      updatedCompanyIds,
+      newCompany.id,
+    );
+
+    authService.addAccessibleCompany(newCompany.id);
+
+    // Refresh the company list
+    const companies = await db.getCompanies();
+    set({
+      companies,
+      currentCompany: newCompany,
+      currentCompanyId: newCompany.id,
+    });
+
+    get().refreshDataFromDb();
+    return newCompany;
   },
-  deleteCompany: (companyId: string) => {
-    db.deleteCompany(companyId);
-    const companies = db.getCompanies();
+  updateCompany: async (company: Company) => {
+    const updatedCompany = await db.updateCompany(company);
+    if (!updatedCompany) return null;
+
+    const companies = await db.getCompanies();
     set({ companies });
-    if (get().currentCompany?.id === companyId && companies.length > 0) {
-      set({ currentCompany: companies[0] });
+
+    if (get().currentCompany?.id === company.id) {
+      set({ currentCompany: updatedCompany });
+    }
+
+    return updatedCompany;
+  },
+  deleteCompany: async (companyId: string) => {
+    await db.deleteCompany(companyId);
+    authService.removeAccessibleCompany(companyId);
+
+    const companies = await db.getCompanies();
+    const { currentCompanyId } = get();
+
+    if (currentCompanyId === companyId) {
+      if (companies.length > 0) {
+        const nextCompany = companies[0];
+        authService.setCurrentCompany(nextCompany.id);
+        set({
+          companies,
+          currentCompany: nextCompany,
+          currentCompanyId: nextCompany.id,
+        });
+        get().refreshDataFromDb();
+      } else {
+        set({
+          companies,
+          currentCompany: null,
+          currentCompanyId: null,
+        });
+        authService.clearCurrentCompany();
+      }
+    } else {
+      set({ companies });
     }
   },
 
@@ -270,7 +322,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ inventoryItems: [] });
       return;
     }
-    const inventoryItems = db.getInventoryByCompany(currentCompanyId);
+    const inventoryItems = db.getInventoryItemsByCompany(currentCompanyId);
     set({ inventoryItems });
   },
 
@@ -319,17 +371,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   vehicleRegisters: [],
-  loadVehicleRegisters: () => {
+  loadVehicleRegisters: async () => {
     const { currentCompanyId } = get();
     if (!currentCompanyId) {
       set({ vehicleRegisters: [] });
       return;
     }
-    const vehicleRegisters = db.getVehicleRegistersByCompany(currentCompanyId);
+    const vehicleRegisters =
+      await db.getVehicleRegistersByCompany(currentCompanyId);
     set({ vehicleRegisters });
   },
 
-  refreshDataFromDb: () => {
+  refreshDataFromDb: async () => {
     const { currentCompanyId } = get();
 
     // ENFORCE: No data loading without a company context
@@ -351,12 +404,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Load ONLY company-specific data
     const parties = db.getPartiesByCompany(currentCompanyId);
     const suppliers = db.getSuppliersByCompany(currentCompanyId);
-    const inventoryItems = db.getInventoryByCompany(currentCompanyId);
+    const inventoryItems = db.getInventoryItemsByCompany(currentCompanyId);
     const payments = db.getPaymentsByCompany(currentCompanyId);
     const bills = db.getBillsByCompany(currentCompanyId);
     const purchases = db.getPurchasesByCompany(currentCompanyId);
     const ledgerEntries = db.getLedgerEntriesByCompany(currentCompanyId);
-    const vehicleRegisters = db.getVehicleRegistersByCompany(currentCompanyId);
+    const vehicleRegisters =
+      await db.getVehicleRegistersByCompany(currentCompanyId);
 
     set({
       settings: db.getSettings(),

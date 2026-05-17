@@ -1,13 +1,6 @@
-import { useTranslation } from "react-i18next";
 import { useAppStore } from "@/stores/useAppStore";
-import {
-  AlertCircle,
-  Clock,
-  DollarSign,
-  Package,
-  ChevronRight,
-} from "lucide-react";
-import * as db from "@/db/db";
+import type { PageId } from "@/stores/useAppStore";
+import { Clock, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
 import { cn } from "@/utils/cn";
 
@@ -19,27 +12,20 @@ interface TaskWidget {
   count: number;
   value?: string;
   action?: () => void;
-  page?: string;
+  page?: PageId;
 }
 
 export function PendingTasksWidgets() {
-  const { inventoryItems, payments, setCurrentPage } = useAppStore();
-  const { t } = useTranslation();
+  const { bills, setCurrentPage } = useAppStore();
 
   // Calculate pending data from available data
-  const pendingPayments = payments.filter(
-    (p) => p.status === "pending" || p.status === "partial",
-  ).length;
-  const lowStockItems = inventoryItems.filter(
-    (i) => i.status === "low_stock",
-  ).length;
-  const outOfStockItems = inventoryItems.filter(
-    (i) => i.status === "out_of_stock",
+  const pendingPayments = bills.filter(
+    (b) => b.status === "unpaid" || b.status === "partial",
   ).length;
 
-  const pendingPaymentsAmount = payments
-    .filter((p) => p.status === "pending" || p.status === "partial")
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const pendingPaymentsAmount = bills
+    .filter((b) => b.status === "unpaid" || b.status === "partial")
+    .reduce((sum, b) => sum + (b.netBalance || 0), 0);
 
   const widgets: TaskWidget[] = [
     {
@@ -50,22 +36,6 @@ export function PendingTasksWidgets() {
       count: pendingPayments,
       value: formatCurrency(pendingPaymentsAmount),
       page: "payments",
-    },
-    {
-      id: "inventory",
-      title: "Low Stock Items",
-      icon: Package,
-      color: "from-orange-500 to-orange-600",
-      count: lowStockItems,
-      page: "inventory",
-    },
-    {
-      id: "outofstock",
-      title: "Out of Stock",
-      icon: AlertCircle,
-      color: "from-blue-700 to-blue-800",
-      count: outOfStockItems,
-      page: "inventory",
     },
   ];
 

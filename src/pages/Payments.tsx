@@ -36,6 +36,7 @@ export function PaymentsPage() {
     parties,
     suppliers,
     payments,
+    currentCompanyId,
     loadParties,
     loadSuppliers,
     loadPayments,
@@ -100,6 +101,10 @@ export function PaymentsPage() {
       error("Error", "Party not found");
       return;
     }
+    if (!currentCompanyId) {
+      error("Validation Error", "No company selected");
+      return;
+    }
     try {
       db.createPayment({
         date: fDate,
@@ -110,7 +115,7 @@ export function PaymentsPage() {
         type: fType,
         referenceNo: fRef,
         notes: fNotes,
-        companyId: currentCompanyId || undefined,
+        companyId: currentCompanyId,
       });
       success(
         `Payment ${fType === "received" ? "Received" : "Paid"}`,

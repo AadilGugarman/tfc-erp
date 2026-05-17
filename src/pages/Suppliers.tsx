@@ -14,7 +14,8 @@ import { PageTransition, Section } from "@/components";
 
 export function SuppliersPage() {
   const { t } = useTranslation();
-  const { suppliers, loadSuppliers, showNotification } = useAppStore();
+  const { suppliers, currentCompanyId, loadSuppliers, showNotification } =
+    useAppStore();
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
@@ -90,6 +91,10 @@ export function SuppliersPage() {
       });
       showNotification(t("messages.supplierUpdated"), "success");
     } else {
+      if (!currentCompanyId) {
+        showNotification("No company selected", "error");
+        return;
+      }
       db.createSupplier({
         name: fName,
         phone: fPhone,
@@ -101,7 +106,7 @@ export function SuppliersPage() {
         balanceType: fBalType,
         commissionPercent: fComm,
         notes: fNotes,
-        companyId: currentCompanyId || undefined,
+        companyId: currentCompanyId,
       });
       showNotification(t("messages.supplierCreated"), "success");
     }

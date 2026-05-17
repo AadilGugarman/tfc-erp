@@ -1,4 +1,4 @@
-import { RefObject, useEffect } from 'react';
+import { RefObject, useEffect } from "react";
 
 interface Options {
   enabled?: boolean;
@@ -7,24 +7,36 @@ interface Options {
 
 const DEFAULT_SELECTOR = [
   'input:not([disabled]):not([type="hidden"])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  'button:not([disabled])',
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "button:not([disabled])",
   '[tabindex]:not([tabindex="-1"])',
-].join(',');
+].join(",");
 
-function getFocusableElements(container: HTMLElement, selector: string): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(selector)).filter((el) => {
-    const style = window.getComputedStyle(el);
-    return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null;
-  });
+function getFocusableElements(
+  container: HTMLElement,
+  selector: string,
+): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(selector)).filter(
+    (el) => {
+      const style = window.getComputedStyle(el);
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        el.offsetParent !== null
+      );
+    },
+  );
 }
 
 function shouldSkipTarget(target: HTMLElement): boolean {
   return Boolean(target.closest('[data-kb-nav="off"]'));
 }
 
-export function useFormKeyboardNavigation(containerRef: RefObject<HTMLElement>, options: Options = {}): void {
+export function useFormKeyboardNavigation(
+  containerRef: RefObject<HTMLElement | null>,
+  options: Options = {},
+): void {
   const { enabled = true, selector = DEFAULT_SELECTOR } = options;
 
   useEffect(() => {
@@ -41,12 +53,12 @@ export function useFormKeyboardNavigation(containerRef: RefObject<HTMLElement>, 
       if (!target || !container.contains(target)) return;
       if (shouldSkipTarget(target)) return;
 
-      const isArrowUp = event.key === 'ArrowUp';
-      const isArrowDown = event.key === 'ArrowDown';
-      const isEnter = event.key === 'Enter';
+      const isArrowUp = event.key === "ArrowUp";
+      const isArrowDown = event.key === "ArrowDown";
+      const isEnter = event.key === "Enter";
 
-      const isTextarea = target.tagName === 'TEXTAREA';
-      if (isTextarea && !target.hasAttribute('data-enter-nav')) {
+      const isTextarea = target.tagName === "TEXTAREA";
+      if (isTextarea && !target.hasAttribute("data-enter-nav")) {
         return;
       }
 
@@ -68,12 +80,17 @@ export function useFormKeyboardNavigation(containerRef: RefObject<HTMLElement>, 
 
       event.preventDefault();
       controls[nextIndex]?.focus();
-      if (controls[nextIndex] instanceof HTMLInputElement) {
-        controls[nextIndex].select();
+      if (
+        controls[nextIndex] instanceof HTMLInputElement ||
+        controls[nextIndex] instanceof HTMLTextAreaElement
+      ) {
+        (
+          controls[nextIndex] as HTMLInputElement | HTMLTextAreaElement
+        ).select();
       }
     };
 
-    container.addEventListener('keydown', onKeyDown);
-    return () => container.removeEventListener('keydown', onKeyDown);
+    container.addEventListener("keydown", onKeyDown);
+    return () => container.removeEventListener("keydown", onKeyDown);
   }, [containerRef, enabled, selector]);
 }

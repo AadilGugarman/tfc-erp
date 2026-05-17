@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { secureInvoke } from "./auth";
 
 export type BackupFrequency =
   | "daily"
@@ -64,7 +64,6 @@ interface ClientStateSnapshot {
   companies_json: string | null;
   session_json: string | null;
   user_json: string | null;
-  preferences_json: string | null;
 }
 
 function isDesktopRuntime(): boolean {
@@ -75,10 +74,9 @@ export function collectClientStateSnapshot(): string {
   const payload: ClientStateSnapshot = {
     app_language: localStorage.getItem("appLanguage"),
     current_company_id: localStorage.getItem("talha-fruit-company"),
-    companies_json: null, // Now stored in database, included in fruit_market_erp_db
+    companies_json: null, // Now stored in SQLite.
     session_json: localStorage.getItem("fruit-market-erp-session"),
     user_json: localStorage.getItem("fruit-market-erp-user"),
-    preferences_json: localStorage.getItem("fruit_market_erp_db"), // Contains companies now
   };
 
   return JSON.stringify(payload);
@@ -97,16 +95,15 @@ export function applyClientStateSnapshot(snapshotJson: string): void {
 
   setOrRemove("appLanguage", parsed.app_language);
   setOrRemove("talha-fruit-company", parsed.current_company_id);
-  // companies_json is now part of fruit_market_erp_db, no need to restore separately
+  // companies_json is now part of SQLite and will be restored from the database.
   setOrRemove("fruit-market-erp-session", parsed.session_json);
   setOrRemove("fruit-market-erp-user", parsed.user_json);
-  setOrRemove("fruit_market_erp_db", parsed.preferences_json);
 }
 
 export async function saveClientStateForBackups(): Promise<void> {
   if (!isDesktopRuntime()) return;
   const clientStateJson = collectClientStateSnapshot();
-  await invoke("save_backup_client_state", { clientStateJson });
+  await secureInvoke("save_backup_client_state", { clientStateJson });
 }
 
 export async function getBackupConfig(): Promise<BackupConfig | null> {
@@ -119,7 +116,7 @@ export async function getBackupConfig(): Promise<BackupConfig | null> {
       return defaultBackupConfig;
     }
   }
-  return invoke<BackupConfig>("get_backup_config");
+  return secureInvoke<BackupConfig>("get_backup_config");
 }
 
 export async function updateBackupConfig(
@@ -129,7 +126,7 @@ export async function updateBackupConfig(
     localStorage.setItem(WEB_BACKUP_CONFIG_KEY, JSON.stringify(config));
     return config;
   }
-  return invoke<BackupConfig>("update_backup_config", { config });
+  return secureInvoke<BackupConfig>("update_backup_config", { config });
 }
 
 export async function createManualBackup(): Promise<BackupHistoryItem> {
@@ -137,58 +134,60 @@ export async function createManualBackup(): Promise<BackupHistoryItem> {
     throw new Error("Desktop runtime required");
   }
   const clientStateJson = collectClientStateSnapshot();
-  return invoke<BackupHistoryItem>("create_manual_backup", { clientStateJson });
+  return secureInvoke<BackupHistoryItem>("create_manual_backup", {
+    clientStateJson,
+  });
 }
 
 export async function createStartupBackup(): Promise<BackupHistoryItem | null> {
   if (!isDesktopRuntime()) return null;
   await saveClientStateForBackups();
-  return invoke<BackupHistoryItem | null>("create_startup_backup");
+  return secureInvoke<BackupHistoryItem | null>("create_startup_backup");
 }
 
 export async function runAutoBackupIfDue(): Promise<BackupHistoryItem | null> {
   if (!isDesktopRuntime()) return null;
   await saveClientStateForBackups();
-  return invoke<BackupHistoryItem | null>("run_auto_backup_if_due");
+  return secureInvoke<BackupHistoryItem | null>("run_auto_backup_if_due");
 }
 
 export async function listBackups(): Promise<BackupHistoryItem[]> {
   if (!isDesktopRuntime()) return [];
-  return invoke<BackupHistoryItem[]>("list_backups");
+  return secureInvoke<BackupHistoryItem[]>("list_backups");
 }
 
 export async function validateBackup(
   filePath: string,
 ): Promise<BackupValidationResult> {
-  return invoke<BackupValidationResult>("validate_backup", { filePath });
+  return secureInvoke<BackupValidationResult>("validate_backup", { filePath });
 }
 
 export async function deleteBackup(filePath: string): Promise<void> {
   if (!isDesktopRuntime()) {
     throw new Error("Desktop runtime required");
   }
-  await invoke("delete_backup", { filePath });
+  await secureInvoke("delete_backup", { filePath });
 }
 
 export async function openBackupFolder(): Promise<string> {
   if (!isDesktopRuntime()) {
     throw new Error("Desktop runtime required");
   }
-  return invoke<string>("open_backup_folder");
+  return secureInvoke<string>("open_backup_folder");
 }
 
 export async function exportBackup(filePath: string): Promise<string> {
   if (!isDesktopRuntime()) {
     throw new Error("Desktop runtime required");
   }
-  return invoke<string>("export_backup", { filePath });
+  return secureInvoke<string>("export_backup", { filePath });
 }
 
 export async function restoreBackup(filePath: string): Promise<RestoreResult> {
   if (!isDesktopRuntime()) {
     throw new Error("Desktop runtime required");
   }
-  return invoke<RestoreResult>("restore_backup", { filePath });
+  return secureInvoke<RestoreResult>("restore_backup", { filePath });
 }
 
 export async function restartApplication(): Promise<void> {
@@ -196,7 +195,7 @@ export async function restartApplication(): Promise<void> {
     window.location.reload();
     return;
   }
-  await invoke("restart_application");
+  await secureInvoke("restart_application");
 }
 
 export async function onRestoreProgress(

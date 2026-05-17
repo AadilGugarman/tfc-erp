@@ -85,7 +85,7 @@ const waitForTauri = async (maxAttempts = 10, delayMs = 100): Promise<void> => {
 };
 
 // Safe invoke with fallback
-const safeInvoke = async <T>(
+export const secureInvoke = async <T>(
   command: string,
   args?: Record<string, unknown>,
 ): Promise<T> => {
@@ -95,42 +95,23 @@ const safeInvoke = async <T>(
   const invokeFn = await getTauriInvoke();
   if (!invokeFn) {
     console.warn(
-      "Tauri backend is not available. Using development fallback mode.",
+      "Tauri backend is not available. Backend service unavailable.",
     );
-
-    // Development fallback for login command
-    if (command === "login" && args?.request) {
-      const req = args.request as { username: string; password: string };
-      if (req.username === "admin" && req.password === "admin123") {
-        // Get actual companies from database
-        const companies = db.getCompanies();
-        const companyIds = companies.map((c) => c.id);
-        const defaultCompanyId =
-          companyIds.length > 0 ? companyIds[0] : undefined;
-
-        return {
-          user_id: "dev-user-1",
-          username: "admin",
-          email: "admin@talhafruitco.com",
-          name: "Administrator",
-          role: "admin",
-          company_ids: companyIds,
-          default_company_id: defaultCompanyId,
-          access_token: "dev-access-token-" + Date.now(),
-          refresh_token: "dev-refresh-token-" + Date.now(),
-          expires_in: 3600,
-        } as T;
-      }
-      throw new Error("Invalid username or password");
-    }
 
     throw new Error(
       'Backend service unavailable. Please make sure you started the app with "npm run desktop:dev" and not just "npm run dev".',
     );
   }
 
+  // Inject token if available
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+  const enrichedArgs = {
+    ...args,
+    token: args?.token || token || undefined,
+  };
+
   try {
-    return (await invokeFn(command, args)) as T;
+    return (await invokeFn(command, enrichedArgs)) as T;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error(`Tauri command failed: ${command}`, error);
@@ -138,7 +119,59 @@ const safeInvoke = async <T>(
   }
 };
 
+const safeInvoke = secureInvoke;
+
 class AuthService {
+  /**
+   * Check if any user exists in the database
+   */
+  async hasUsers(): Promise<boolean> {
+    try {
+      return await safeInvoke<boolean>("has_users");
+    } catch (error) {
+      console.error("[AuthService] hasUsers check failed:", error);
+      return true; // Default to true to show login instead of setup on error
+    }
+  }
+
+  /**
+   * Setup the initial admin user
+   */
+  async setupInitialAdmin(data: {
+    username: string;
+    password: string;
+    name: string;
+    email: string;
+  }): Promise<AuthResponse> {
+    try {
+      const response = await safeInvoke<AuthResponse>(
+        "setup_initial_admin",
+        data,
+      );
+
+      this.storeTokens(
+        response.access_token,
+        response.refresh_token,
+        response.expires_in,
+      );
+      this.storeUser({
+        id: response.user_id,
+        username: response.username,
+        email: response.email,
+        name: response.name,
+        role: response.role,
+        companyIds: response.company_ids || [],
+        defaultCompanyId: response.default_company_id,
+        is_active: true,
+      });
+
+      this.scheduleTokenRefresh(response.expires_in);
+      return response;
+    } catch (error) {
+      throw new Error(`Setup failed: ${error}`);
+    }
+  }
+
   /**
    * Login with username and password
    */
@@ -164,14 +197,9 @@ class AuthService {
         is_active: true,
       });
 
-      // Store accessible companies and set current company
+      // Store accessible companies and preserve previous selection
       const companyIds = response.company_ids || [];
       this.storeAccessibleCompanies(companyIds);
-      if (response.default_company_id) {
-        this.setCurrentCompany(response.default_company_id);
-      } else if (companyIds.length > 0) {
-        this.setCurrentCompany(companyIds[0]);
-      }
 
       this.scheduleTokenRefresh(response.expires_in);
       return response;
@@ -199,6 +227,17 @@ class AuthService {
         response.refresh_token,
         response.expires_in,
       );
+
+      // Update stored user if needed
+      const user = this.getCurrentUser();
+      if (user) {
+        this.storeUser({
+          ...user,
+          companyIds: response.company_ids || [],
+          defaultCompanyId: response.default_company_id,
+        });
+      }
+
       this.scheduleTokenRefresh(response.expires_in);
       return response;
     } catch (error) {
@@ -212,7 +251,17 @@ class AuthService {
    */
   async verifyToken(token: string): Promise<User> {
     try {
-      return await safeInvoke<User>("verify_access_token", { token });
+      const response = await safeInvoke<any>("verify_access_token", { token });
+      return {
+        id: response.id,
+        username: response.username,
+        email: response.email,
+        name: response.name,
+        role: response.role,
+        companyIds: response.company_ids || [],
+        defaultCompanyId: response.default_company_id,
+        is_active: response.is_active,
+      };
     } catch (error) {
       throw new Error(`Token verification failed: ${error}`);
     }
@@ -304,7 +353,17 @@ class AuthService {
    */
   async getUser(userId: string): Promise<User> {
     try {
-      return await safeInvoke<User>("get_user", { user_id: userId });
+      const response = await safeInvoke<any>("get_user", { userId: userId });
+      return {
+        id: response.id,
+        username: response.username,
+        email: response.email,
+        name: response.name,
+        role: response.role,
+        companyIds: response.company_ids || [],
+        defaultCompanyId: response.default_company_id,
+        is_active: response.is_active,
+      };
     } catch (error) {
       throw new Error(`Failed to get user: ${error}`);
     }
@@ -315,7 +374,17 @@ class AuthService {
    */
   async listUsers(): Promise<User[]> {
     try {
-      return await safeInvoke<User[]>("list_users");
+      const response = await safeInvoke<any[]>("list_users");
+      return response.map((u) => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        companyIds: u.company_ids || [],
+        defaultCompanyId: u.default_company_id,
+        is_active: u.is_active,
+      }));
     } catch (error) {
       throw new Error(`Failed to list users: ${error}`);
     }
@@ -331,12 +400,22 @@ class AuthService {
     role: string,
   ): Promise<User> {
     try {
-      return await safeInvoke<User>("create_user", {
+      const response = await safeInvoke<any>("create_user", {
         username,
         password,
         name,
         role,
       });
+      return {
+        id: response.id,
+        username: response.username,
+        email: response.email,
+        name: response.name,
+        role: response.role,
+        companyIds: response.company_ids || [],
+        defaultCompanyId: response.default_company_id,
+        is_active: response.is_active,
+      };
     } catch (error) {
       throw new Error(`Failed to create user: ${error}`);
     }
@@ -352,14 +431,50 @@ class AuthService {
     isActive: boolean,
   ): Promise<User> {
     try {
-      return await safeInvoke<User>("update_user", {
+      const response = await safeInvoke<any>("update_user", {
         user_id: userId,
         name,
         role,
         is_active: isActive,
       });
+      return {
+        id: response.id,
+        username: response.username,
+        email: response.email,
+        name: response.name,
+        role: response.role,
+        companyIds: response.company_ids || [],
+        defaultCompanyId: response.default_company_id,
+        is_active: response.is_active,
+      };
     } catch (error) {
       throw new Error(`Failed to update user: ${error}`);
+    }
+  }
+
+  async updateUserCompanies(
+    userId: string,
+    companyIds: string[],
+    defaultCompanyId?: string,
+  ): Promise<User> {
+    try {
+      const response = await safeInvoke<any>("update_user_companies", {
+        userId: userId,
+        companyIds: companyIds,
+        defaultCompanyId: defaultCompanyId,
+      });
+      return {
+        id: response.id,
+        username: response.username,
+        email: response.email,
+        name: response.name,
+        role: response.role,
+        companyIds: response.company_ids || [],
+        defaultCompanyId: response.default_company_id,
+        is_active: response.is_active,
+      };
+    } catch (error) {
+      throw new Error(`Failed to update user company links: ${error}`);
     }
   }
 
@@ -458,15 +573,33 @@ class AuthService {
    * Store accessible companies for logged-in user
    */
   private storeAccessibleCompanies(companyIds: string[] = []): void {
-    // Ensure we have an array
     const ids = Array.isArray(companyIds) ? companyIds : [];
     localStorage.setItem(COMPANY_IDS_KEY, JSON.stringify(ids));
 
-    // Set default to first company or restore previously selected
-    const currentCompany = this.getCurrentCompany();
-    if (!currentCompany && ids.length > 0) {
-      this.setCurrentCompany(ids[0]);
+    // Do not automatically set a current company here. Let the app decide based on user preference or selection.
+  }
+
+  addAccessibleCompany(companyId: string): void {
+    const currentCompanies = this.getAccessibleCompanies();
+    if (!currentCompanies.includes(companyId)) {
+      const updated = [...currentCompanies, companyId];
+      localStorage.setItem(COMPANY_IDS_KEY, JSON.stringify(updated));
     }
+    this.setCurrentCompany(companyId);
+  }
+
+  removeAccessibleCompany(companyId: string): void {
+    const updated = this.getAccessibleCompanies().filter(
+      (id) => id !== companyId,
+    );
+    localStorage.setItem(COMPANY_IDS_KEY, JSON.stringify(updated));
+    if (this.getCurrentCompany() === companyId) {
+      this.clearCurrentCompany();
+    }
+  }
+
+  clearCurrentCompany(): void {
+    localStorage.removeItem(CURRENT_COMPANY_ID_KEY);
   }
 
   /**

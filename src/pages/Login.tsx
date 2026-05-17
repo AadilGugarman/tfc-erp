@@ -1,264 +1,446 @@
-import { useState } from "react";
+import React, { useState, useEffect, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { authService } from "@/services/auth";
 import { useAppStore } from "@/stores/useAppStore";
 import { toast } from "sonner";
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  ArrowRight,
+  Loader2,
+  CheckCircle2,
+  Sparkles,
+  Zap,
+  TrendingUp,
+  CreditCard,
+  FileText,
+  Users,
+} from "lucide-react";
+
+// --- Types ---
+type Status = "idle" | "loading" | "success" | "error";
+
+// --- Components ---
+
+function BackgroundFX() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+      {/* Mesh gradient base */}
+      <div className="absolute inset-0 mesh-bg" />
+
+      {/* Grid overlay */}
+      <div className="absolute inset-0 grid-overlay" />
+
+      {/* Floating orbs */}
+      <div
+        className="orb"
+        style={{
+          width: 420,
+          height: 420,
+          background: "radial-gradient(circle, #7c3aed, transparent 70%)",
+          top: "-80px",
+          left: "-100px",
+          animationDelay: "0s",
+        }}
+      />
+      <div
+        className="orb"
+        style={{
+          width: 380,
+          height: 380,
+          background: "radial-gradient(circle, #ec4899, transparent 70%)",
+          bottom: "-120px",
+          right: "-80px",
+          animationDelay: "-4s",
+        }}
+      />
+      <div
+        className="orb"
+        style={{
+          width: 320,
+          height: 320,
+          background: "radial-gradient(circle, #10b981, transparent 70%)",
+          top: "40%",
+          left: "55%",
+          animationDelay: "-8s",
+        }}
+      />
+
+      {/* Floating particles */}
+      {Array.from({ length: 28 }).map((_, i) => {
+        const size = Math.random() * 3 + 1;
+        const left = Math.random() * 100;
+        const top = Math.random() * 100;
+        const dur = 6 + Math.random() * 10;
+        const delay = Math.random() * -10;
+        return (
+          <motion.span
+            key={i}
+            className="absolute rounded-full bg-white/70"
+            style={{
+              width: size,
+              height: size,
+              left: `${left}%`,
+              top: `${top}%`,
+              boxShadow: "0 0 8px rgba(255,255,255,0.7)",
+            }}
+            animate={{
+              y: [0, -30, 0],
+              opacity: [0.2, 0.9, 0.2],
+            }}
+            transition={{
+              duration: dur,
+              delay,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
+        );
+      })}
+
+      {/* Subtle vignette */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/60" />
+    </div>
+  );
+}
+
+// --- Main Page Component ---
 
 export function LoginPage() {
   const navigate = useNavigate();
   const setCurrentCompanyId = useAppStore((state) => state.setCurrentCompanyId);
+  const [email, setEmail] = useState("");
   const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin123");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [usernameError, setUsernameError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
+  const [name, setName] = useState("Administrator");
+  const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [status, setStatus] = useState<Status>("idle");
+  const [message, setMessage] = useState("");
+  const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
 
-  const validateForm = (): boolean => {
-    let isValid = true;
-    setUsernameError("");
-    setPasswordError("");
+  useEffect(() => {
+    const checkSetup = async () => {
+      const hasUsers = await authService.hasUsers();
+      setNeedsSetup(!hasUsers);
+      if (!hasUsers) {
+        setEmail("admin@example.com");
+      } else {
+        setUsername("");
+      }
+    };
+    checkSetup();
+  }, []);
 
-    if (!username.trim()) {
-      setUsernameError("Username is required");
-      isValid = false;
-    }
-
-    if (!password) {
-      setPasswordError("Password is required");
-      isValid = false;
-    } else if (password.length < 3) {
-      setPasswordError("Password must be at least 3 characters");
-      isValid = false;
-    }
-
-    return isValid;
+  const updatePassword = (v: string) => {
+    setPassword(v);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
+    if (!username || !password || (needsSetup && (!email || !name))) {
+      setStatus("error");
+      setMessage("Please fill in all fields");
+      return;
+    }
 
-    if (!validateForm()) return;
-
-    setLoading(true);
+    setStatus("loading");
+    setMessage("");
 
     try {
-      const response = await authService.login(username, password);
+      if (needsSetup) {
+        const response = await authService.setupInitialAdmin({
+          username,
+          password,
+          name,
+          email,
+        });
+        setStatus("success");
+        setMessage(`Setup complete! Welcome, ${response.username}.`);
+        toast.success(`Welcome, ${response.username}!`);
 
-      setSuccess(`✓ Welcome, ${response.username}!`);
-      toast.success(`Welcome, ${response.username}! Redirecting...`);
-
-      // Set the current company in the store
-      if (response.default_company_id) {
-        setCurrentCompanyId(response.default_company_id);
-        // Redirect to dashboard with company ID
-        setTimeout(() => {
-          navigate(`/app/${response.default_company_id}/dashboard`);
-        }, 500);
-      } else if (response.company_ids && response.company_ids.length > 0) {
-        const firstCompanyId = response.company_ids[0];
-        setCurrentCompanyId(firstCompanyId);
-        // Redirect to dashboard with company ID
-        setTimeout(() => {
-          navigate(`/app/${firstCompanyId}/dashboard`);
-        }, 500);
+        const companyIds = response.company_ids || [];
+        if (companyIds.length > 0) {
+          setCurrentCompanyId(companyIds[0]);
+          setTimeout(() => navigate(`/app/${companyIds[0]}/dashboard`), 1000);
+        } else {
+          setTimeout(() => navigate(`/app/dashboard`), 1000);
+        }
       } else {
-        // No companies assigned
-        setError(
-          "No companies assigned to your account. Please contact administrator.",
-        );
-        toast.error("No companies assigned to your account.");
+        const response = await authService.login(username, password);
+        setStatus("success");
+        setMessage(`Welcome back, ${response.username}. Redirecting...`);
+        toast.success(`Welcome, ${response.username}! Redirecting...`);
+
+        const companyIds = response.company_ids || [];
+        if (companyIds.length > 0) {
+          setCurrentCompanyId(companyIds[0]);
+          setTimeout(() => {
+            navigate(`/app/${companyIds[0]}/dashboard`);
+          }, 1000);
+        } else {
+          setTimeout(() => {
+            navigate(`/app/dashboard`);
+          }, 1000);
+        }
       }
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Login failed. Please try again.";
-
-      // User-friendly error messages
-      let displayError = errorMessage;
-      if (errorMessage.includes("Invalid username or password")) {
-        displayError =
-          "Invalid username or password. Please check your credentials and try again.";
-      } else if (errorMessage.includes("Cannot find module")) {
-        displayError = "Application not initialized. Please restart the app.";
-      }
-
-      setError(displayError);
-      toast.error(displayError);
-    } finally {
-      setLoading(false);
+        err instanceof Error ? err.message : "Action failed. Please try again.";
+      setStatus("error");
+      setMessage(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 via-slate-50 to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 px-4">
-      <div className="w-full max-w-[400px]">
-        {/* Logo + brand */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="h-14 w-14 rounded-2xl bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-2xl shadow-blue-500/40 mb-6 animate-bounce-subtle">
-            <svg
-              width="28"
-              height="28"
-              viewBox="0 0 24 24"
-              fill="none"
-              className="text-white"
-            >
-              <path
-                d="M12 3C8 3 4 7 4 12s4 9 8 9 8-4 8-9-4-9-8-9z"
-                fill="currentColor"
-                opacity="0.2"
-              />
-              <path
-                d="M12 3c-1 0-2 .5-3 1.5L12 8l3-3.5C14 3.5 13 3 12 3z"
-                fill="currentColor"
-              />
-              <path
-                d="M9 15c.8 1.5 1.7 2.5 3 3 1.3-.5 2.2-1.5 3-3H9z"
-                fill="currentColor"
-              />
-              <path
-                d="M4.5 9.5C4.2 10.3 4 11.1 4 12s.2 1.7.5 2.5L9 12 4.5 9.5z"
-                fill="currentColor"
-                opacity="0.7"
-              />
-              <path
-                d="M19.5 9.5L15 12l4.5 2.5c.3-.8.5-1.6.5-2.5s-.2-1.7-.5-2.5z"
-                fill="currentColor"
-                opacity="0.7"
-              />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">
-            TFC
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Talha Fruit Co. — Enterprise ERP
-          </p>
-        </div>
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#0a0c10] overflow-hidden">
+      <BackgroundFX />
 
-        {/* Form card */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-8">
-          {/* Success Message */}
-          {success && (
-            <div className="mb-6 flex items-start gap-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-xl p-4 animate-slide-in">
-              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
-              <div className="text-sm font-medium text-green-700 dark:text-green-300">
-                {success}
+      <div className="relative z-10 w-full flex items-center justify-center p-6 lg:p-12">
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-md"
+        >
+          <div className="glow-border">
+            <div className="glass rounded-3xl p-8 sm:p-10">
+              {/* Logo section */}
+              <div className="flex items-center gap-2.5 mb-6">
+                <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-xl font-bold text-white tracking-tight">
+                  TFC ERP
+                </span>
               </div>
-            </div>
-          )}
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 flex items-start gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl p-4 animate-shake">
-              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-              <div>
-                <div className="font-medium text-red-700 dark:text-red-300">
-                  Login Failed
+              {/* Admin badge */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2 }}
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-violet-500/15 to-fuchsia-500/15 border border-violet-500/30 text-xs text-violet-200 mb-5"
+              >
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Admin-only access
+              </motion.div>
+
+              <motion.h2
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+                className="text-3xl font-bold text-white tracking-tight"
+              >
+                {needsSetup ? "Create Admin Account" : "Welcome back"}
+              </motion.h2>
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-sm text-white/55 mt-1.5"
+              >
+                {needsSetup
+                  ? "Initialize your ERP system by creating the first administrator."
+                  : "Sign in to your company workspace to manage billing."}
+              </motion.p>
+
+              <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+                {/* Name - only for setup */}
+                {needsSetup && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.32 }}
+                  >
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">
+                      Full Name
+                    </label>
+                    <div className="input-shine flex items-center gap-3 rounded-xl px-4 h-12 bg-[#0d1117]/60">
+                      <Users className="h-4.5 w-4.5 text-white/50" />
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="John Doe"
+                        className="flex-1 bg-transparent text-sm text-white placeholder-white/30 outline-none border-none focus:ring-0"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Username */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 }}
+                >
+                  <label className="text-xs font-medium text-white/60 mb-1.5 block">
+                    Username
+                  </label>
+                  <div className="input-shine flex items-center gap-3 rounded-xl px-4 h-12 bg-[#0d1117]/60">
+                    <Mail className="h-4.5 w-4.5 text-white/50" />
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="admin"
+                      className="flex-1 bg-transparent text-sm text-white placeholder-white/30 outline-none border-none focus:ring-0"
+                      autoComplete="username"
+                    />
+                  </div>
+                </motion.div>
+
+                {/* Email - only for setup */}
+                {needsSetup && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.37 }}
+                  >
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">
+                      Email Address
+                    </label>
+                    <div className="input-shine flex items-center gap-3 rounded-xl px-4 h-12 bg-[#0d1117]/60">
+                      <Mail className="h-4.5 w-4.5 text-white/50" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="admin@example.com"
+                        className="flex-1 bg-transparent text-sm text-white placeholder-white/30 outline-none border-none focus:ring-0"
+                        autoComplete="email"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Password */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-white/60">
+                      Password
+                    </label>
+                    <a
+                      href="#"
+                      className="text-sm text-violet-300 hover:text-violet-200 transition-colors"
+                    >
+                      Forgot?
+                    </a>
+                  </div>
+                  <div className="input-shine flex items-center gap-3 rounded-2xl px-4 h-14 bg-[#0d1117]/60">
+                    <Lock className="h-5 w-5 text-white/40" />
+                    <input
+                      type={showPass ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => updatePassword(e.target.value)}
+                      placeholder="••••••••••"
+                      className="flex-1 bg-transparent text-base text-white placeholder-white/20 outline-none border-none focus:ring-0"
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass((v) => !v)}
+                      className="text-white/30 hover:text-white/70 transition-colors"
+                    >
+                      {showPass ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+
+                {/* Status message */}
+                <AnimatePresence mode="wait">
+                  {status === "error" && message && (
+                    <motion.div
+                      key="error"
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0, x: [0, -6, 6, -4, 4, 0] }}
+                      exit={{ opacity: 0 }}
+                      transition={{ x: { duration: 0.4 } }}
+                      className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs text-rose-200"
+                    >
+                      {message}
+                    </motion.div>
+                  )}
+                  {status === "success" && (
+                    <motion.div
+                      key="success"
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-200"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      {message}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Submit */}
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={status === "loading" || status === "success"}
+                  className="btn-shimmer w-full h-14 rounded-2xl text-white font-bold text-base flex items-center justify-center gap-3 disabled:opacity-80 disabled:cursor-not-allowed shadow-xl shadow-violet-500/25"
+                >
+                  {status === "loading" ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : status === "success" ? (
+                    <>
+                      <CheckCircle2 className="h-5 w-5" />
+                      {needsSetup ? "Setup Complete" : "Authenticated"}
+                    </>
+                  ) : (
+                    <>
+                      {needsSetup ? "Complete Setup" : "Sign in to dashboard"}
+                      <ArrowRight className="h-5 w-5" />
+                    </>
+                  )}
+                </motion.button>
+              </form>
+
+              {/* Footer section */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1 }}
+                className="mt-10 flex items-center justify-between text-[11px] text-white/40 px-2"
+              >
+                <span>© 2026 TFC ERP Inc.</span>
+                <div className="flex items-center gap-4">
+                  <a href="#" className="hover:text-white/70 transition">
+                    Privacy
+                  </a>
+                  <a href="#" className="hover:text-white/70 transition">
+                    Security
+                  </a>
+                  <a href="#" className="hover:text-white/70 transition">
+                    Status
+                  </a>
                 </div>
-                <div className="text-sm text-red-600 dark:text-red-400 mt-0.5">
-                  {error}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Username Field */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Username
-              </label>
-              <Input
-                value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value);
-                  setUsernameError("");
-                }}
-                disabled={loading}
-                className={
-                  usernameError ? "ring-red-500 dark:ring-red-400" : ""
-                }
-                autoFocus
-              />
-              {usernameError && (
-                <div className="mt-2 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {usernameError}
-                </div>
-              )}
-            </div>
-
-            {/* Password Field */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Password
-              </label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setPasswordError("");
-                }}
-                disabled={loading}
-                className={
-                  passwordError ? "ring-red-500 dark:ring-red-400" : ""
-                }
-              />
-              {passwordError && (
-                <div className="mt-2 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {passwordError}
-                </div>
-              )}
-            </div>
-
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              className="w-full mt-6 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Signing in...</span>
-                </>
-              ) : (
-                <>
-                  <span>Sign in</span>
-                </>
-              )}
-            </Button>
-          </form>
-
-          {/* Demo Credentials */}
-          <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-            <div className="text-xs text-slate-500 dark:text-slate-400 text-center">
-              <p className="font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Demo Credentials
-              </p>
-              <p className="font-mono bg-slate-100 dark:bg-slate-800 rounded px-3 py-2 mb-1">
-                admin / admin123
-              </p>
-              <p className="text-xs mt-2">
-                This is a single-user account for testing
-              </p>
+              </motion.div>
             </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
-          <p>Secure Authentication Powered by JWT</p>
-          <p className="mt-1">All connections are encrypted</p>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

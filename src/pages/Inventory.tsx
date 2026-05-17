@@ -35,7 +35,7 @@ import { useShortcutAction } from "@/keyboard/shortcutManager";
 
 export function InventoryPage() {
   const { t } = useTranslation();
-  const { inventoryItems, loadInventory } = useAppStore();
+  const { inventoryItems, loadInventory, currentCompanyId } = useAppStore();
   const { toasts, removeToast, success, error } = useToast();
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -124,6 +124,10 @@ export function InventoryPage() {
         });
         success("Item Updated", "Inventory item updated successfully");
       } else {
+        if (!currentCompanyId) {
+          error("Validation Error", "No company selected");
+          return;
+        }
         db.createInventoryItem({
           name: fName,
           grade: fGrade,
@@ -132,7 +136,7 @@ export function InventoryPage() {
           unit: fUnit,
           lowStockThreshold: fThreshold,
           warehouse: fWarehouse,
-          companyId: currentCompanyId || undefined,
+          companyId: currentCompanyId,
         });
         success("Item Created", "Inventory item added successfully");
       }

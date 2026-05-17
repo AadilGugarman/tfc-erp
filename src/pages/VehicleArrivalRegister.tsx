@@ -1,35 +1,45 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
-import { Badge } from "@/components/ui/Badge";
-import { formatCurrency, formatDate, todayStr } from "@/utils/formatters";
+import { formatCurrency, todayStr } from "@/utils/formatters";
 import * as db from "@/db/db";
 import {
   CalendarDays,
-  Download,
-  FileSpreadsheet,
-  Filter,
-  PackageCheck,
   Plus,
-  Printer,
-  Save,
-  Search,
   Trash2,
   Truck,
-  Users,
+  Search,
+  ArrowLeft,
+  Clipboard,
+  Save,
+  Clock,
+  Scale,
+  Layers,
+  X,
+  RotateCcw,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/Button";
+import { Input, Select } from "@/components/ui/Input";
+import { Card } from "@/components/ui/Card";
+import { cn } from "@/utils/cn";
 
 type Row = {
   id: string;
   partyId: string;
   partyName: string;
-  fruitName: string;
+  fruitName: string; // Added fruitName
+  lotNo: string;
   vakkal: string;
+  boxes: number;
   carat: number;
   weight: number;
   rate: number;
+  commission: number;
+  hamali: number;
+  total: number;
   remarks: string;
-  inventoryItemId?: string;
 };
 
 const blank = (id: string): Row => ({
@@ -37,184 +47,201 @@ const blank = (id: string): Row => ({
   partyId: "",
   partyName: "",
   fruitName: "",
+  lotNo: "",
   vakkal: "",
+  boxes: 0,
   carat: 0,
   weight: 0,
   rate: 0,
+  commission: 0,
+  hamali: 0,
+  total: 0,
   remarks: "",
-  inventoryItemId: undefined,
 });
 
-const cols: {
-  key: keyof Row;
-  label: string;
-  guj: string;
-  numeric?: boolean;
-}[] = [
-  { key: "partyName", label: "Party Name", guj: "પાર્ટી નામ" },
-  { key: "fruitName", label: "Fruit Item", guj: "ફલ", numeric: false },
-  { key: "vakkal", label: "Vakkal", guj: "વક્કલ" },
-  { key: "carat", label: "Carat", guj: "કેરેટ", numeric: true },
-  { key: "weight", label: "Weight (kg)", guj: "વજન", numeric: true },
-  { key: "rate", label: "Rate (₹)", guj: "ભાવ", numeric: true },
-  { key: "remarks", label: "Remarks", guj: "નોંધ" },
-];
+const StringWrapper = ({ children }: { children: React.ReactNode }) => {
+  return <>{String(children || "")}</>;
+};
 
 export function VehicleArrivalRegisterPage() {
-  const {
-    parties,
-    inventoryItems,
-    vehicleRegisters,
-    loadParties,
-    loadInventory,
-    loadVehicleRegisters,
-    showNotification,
-  } = useAppStore();
+  const { t } = useTranslation();
+  const { parties, loadParties, currentCompanyId } = useAppStore();
 
-  const [tab, setTab] = useState<"register" | "inventory" | "reports">(
-    "register",
-  );
+  const [view, setView] = useState<"list" | "form">("list");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [registers, setRegisters] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedRegister, setSelectedRegister] = useState<any>(null);
+
+  // Form State
   const [date, setDate] = useState(todayStr());
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [driverName, setDriverName] = useState("");
   const [brokerName, setBrokerName] = useState("");
   const [arrivalTime, setArrivalTime] = useState("");
+  const [vehicleDescription, setVehicleDescription] = useState("");
+  const [scaleWeight, setScaleWeight] = useState<number>(0);
+  const [fruitTypeCategory, setFruitTypeCategory] = useState("Mango");
   const [notes, setNotes] = useState("");
-  const [status, setStatus] = useState("Draft");
   const [rows, setRows] = useState<Row[]>([blank("1")]);
-  const gridRef = useRef<HTMLDivElement>(null);
-
-  const entryTotal = useMemo(() => {
-    return rows.reduce((sum, row) => {
-      const base = row.carat * row.weight * row.rate;
-      return sum + base;
-    }, 0);
-  }, [rows]);
-
-  const entryWeight = useMemo(() => {
-    return rows.reduce((sum, row) => sum + Number(row.weight || 0), 0);
-  }, [rows]);
 
   useEffect(() => {
     loadParties();
-    loadInventory();
-    loadVehicleRegisters();
-  }, []);
+    loadRegisters();
+  }, [loadParties]);
 
-  const updateRow = (i: number, k: keyof Row, v: string | number) => {
+  const loadRegisters = async () => {
+    if (!currentCompanyId) return;
+    try {
+      const data = await db.getVehicleRegistersByCompany(currentCompanyId);
+      setRegisters(data);
+    } catch (error) {
+      console.error("Failed to load registers:", error);
+    }
+  };
+
+  const dayOfWeek = useMemo(() => {
+    if (!date) return "";
+    return new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(
+      new Date(date),
+    );
+  }, [date]);
+
+  const totals = useMemo(() => {
+    return rows.reduce(
+      (acc, row) => {
+        acc.weight += Number(row.weight || 0);
+        acc.boxes += Number(row.boxes || 0);
+        acc.carat += Number(row.carat || 0);
+        acc.cost += Number(row.total || 0);
+        return acc;
+      },
+      { weight: 0, boxes: 0, carat: 0, cost: 0 },
+    );
+  }, [rows]);
+
+  const updateRow = (i: number, k: keyof Row, v: any) => {
     setRows((prev) => {
       const n = [...prev];
+      const row = { ...n[i] };
+
       if (k === "partyId") {
         const party = parties.find((p) => p.id === String(v));
-        (n[i] as any).partyName = party?.name || "";
-        (n[i] as any)[k] = v;
-      } else if (k === "inventoryItemId") {
-        const item = inventoryItems.find((i) => i.id === String(v));
-        if (item) {
-          (n[i] as any).fruitName = item.name;
-        }
-        (n[i] as any)[k] = v;
+        row.partyName = party?.name || "";
+        row.partyId = v;
       } else {
-        (n[i] as any)[k] = cols.find((c) => c.key === k)?.numeric
-          ? Number(v)
-          : v;
+        (row as any)[k] = v;
       }
+
+      // Recalculate total if weight or rate changes
+      if (k === "weight" || k === "rate") {
+        const w = k === "weight" ? Number(v) : row.weight;
+        const r = k === "rate" ? Number(v) : row.rate;
+        row.total = w * r;
+      }
+
+      n[i] = row;
       return n;
     });
   };
 
   const addRow = () => {
     setRows((p) => [...p, blank(Date.now().toString())]);
-    setTimeout(() => focus(rows.length, 0), 30);
   };
 
-  const delRow = (i: number) => setRows((p) => p.filter((_, idx) => idx !== i));
-
-  const focus = (r: number, c: number) => {
-    const el = gridRef.current?.querySelector<HTMLInputElement>(
-      `[data-r="${r}"][data-c="${c}"]`,
-    );
-    el?.focus();
-    el?.select();
-  };
-
-  const onKey = (e: React.KeyboardEvent, r: number, c: number) => {
-    if (e.key === "Enter" || e.key === "Tab") {
-      e.preventDefault();
-      const lastC = c === cols.length - 1,
-        lastR = r === rows.length - 1;
-      if (lastC && lastR) {
-        addRow();
-        return;
-      }
-      focus(lastC ? r + 1 : r, lastC ? 0 : c + 1);
-    }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      focus(Math.min(r + 1, rows.length - 1), c);
-    }
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      focus(Math.max(r - 1, 0), c);
+  const delRow = (i: number) => {
+    if (rows.length > 1) {
+      setRows((p) => p.filter((_, idx) => idx !== i));
+    } else {
+      setRows([blank(Date.now().toString())]);
     }
   };
 
-  const saveVehicleRegister = () => {
+  const saveVehicleRegister = async () => {
     if (!vehicleNumber.trim()) {
-      showNotification("Vehicle number is required", "error");
-      toast.error("Vehicle number is required");
+      toast.error(
+        t(
+          "vehicleArrival.validation.vehicleNoRequired",
+          "Vehicle number is required",
+        ),
+      );
       return;
     }
 
     const validRows = rows.filter(
-      (row) => row.fruitName.trim() && row.weight > 0 && row.rate > 0,
+      (row) => row.partyName.trim() && row.weight > 0 && row.rate > 0,
     );
     if (validRows.length === 0) {
-      showNotification(
-        "Add at least one valid row with item, weight and rate",
-        "error",
+      toast.error(
+        t(
+          "vehicleArrival.validation.atLeastOneRow",
+          "Add at least one valid row with party, weight and rate",
+        ),
       );
-      toast.error("Add at least one valid row with item, weight and rate");
       return;
     }
 
+    if (!currentCompanyId) {
+      toast.error("No company selected");
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      const saved = db.createVehicleRegister({
+      await db.createVehicleRegister({
         date,
+        dayOfWeek,
         vehicleNumber,
         driverName,
         brokerName,
         arrivalTime,
+        vehicleDescription,
+        scaleWeight,
+        fruitTypeCategory,
         status: "posted",
         rows: validRows.map((row) => ({
-          lotNo: "",
-          partyId: row.partyId || undefined,
+          partyId: row.partyId,
           partyName: row.partyName,
-          fruitName: row.fruitName,
+          fruitName: row.fruitName || fruitTypeCategory, // Ensure fruitName is set
+          lotNo: row.lotNo,
           vakkal: row.vakkal,
-          boxes: 0,
+          boxes: row.boxes,
           carat: row.carat,
           weight: row.weight,
           rate: row.rate,
+          commission: row.commission,
+          hamali: row.hamali,
+          total: row.total,
           remarks: row.remarks,
-          inventoryItemId: row.inventoryItemId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         })),
-        pendingAmount: entryTotal,
-        outstandingBalance: entryTotal,
+        totalRows: validRows.length,
+        totalWeight: totals.weight,
+        totalBoxes: totals.boxes,
+        totalCarats: totals.carat,
+        grandTotal: totals.cost,
+        pendingAmount: totals.cost,
+        outstandingBalance: totals.cost,
         notes,
-        companyId: currentCompanyId || undefined,
+        companyId: currentCompanyId,
       });
 
-      setStatus("Saved");
-      toast.success(`Vehicle saved successfully!`);
-      showNotification(`Vehicle saved successfully`, "success");
-      loadVehicleRegisters();
-      loadInventory();
+      toast.success(
+        t(
+          "vehicleArrival.messages.saveSuccess",
+          "Vehicle arrival recorded successfully",
+        ),
+      );
       resetForm();
+      setView("list");
+      loadRegisters();
     } catch (error) {
-      const msg = (error as Error).message || "Failed to save vehicle register";
-      showNotification(msg, "error");
-      toast.error(msg);
+      toast.error(
+        (error as Error).message || "Failed to save vehicle register",
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -224,443 +251,642 @@ export function VehicleArrivalRegisterPage() {
     setDriverName("");
     setBrokerName("");
     setArrivalTime("");
+    setVehicleDescription("");
+    setScaleWeight(0);
+    setFruitTypeCategory("Mango");
     setNotes("");
-    setStatus("Draft");
     setRows([blank("1")]);
   };
 
-  const fmt = (n: number) => formatCurrency(n);
+  const handlePasteFromExcel = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const lines = text.split(/\r?\n/).filter((l) => l.trim());
+      if (lines.length === 0) return;
 
-  const tabs: [typeof tab, string][] = [
-    ["register", "📋 Register Entry"],
-    ["inventory", "📦 Inventory Link"],
-    ["reports", "📊 Vehicle Report"],
-  ];
+      const newRows = lines.map((line, idx) => {
+        const parts = line.split("\t");
+        return {
+          ...blank(`pasted-${Date.now()}-${idx}`),
+          partyName: parts[0] || "",
+          vakkal: parts[1] || "",
+          fruitName: fruitTypeCategory, // Set fruitName from category
+          carat: Number(parts[2]) || 0,
+          weight: Number(parts[3]) || 0,
+          rate: Number(parts[4]) || 0,
+          total: (Number(parts[3]) || 0) * (Number(parts[4]) || 0),
+          remarks: parts[5] || "",
+        };
+      });
 
-  return (
-    <div className="space-y-3">
-      {/* ── TABS ── */}
-      <div className="flex gap-1.5 overflow-x-auto rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-1.5">
-        {tabs.map(([k, l]) => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition
-              ${
-                tab === k
-                  ? "bg-blue-600 text-white shadow"
-                  : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
+      setRows((prev) => {
+        const filtered = prev.filter((r) => r.partyName || r.weight || r.rate);
+        return [...filtered, ...newRows];
+      });
+      toast.success("Data pasted from Excel");
+    } catch (error) {
+      toast.error("Failed to read clipboard");
+    }
+  };
 
-      {/* ── REGISTER ── */}
-      {tab === "register" && (
-        <div className="space-y-4">
-          {/* Header fields */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <HeaderField
-              icon={<CalendarDays className="w-4 h-4" />}
-              label="Date"
-              guj="તારીખ"
-              type="date"
-              value={date}
-              onChange={setDate}
-            />
-            <HeaderField
-              icon={<Truck className="w-4 h-4" />}
-              label="Vehicle Number"
-              guj="વાહન નંબર"
-              value={vehicleNumber}
-              onChange={setVehicleNumber}
-            />
-            <HeaderField
-              icon={<Users className="w-4 h-4" />}
-              label="Driver Name"
-              guj="ડ્રાઇવર"
-              value={driverName}
-              onChange={setDriverName}
-            />
-            <div className="grid grid-cols-1">
-              <label className="text-[11px] font-bold uppercase text-gray-400 mb-2">
-                Status
-              </label>
-              <span
-                className={`inline-block text-xs px-3 py-1 rounded-full font-semibold w-fit ${
-                  status === "Saved"
-                    ? "bg-green-100 text-green-700"
-                    : "bg-amber-100 text-amber-700"
-                }`}
-              >
-                {status}
-              </span>
-            </div>
-          </div>
+  const filteredRegisters = useMemo(() => {
+    if (!searchQuery.trim()) return registers;
+    const q = searchQuery.toLowerCase();
+    return registers.filter(
+      (r) =>
+        r.vehicleNumber.toLowerCase().includes(q) ||
+        r.driverName.toLowerCase().includes(q),
+    );
+  }, [registers, searchQuery]);
 
-          {/* Grid */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-              <div>
-                <h2 className="font-bold text-base">Digital Register Page</h2>
-                <p className="text-xs text-gray-400">
-                  Tab / Enter → next cell · Last cell → new row · Arrow keys ↑↓
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={addRow}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-200"
-                >
-                  <Plus className="w-4 h-4" /> Add Row
-                </button>
-                <button
-                  onClick={saveVehicleRegister}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 shadow"
-                >
-                  <Save className="w-4 h-4" /> Save Entry
-                </button>
-              </div>
-            </div>
+  const renderCellContent = (content: string | number | null | undefined) => {
+    return String(content || "-");
+  };
 
-            <div
-              ref={gridRef}
-              className="overflow-auto"
-              style={{ maxHeight: "52vh" }}
-            >
-              <table className="w-full border-collapse text-sm">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-300">
-                    <th className="border border-gray-200 dark:border-gray-700 px-3 py-2.5 text-left w-10">
-                      #
-                    </th>
-                    {cols.map((c) => (
-                      <th
-                        key={c.key}
-                        className="border border-gray-200 dark:border-gray-700 px-3 py-2.5 text-left min-w-[100px]"
-                      >
-                        {c.label}{" "}
-                        <span className="text-[10px] font-normal text-gray-400 ml-1">
-                          {c.guj}
-                        </span>
-                      </th>
-                    ))}
-                    <th className="border border-gray-200 dark:border-gray-700 px-3 py-2.5 text-right min-w-[110px]">
-                      Total
-                    </th>
-                    <th className="border border-gray-200 dark:border-gray-700 w-10" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, ri) => (
-                    <tr
-                      key={row.id}
-                      className={
-                        ri % 2 === 0
-                          ? "bg-white dark:bg-gray-800"
-                          : "bg-gray-50/70 dark:bg-gray-800/60"
-                      }
-                    >
-                      <td className="border border-gray-200 dark:border-gray-700 px-3 py-1 text-gray-400 text-center font-mono text-xs">
-                        {ri + 1}
-                      </td>
-                      {cols.map((c, ci) => (
-                        <td
-                          key={c.key}
-                          className="border border-gray-200 dark:border-gray-700 p-0"
-                        >
-                          {c.key === "partyName" ? (
-                            <PartySelect
-                              value={row.partyId}
-                              parties={parties}
-                              onChange={(v) => updateRow(ri, "partyId", v)}
-                              onKeyDown={(e) => onKey(e, ri, ci)}
-                              dataR={ri}
-                              dataC={ci}
-                            />
-                          ) : c.key === "fruitName" ? (
-                            <FruitSelect
-                              value={row.inventoryItemId || ""}
-                              items={inventoryItems}
-                              onChange={(v) =>
-                                updateRow(ri, "inventoryItemId", v)
-                              }
-                              onKeyDown={(e) => onKey(e, ri, ci)}
-                              dataR={ri}
-                              dataC={ci}
-                            />
-                          ) : (
-                            <input
-                              data-r={ri}
-                              data-c={ci}
-                              type={c.numeric ? "number" : "text"}
-                              value={row[c.key]}
-                              onChange={(e) =>
-                                updateRow(ri, c.key, e.target.value)
-                              }
-                              onKeyDown={(e) => onKey(e, ri, ci)}
-                              className="w-full h-11 px-3 bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-950/30 focus:ring-2 focus:ring-inset focus:ring-blue-500"
-                              style={{
-                                minWidth: c.key === "remarks" ? 150 : 90,
-                              }}
-                            />
-                          )}
-                        </td>
-                      ))}
-                      <td className="border border-gray-200 dark:border-gray-700 px-3 py-1 text-right font-bold text-blue-700 dark:text-blue-300 whitespace-nowrap">
-                        {fmt(row.weight * row.rate)}
-                      </td>
-                      <td className="border border-gray-200 dark:border-gray-700 p-1 text-center">
-                        <button
-                          onClick={() => delRow(ri)}
-                          className="p-1.5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Summary footer */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <SummaryCard
-                label="Total Weight"
-                value={entryWeight.toLocaleString("en-IN") + " kg"}
-              />
-              <SummaryCard label="Total Rows" value={String(rows.length)} />
-              <SummaryCard label="Grand Total" value={fmt(entryTotal)} accent />
-              <SummaryCard
-                label="Pending"
-                value={fmt(entryTotal * 0.28)}
-                warn
-              />
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <label className="text-xs font-bold uppercase text-gray-400">
-              Notes
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add any notes about this vehicle entry..."
-              className="mt-2 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              rows={3}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ── INVENTORY ── */}
-      {tab === "inventory" && (
-        <div className="grid gap-5 lg:grid-cols-5">
-          <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-            <div className="flex items-center gap-3 mb-5">
-              <PackageCheck className="w-6 h-6 text-blue-600" />
-              <div>
-                <h2 className="text-lg font-bold">Inventory Integration</h2>
-                <p className="text-xs text-gray-400">
-                  Vehicle entry auto-maps stock inward/outward.
-                </p>
-              </div>
-            </div>
-            <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-100 dark:bg-gray-900">
-                  <tr>
-                    {["Item", "Available", "Vehicle Deduct", "Balance"].map(
-                      (h) => (
-                        <th key={h} className="p-3 text-left font-semibold">
-                          {h}
-                        </th>
-                      ),
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {inventoryItems.map((item) => {
-                    const deducted = rows
-                      .filter((r) => r.inventoryItemId === item.id)
-                      .reduce((s, r) => s + r.weight, 0);
-                    return (
-                      <tr
-                        key={item.id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                      >
-                        <td className="p-3 font-medium">{item.name}</td>
-                        <td className="p-3 text-right">
-                          {item.quantity} {item.unit}
-                        </td>
-                        <td className="p-3 text-right text-red-600 font-semibold">
-                          −{deducted.toFixed(2)} {item.unit}
-                        </td>
-                        <td className="p-3 text-right font-bold">
-                          {(item.quantity - deducted).toFixed(2)} {item.unit}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-4">
-            <h3 className="font-bold">Linked Vehicle</h3>
-            <p className="text-3xl font-black text-blue-700 dark:text-blue-300">
-              {vehicleNumber || "N/A"}
+  if (view === "list") {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+              {t("vehicleArrival.title")}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {t("vehicleArrival.description")}
             </p>
-            <SummaryCard
-              label="Stock Movement"
-              value={entryWeight.toLocaleString("en-IN") + " kg"}
-            />
-            <SummaryCard label="Inventory Value" value={fmt(entryTotal)} />
-            <div className="rounded-lg bg-green-50 dark:bg-green-950/30 p-4 text-sm text-green-700 dark:text-green-300 font-medium">
-              ✅ Auto deduction is enabled after you click "Save Entry".
-            </div>
           </div>
+          <Button
+            variant="mandi"
+            icon={<Plus className="w-4 h-4" />}
+            onClick={() => setView("form")}
+          >
+            {t("vehicleArrival.newVehicleEntry")}
+          </Button>
         </div>
-      )}
 
-      {/* ── REPORTS ── */}
-      {tab === "reports" && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <div>
-              <h2 className="text-lg font-bold">Vehicle-wise Report</h2>
-              <p className="text-xs text-gray-400">
-                Daily/monthly vehicle summary with export.
-              </p>
+        <Card className="p-0 overflow-hidden">
+          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <div className="relative w-full sm:w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder={t("vehicleArrival.searchPlaceholder")}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              />
             </div>
-            <div className="flex gap-2">
-              <button className="rounded-lg bg-gray-100 dark:bg-gray-700 px-3 py-2 text-sm font-semibold">
-                <Filter className="inline w-4 h-4 mr-1" />
-                Filter
-              </button>
-              <button className="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm font-semibold">
-                <Download className="inline w-4 h-4 mr-1" />
-                Export
-              </button>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                {t("vehicleArrival.fruitFilter")}:
+              </span>
+              <Select
+                value=""
+                onChange={() => {}}
+                options={[
+                  { value: "all", label: t("vehicleArrival.allFruits") },
+                ]} // Use custom Select
+                className="w-full sm:w-40"
+              />
             </div>
           </div>
-          <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 dark:bg-gray-900">
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-medium border-b border-slate-200 dark:border-slate-800">
                 <tr>
-                  {["Entry", "Vehicle", "Weight", "Amount", "Status"].map(
-                    (h) => (
-                      <th key={h} className="p-3 text-left font-semibold">
-                        {h}
-                      </th>
-                    ),
-                  )}
+                  <th className="px-6 py-4">Date</th>
+                  <th className="px-6 py-4">Vehicle No</th>
+                  <th className="px-6 py-4">Day</th>
+                  <th className="px-6 py-4">Fruit</th>
+                  <th className="px-6 py-4">Total Weight</th>
+                  <th className="px-6 py-4">Consignment Value</th>
+                  <th className="px-6 py-4">Suppliers Involved</th>
+                  <th className="px-6 py-4 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {vehicleRegisters
-                  .slice()
-                  .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-                  .map((e) => (
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredRegisters.length > 0 ? (
+                  filteredRegisters.map((reg) => (
                     <tr
-                      key={e.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      key={reg.id}
+                      className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                     >
-                      <td className="p-3 font-mono text-xs">{e.entryNo}</td>
-                      <td className="p-3 font-bold">{e.vehicleNumber}</td>
-                      <td className="p-3">
-                        {e.rows.reduce((s, r) => s + r.weight, 0).toFixed(2)} kg
+                      <td className="px-6 py-4 font-medium text-slate-600 dark:text-slate-300">
+                        {reg.date}
                       </td>
-                      <td className="p-3 font-bold text-blue-700 dark:text-blue-300">
-                        {fmt(e.grandTotal)}
+                      <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">
+                        {reg.vehicleNumber}
                       </td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            e.status === "posted"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
+                      <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
+                        {reg.dayOfWeek || "-"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <StringWrapper>
+                          {renderCellContent(reg.fruitTypeCategory)}
+                        </StringWrapper>
+                      </td>
+                      <td className="px-6 py-4 font-medium">
+                        {reg.totalWeight?.toLocaleString()} kg
+                      </td>
+                      <td className="px-6 py-4 font-bold">
+                        {formatCurrency(reg.grandTotal)}
+                      </td>
+                      <td className="px-6 py-4 text-slate-500 dark:text-slate-400 max-w-[200px] truncate">
+                        <StringWrapper>
+                          {String(
+                            reg.rows?.map((r: any) => r.partyName).join(", "),
+                          )}
+                        </StringWrapper>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Button
+                          variant="mandi"
+                          size="sm"
+                          icon={<Clock className="w-3 h-3" />}
+                          onClick={() => setSelectedRegister(reg)}
                         >
-                          {e.status}
-                        </span>
+                          {t("vehicleArrival.viewGrid")}
+                        </Button>
                       </td>
                     </tr>
-                  ))}
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-6 py-12 text-center text-slate-500"
+                    >
+                      No records found
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
+        </Card>
+
+        {/* Vehicle Detail Modal */}
+        {selectedRegister && (
+          <VehicleDetailModal
+            register={selectedRegister}
+            onClose={() => setSelectedRegister(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in pb-20">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            {t("vehicleArrival.title")}
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            {t("vehicleArrival.description")}
+          </p>
         </div>
-      )}
+        <Button
+          variant="soft"
+          icon={<ArrowLeft className="w-4 h-4" />}
+          onClick={() => setView("list")}
+        >
+          {t("vehicleArrival.backToLog")}
+        </Button>
+      </div>
+
+      {/* Header Details */}
+      <Card className="p-6 border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2 mb-6">
+          <Truck className="w-5 h-5 text-[#facc15]" />
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+            {t("vehicleArrival.headerDetails")}
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Input
+            label={t("vehicleArrival.arrivalDate")}
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            prefix={<CalendarDays className="w-4 h-4" />}
+          />
+          <Input
+            label={t("vehicleArrival.dayOfWeek")}
+            value={dayOfWeek}
+            readOnly
+            className="bg-slate-50 dark:bg-slate-900 cursor-not-allowed"
+          />
+          <Input
+            label={t("vehicleArrival.vehicleNumber") + " *"}
+            placeholder="GJ06AB1234"
+            value={vehicleNumber}
+            onChange={(e) => setVehicleNumber(e.target.value)}
+          />
+          <Select
+            label={t("vehicleArrival.fruitTypeCategory")}
+            value={fruitTypeCategory}
+            onChange={(e) => setFruitTypeCategory(e.target.value)}
+            options={[
+              { value: "Mango", label: "Mango" },
+              { value: "Apple", label: "Apple" },
+              { value: "Banana", label: "Banana" },
+            ]}
+          />
+          <Input
+            label={t("vehicleArrival.driverName")}
+            placeholder="Sukhdev Singh"
+            value={driverName}
+            onChange={(e) => setDriverName(e.target.value)}
+          />
+          <Input
+            label={t("vehicleArrival.scaleWeight")}
+            type="number"
+            value={scaleWeight}
+            onChange={(e) => setScaleWeight(Number(e.target.value))}
+            prefix={<Scale className="w-4 h-4" />}
+          />
+          <Input
+            label={t("vehicleArrival.vehicleDescription")}
+            placeholder="Eicher Pro 10-Tonne (Optional)"
+            className="lg:col-span-2"
+            value={vehicleDescription}
+            onChange={(e) => setVehicleDescription(e.target.value)}
+          />
+        </div>
+      </Card>
+
+      {/* Ledger Grid */}
+      <Card className="p-0 border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/30 dark:bg-slate-900/30">
+          <div className="flex items-center gap-2">
+            <Layers className="w-5 h-5 text-[#facc15]" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+              {t("vehicleArrival.ledgerGrid")}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Clipboard className="w-4 h-4" />}
+              onClick={handlePasteFromExcel}
+            >
+              {t("vehicleArrival.pasteFromExcel")}
+            </Button>
+            <Button
+              variant="mandi"
+              size="sm"
+              icon={<Plus className="w-4 h-4" />}
+              onClick={addRow}
+            >
+              {t("vehicleArrival.addRow")}
+            </Button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto min-h-[300px]">
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider font-bold border-b border-slate-200 dark:border-slate-800">
+                <th className="px-4 py-3 w-12 text-center border-r border-slate-200 dark:border-slate-800">
+                  #
+                </th>
+                <th className="px-4 py-3 min-w-[200px] border-r border-slate-200 dark:border-slate-800">
+                  {t("vehicleArrival.supplierName")}
+                </th>
+                <th className="px-4 py-3 min-w-[150px] border-r border-slate-200 dark:border-slate-800">
+                  {t("vehicleArrival.variety")}
+                </th>
+                <th className="px-4 py-3 w-28 text-center border-r border-slate-200 dark:border-slate-800">
+                  {t("vehicleArrival.caratQty")}
+                </th>
+                <th className="px-4 py-3 w-32 text-center border-r border-slate-200 dark:border-slate-800">
+                  {t("vehicleArrival.totalWt")}
+                </th>
+                <th className="px-4 py-3 w-32 text-center border-r border-slate-200 dark:border-slate-800">
+                  {t("vehicleArrival.rate")}
+                </th>
+                <th className="px-4 py-3 w-36 text-right border-r border-slate-200 dark:border-slate-800">
+                  {t("vehicleArrival.totalCost")}
+                </th>
+                <th className="px-4 py-3 min-w-[200px] border-r border-slate-200 dark:border-slate-800">
+                  {t("vehicleArrival.qualityDetails")}
+                </th>
+                <th className="px-4 py-3 w-20 text-center">
+                  {t("vehicleArrival.actions")}
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {rows.map((row, idx) => (
+                <tr
+                  key={row.id}
+                  className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors"
+                >
+                  <td className="px-4 py-2 text-center font-mono text-slate-400 border-r border-slate-200 dark:border-slate-800">
+                    {idx + 1}
+                  </td>
+                  <td className="px-0 py-0 border-r border-slate-200 dark:border-slate-800">
+                    <PartySelect
+                      value={row.partyId}
+                      parties={parties}
+                      onChange={(v) => updateRow(idx, "partyId", v)}
+                    />
+                  </td>
+                  <td className="px-0 py-0 border-r border-slate-200 dark:border-slate-800">
+                    <input
+                      type="text"
+                      className="w-full h-11 px-4 bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50 inset-0"
+                      value={row.vakkal}
+                      onChange={(e) => updateRow(idx, "vakkal", e.target.value)}
+                    />
+                  </td>
+                  <td className="px-0 py-0 border-r border-slate-200 dark:border-slate-800">
+                    <input
+                      type="number"
+                      className="w-full h-11 px-4 bg-transparent outline-none text-center focus:ring-2 focus:ring-blue-500/50"
+                      value={row.carat || ""}
+                      onChange={(e) =>
+                        updateRow(idx, "carat", Number(e.target.value))
+                      }
+                    />
+                  </td>
+                  <td className="px-0 py-0 border-r border-slate-200 dark:border-slate-800">
+                    <input
+                      type="number"
+                      className="w-full h-11 px-4 bg-transparent outline-none text-center focus:ring-2 focus:ring-blue-500/50"
+                      value={row.weight || ""}
+                      onChange={(e) =>
+                        updateRow(idx, "weight", Number(e.target.value))
+                      }
+                    />
+                  </td>
+                  <td className="px-0 py-0 border-r border-slate-200 dark:border-slate-800">
+                    <input
+                      type="number"
+                      className="w-full h-11 px-4 bg-transparent outline-none text-center focus:ring-2 focus:ring-blue-500/50"
+                      value={row.rate || ""}
+                      onChange={(e) =>
+                        updateRow(idx, "rate", Number(e.target.value))
+                      }
+                    />
+                  </td>
+                  <td className="px-4 py-2 text-right font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-800">
+                    ₹{row.total.toLocaleString()}
+                  </td>
+                  <td className="px-0 py-0 border-r border-slate-200 dark:border-slate-800">
+                    <input
+                      type="text"
+                      placeholder={t("vehicleArrival.qualityDetails")}
+                      className="w-full h-11 px-4 bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50"
+                      value={row.remarks}
+                      onChange={(e) =>
+                        updateRow(idx, "remarks", e.target.value)
+                      }
+                    />
+                  </td>
+                  <td className="px-4 py-2 text-center">
+                    <button
+                      onClick={() => delRow(idx)}
+                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-slate-50/50 dark:bg-slate-900/50 font-bold border-t border-slate-200 dark:border-slate-800">
+              <tr>
+                <td
+                  colSpan={3}
+                  className="px-6 py-4 text-right text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-widest"
+                >
+                  {t("vehicleArrival.totals")}:
+                </td>
+                <td className="px-4 py-4 text-center text-slate-900 dark:text-white">
+                  {totals.carat} C
+                </td>
+                <td className="px-4 py-4 text-center text-slate-900 dark:text-white">
+                  {totals.weight.toLocaleString()} kg
+                </td>
+                <td className="border-r border-slate-200 dark:border-slate-800"></td>
+                <td className="px-4 py-4 text-right text-[#facc15] text-lg">
+                  ₹{totals.cost.toLocaleString()}
+                </td>
+                <td colSpan={2}></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </Card>
+
+      {/* Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 z-10 flex items-center justify-end gap-4 shadow-2xl">
+        <Button variant="ghost" onClick={() => setView("list")}>
+          {t("vehicleArrival.cancelDiscard")}
+        </Button>
+        <Button
+          variant="mandi"
+          icon={<Save className="w-4 h-4" />}
+          loading={isLoading}
+          onClick={saveVehicleRegister}
+        >
+          {t("vehicleArrival.commitSave")}
+        </Button>
+      </div>
     </div>
   );
 }
 
-/* ── small components ── */
-function HeaderField({
-  icon,
-  label,
-  guj,
-  value,
-  onChange,
-  type = "text",
+function VehicleDetailModal({
+  register,
+  onClose,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  guj: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
+  register: any;
+  onClose: () => void;
 }) {
   return (
-    <label>
-      <span className="text-[11px] font-bold uppercase text-gray-400">
-        {label}
-      </span>
-      <span className="ml-1.5 text-[10px] text-gray-300">{guj}</span>
-      <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
-        <span className="text-gray-400">{icon}</span>
-        <input
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full bg-transparent outline-none text-sm"
-        />
-      </div>
-    </label>
-  );
-}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* Modal Header */}
+        <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-[#facc15]/10 rounded-2xl">
+              <Truck className="w-6 h-6 text-[#facc15]" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                Vehicle Detail:{" "}
+                <span className="text-[#facc15]">{register.vehicleNumber}</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Recorded on {register.date} ({register.dayOfWeek}) • Fruit:{" "}
+                <span className="text-[#facc15] font-medium">
+                  {register.fruitTypeCategory}
+                </span>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-xl transition-all"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
 
-function SummaryCard({
-  label,
-  value,
-  accent,
-  warn,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-  warn?: boolean;
-}) {
-  return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
-      <p className="text-[11px] font-bold uppercase text-gray-400">{label}</p>
-      <p
-        className={`mt-0.5 text-lg font-extrabold ${
-          accent
-            ? "text-blue-700 dark:text-blue-300"
-            : warn
-              ? "text-amber-600"
-              : ""
-        }`}
-      >
-        {value}
-      </p>
+        {/* Modal Content */}
+        <div className="p-6 space-y-6">
+          {/* Summary Stats */}
+          <div className="grid grid-cols-4 gap-4 p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
+            <div className="text-center">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Driver Name
+              </span>
+              <p className="text-sm font-bold text-white mt-1">
+                {register.driverName}
+              </p>
+            </div>
+            <div className="text-center border-l border-slate-800">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Total Weight
+              </span>
+              <p className="text-sm font-bold text-white mt-1">
+                {register.totalWeight?.toLocaleString()} kg
+              </p>
+            </div>
+            <div className="text-center border-l border-slate-800">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Rows Recorded
+              </span>
+              <p className="text-sm font-bold text-white mt-1">
+                {register.totalRows} rows
+              </p>
+            </div>
+            <div className="text-center border-l border-slate-800">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Consignment Value
+              </span>
+              <p className="text-sm font-bold text-[#facc15] mt-1">
+                {formatCurrency(register.grandTotal)}
+              </p>
+            </div>
+          </div>
+
+          {/* Table Breakdown */}
+          <div className="space-y-3">
+            <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              Consignment Breakdown
+            </h3>
+            <div className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950/30">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-900 text-slate-500 text-[11px] uppercase tracking-wider font-bold">
+                  <tr>
+                    <th className="px-4 py-3 border-r border-slate-800">
+                      Supplier Name
+                    </th>
+                    <th className="px-4 py-3 border-r border-slate-800">
+                      Variety
+                    </th>
+                    <th className="px-4 py-3 text-center border-r border-slate-800">
+                      Carets
+                    </th>
+                    <th className="px-4 py-3 text-center border-r border-slate-800">
+                      Weight (kg)
+                    </th>
+                    <th className="px-4 py-3 text-center border-r border-slate-800">
+                      Rate
+                    </th>
+                    <th className="px-4 py-3 text-right border-r border-slate-800">
+                      Amount
+                    </th>
+                    <th className="px-4 py-3">Note</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {register.rows?.map((row: any, i: number) => (
+                    <tr key={i} className="hover:bg-slate-800/30">
+                      <td className="px-4 py-3 font-bold text-white border-r border-slate-800">
+                        {row.partyName}
+                      </td>
+                      <td className="px-4 py-3 text-slate-300 border-r border-slate-800">
+                        {row.vakkal}
+                      </td>
+                      <td className="px-4 py-3 text-center text-slate-300 border-r border-slate-800">
+                        {row.carat} C
+                      </td>
+                      <td className="px-4 py-3 text-center text-white font-medium border-r border-slate-800">
+                        {row.weight?.toLocaleString()} kg
+                      </td>
+                      <td className="px-4 py-3 text-center text-[#facc15] border-r border-slate-800">
+                        ₹{row.rate}/kg
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-white border-r border-slate-800">
+                        ₹{row.total?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500 italic">
+                        {row.remarks}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Operator Notes */}
+          <div className="p-4 bg-[#facc15]/5 border border-[#facc15]/20 rounded-2xl">
+            <span className="text-[10px] font-bold text-[#facc15] uppercase tracking-widest">
+              Operator Notes:
+            </span>
+            <p className="text-sm text-slate-400 mt-1">
+              {register.notes || "No notes provided"}
+            </p>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="p-6 border-t border-slate-800 flex items-center justify-between bg-slate-950/30">
+          <Button
+            variant="outline"
+            icon={<RotateCcw className="w-4 h-4" />}
+            className="text-red-400 border-red-900/50 hover:bg-red-950/30"
+            onClick={() => {
+              if (
+                confirm(
+                  "Are you sure you want to rollback this entry? This will revert stock and ledger balances.",
+                )
+              ) {
+                toast.info("Rollback feature coming soon");
+              }
+            }}
+          >
+            Rollback Entry (Revert Stock/Ledger)
+          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              icon={<Printer className="w-4 h-4" />}
+              className="text-slate-400 border-slate-800"
+              onClick={() => toast.info("Printing statement...")}
+            >
+              Print Statement
+            </Button>
+            <Button
+              variant="mandi"
+              className="bg-white hover:bg-slate-200 text-slate-900 border-none font-bold"
+              onClick={onClose}
+            >
+              Close Detail Grid
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -669,66 +895,86 @@ function PartySelect({
   value,
   parties,
   onChange,
-  onKeyDown,
-  dataR,
-  dataC,
 }: {
   value: string;
   parties: any[];
   onChange: (v: string) => void;
-  onKeyDown: (e: React.KeyboardEvent) => void;
-  dataR: number;
-  dataC: number;
 }) {
-  return (
-    <select
-      data-r={dataR}
-      data-c={dataC}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onKeyDown={onKeyDown}
-      className="w-full h-11 px-3 bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-950/30 focus:ring-2 focus:ring-inset focus:ring-blue-500"
-    >
-      <option value="">-- Select Party --</option>
-      {parties.map((p) => (
-        <option key={p.id} value={p.id}>
-          {p.name}
-        </option>
-      ))}
-    </select>
-  );
-}
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
 
-function FruitSelect({
-  value,
-  items,
-  onChange,
-  onKeyDown,
-  dataR,
-  dataC,
-}: {
-  value: string;
-  items: any[];
-  onChange: (v: string) => void;
-  onKeyDown: (e: React.KeyboardEvent) => void;
-  dataR: number;
-  dataC: number;
-}) {
+  const selected = parties.find((p) => p.id === value);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return parties.slice(0, 10);
+    return parties
+      .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+      .slice(0, 10);
+  }, [parties, search]);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   return (
-    <select
-      data-r={dataR}
-      data-c={dataC}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onKeyDown={onKeyDown}
-      className="w-full h-11 px-3 bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-950/30 focus:ring-2 focus:ring-inset focus:ring-blue-500"
-    >
-      <option value="">-- Select Item --</option>
-      {items.map((i) => (
-        <option key={i.id} value={i.id}>
-          {i.name}
-        </option>
-      ))}
-    </select>
+    <div ref={containerRef} className="relative w-full h-full">
+      <button
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "w-full h-11 px-4 text-left text-sm outline-none transition-all",
+          selected
+            ? "text-slate-900 dark:text-white font-medium"
+            : "text-slate-400",
+          open && "ring-2 ring-blue-500/50 bg-blue-50/50 dark:bg-blue-900/20",
+        )}
+      >
+        {selected ? selected.name : "-- Select Supplier --"}
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 z-50 w-72 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                autoFocus
+                placeholder="Search party..."
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 rounded-lg outline-none"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="max-h-60 overflow-y-auto py-1">
+            {filtered.map((p) => (
+              <button
+                key={p.id}
+                className="w-full px-4 py-2 text-left text-xs hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors flex items-center justify-between"
+                onClick={() => {
+                  onChange(p.id);
+                  setOpen(false);
+                  setSearch("");
+                }}
+              >
+                <span>{p.name}</span>
+                {p.city && (
+                  <span className="text-[10px] text-slate-400">{p.city}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

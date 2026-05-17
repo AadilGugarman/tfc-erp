@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { formatCurrency, formatDate } from "@/utils/formatters";
 import * as db from "@/db/db";
+import type { PageId } from "@/stores/useAppStore";
 import {
   Search,
   Truck,
@@ -20,7 +21,7 @@ interface SearchResult {
   value: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
-  page?: string;
+  page?: PageId;
 }
 
 export function SearchPage() {

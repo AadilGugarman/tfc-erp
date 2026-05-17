@@ -5,25 +5,24 @@ import { Button } from "@/components/ui/Button";
 import { Input, Select, TextArea } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { BackupRestorePanel } from "@/components/BackupRestorePanel";
-import type { Company, Settings } from "@/db/schema";
+import { resetDatabase } from "@/db/db";
+import type { Settings } from "@/db/schema";
 import { updateBackupConfig, type BackupConfig } from "@/services/backup";
 import {
   Save,
-  X,
   Moon,
   Sun,
   Globe,
   Building2,
   Percent,
-  Plus,
-  Edit,
   Trash2,
   ChevronRight,
   Check,
 } from "lucide-react";
 
 type AppLanguage = Settings["language"];
-type CompanyLanguage = Company["language"];
+
+type CompanyLanguage = AppLanguage;
 
 const languageOptions = [
   { value: "english", label: "English" },
@@ -41,19 +40,8 @@ export function SettingsPage() {
   const { t } = useTranslation();
   const tx = (key: string, fallback: string) =>
     t(key, { defaultValue: fallback });
-  const {
-    settings,
-    updateSettings,
-    showNotification,
-    language,
-    setLanguage,
-    companies,
-    currentCompany,
-    createCompany,
-    updateCompany,
-    deleteCompany,
-    setCurrentCompany,
-  } = useAppStore();
+  const { settings, updateSettings, showNotification, language, setLanguage } =
+    useAppStore();
 
   const [activeTab, setActiveTab] = useState("basic");
   const [form, setForm] = useState({
@@ -75,24 +63,6 @@ export function SettingsPage() {
   });
 
   const [showReset, setShowReset] = useState(false);
-  const [showCompanyModal, setShowCompanyModal] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
-  const [companyForm, setCompanyForm] = useState<
-    Omit<Company, "createdAt" | "updatedAt">
-  >({
-    id: "",
-    name: "",
-    address: "",
-    city: "",
-    state: "",
-    phone: "",
-    email: "",
-    gstin: "",
-    invoicePrefix: "",
-    language: "english",
-    theme: "light",
-    isActive: true,
-  });
 
   useEffect(() => {
     setForm({
@@ -148,7 +118,7 @@ export function SettingsPage() {
 
   const resetAll = () => {
     if (confirm(t("settings.backup"))) {
-      localStorage.removeItem("fruit_market_erp_db");
+      resetDatabase();
       window.location.reload();
     }
   };
@@ -157,94 +127,11 @@ export function SettingsPage() {
     await updateBackupConfig(config);
   };
 
-  const handleSaveCompany = () => {
-    if (!companyForm.name) {
-      showNotification(
-        tx("validation.required", "Company name is required"),
-        "error",
-      );
-      return;
-    }
-
-    if (editingCompany) {
-      updateCompany({
-        ...companyForm,
-        id: editingCompany.id,
-        createdAt: editingCompany.createdAt,
-        updatedAt: new Date().toISOString(),
-      });
-      showNotification(t("notifications.updated"), "success");
-    } else {
-      createCompany({
-        ...companyForm,
-        id: `company-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      showNotification(t("notifications.created"), "success");
-    }
-
-    setShowCompanyModal(false);
-    setEditingCompany(null);
-    setCompanyForm({
-      id: "",
-      name: "",
-      address: "",
-      city: "",
-      state: "",
-      phone: "",
-      email: "",
-      gstin: "",
-      invoicePrefix: "",
-      language: "english",
-      theme: "light",
-      isActive: true,
-    });
-  };
-
-  const openCompanyModal = (company?: Company) => {
-    if (company) {
-      setEditingCompany(company);
-      setCompanyForm({
-        id: company.id,
-        name: company.name,
-        address: company.address,
-        city: company.city,
-        state: company.state,
-        phone: company.phone,
-        email: company.email,
-        gstin: company.gstin,
-        invoicePrefix: company.invoicePrefix,
-        language: company.language,
-        theme: company.theme,
-        isActive: company.isActive,
-      });
-    } else {
-      setEditingCompany(null);
-      setCompanyForm({
-        id: "",
-        name: "",
-        address: "",
-        city: "",
-        state: "",
-        phone: "",
-        email: "",
-        gstin: "",
-        invoicePrefix: "",
-        language: "english",
-        theme: "light",
-        isActive: true,
-      });
-    }
-    setShowCompanyModal(true);
-  };
-
   const tabs = [
     { id: "basic", label: t("settings.basic"), icon: Building2 },
     { id: "billing", label: t("settings.billing"), icon: Percent },
     { id: "language", label: t("settings.language"), icon: Globe },
     { id: "theme", label: t("settings.theme"), icon: Sun },
-    { id: "company", label: t("settings.company"), icon: Building2 },
     { id: "backup", label: t("settings.backup"), icon: Trash2 },
   ];
 
@@ -559,114 +446,6 @@ export function SettingsPage() {
               </div>
             )}
 
-            {activeTab === "company" && (
-              <div className="max-w-4xl space-y-5">
-                <div className="flex items-center justify-between mb-5">
-                  <div>
-                    <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                      {t("settings.manageCompanies")}
-                    </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {tx(
-                        "settings.companyDesc",
-                        "Manage multiple business entities",
-                      )}
-                    </p>
-                  </div>
-                  <Button onClick={() => openCompanyModal()}>
-                    <Plus className="h-4 w-4" />
-                    {t("settings.createCompany")}
-                  </Button>
-                </div>
-
-                <div className="space-y-3">
-                  {companies.length === 0 ? (
-                    <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-[#2a3550] rounded-lg">
-                      <Building2 className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-                      <p className="text-slate-500 dark:text-slate-400">
-                        {tx("settings.noCompanies", "No companies yet")}
-                      </p>
-                    </div>
-                  ) : (
-                    companies.map((company) => (
-                      <div
-                        key={company.id}
-                        className={`p-4 rounded-lg border-2 transition-colors ${
-                          currentCompany?.id === company.id
-                            ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
-                            : "border-slate-200 dark:border-[#2a3550] hover:border-slate-300 dark:hover:border-slate-500"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-                                {company.name}
-                              </h3>
-                              {currentCompany?.id === company.id && (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-semibold rounded">
-                                  <Check className="h-3 w-3" />
-                                  {tx("settings.active", "Active")}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                              {company.address}
-                            </p>
-                            <p className="text-xs text-slate-500 dark:text-slate-500 mt-0.5">
-                              {company.email}
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            {currentCompany?.id !== company.id && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setCurrentCompany(company.id)}
-                              >
-                                {tx("buttons.switchCompany", "Switch")}
-                              </Button>
-                            )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openCompanyModal(company)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            {companies.length > 1 && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  if (
-                                    confirm(
-                                      tx(
-                                        "dialogs.deleteConfirmation",
-                                        "Delete this company?",
-                                      ),
-                                    )
-                                  ) {
-                                    deleteCompany(company.id);
-                                    showNotification(
-                                      t("notifications.deleted"),
-                                      "success",
-                                    );
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-
             {activeTab === "backup" && (
               <div className="max-w-2xl space-y-5">
                 <div className="mb-5">
@@ -716,113 +495,6 @@ export function SettingsPage() {
           </div>
         </div>
       </div>
-
-      <Modal
-        open={showCompanyModal}
-        onClose={() => {
-          setShowCompanyModal(false);
-          setEditingCompany(null);
-        }}
-        title={
-          editingCompany
-            ? t("settings.editCompany")
-            : t("settings.createCompany")
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label={t("settings.companyName")}
-            value={companyForm.name}
-            onChange={(e) =>
-              setCompanyForm((f) => ({ ...f, name: e.target.value }))
-            }
-          />
-          <Input
-            label={t("settings.businessAddress")}
-            value={companyForm.address}
-            onChange={(e) =>
-              setCompanyForm((f) => ({ ...f, address: e.target.value }))
-            }
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t("settings.city")}
-              value={companyForm.city}
-              onChange={(e) =>
-                setCompanyForm((f) => ({ ...f, city: e.target.value }))
-              }
-            />
-            <Input
-              label={t("settings.state")}
-              value={companyForm.state}
-              onChange={(e) =>
-                setCompanyForm((f) => ({ ...f, state: e.target.value }))
-              }
-            />
-          </div>
-          <Input
-            label={t("settings.phone")}
-            value={companyForm.phone}
-            onChange={(e) =>
-              setCompanyForm((f) => ({ ...f, phone: e.target.value }))
-            }
-          />
-          <Input
-            label={t("settings.email")}
-            type="email"
-            value={companyForm.email}
-            onChange={(e) =>
-              setCompanyForm((f) => ({ ...f, email: e.target.value }))
-            }
-          />
-          <Input
-            label={t("settings.gstin")}
-            value={companyForm.gstin}
-            onChange={(e) =>
-              setCompanyForm((f) => ({ ...f, gstin: e.target.value }))
-            }
-          />
-          <Input
-            label={t("settings.invoicePrefix")}
-            value={companyForm.invoicePrefix}
-            onChange={(e) =>
-              setCompanyForm((f) => ({
-                ...f,
-                invoicePrefix: e.target.value,
-              }))
-            }
-          />
-          <Select
-            label={t("settings.language")}
-            value={companyForm.language}
-            onChange={(e) =>
-              setCompanyForm((f) => ({
-                ...f,
-                language: normalizeCompanyLanguage(e.target.value),
-              }))
-            }
-            options={companyLanguageOptions.map((lang) => ({
-              value: lang.value,
-              label: t(`settings.${lang.value}`, lang.label),
-            }))}
-          />
-          <div className="flex gap-3 justify-end pt-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setShowCompanyModal(false);
-                setEditingCompany(null);
-              }}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button size="sm" onClick={handleSaveCompany}>
-              {t("common.save")}
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       <Modal
         open={showReset}

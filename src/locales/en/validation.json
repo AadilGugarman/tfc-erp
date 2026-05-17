@@ -9,5 +9,6 @@
     "selectItem":  "Please select an item",
     "fillAllFields":  "Please fill all fields",
     "minAmount":  "Amount must be greater than 0",
-    "invalidFile":  "Invalid file"
+    "invalidFile":  "Invalid file",
+    "gstinLength": "GSTIN must be 15 characters"
 }

@@ -8,6 +8,7 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
+use crate::auth::authorize;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
@@ -665,28 +666,33 @@ fn open_folder_in_os(path: &Path) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn get_backup_config() -> Result<BackupConfig, String> {
+pub fn get_backup_config(token: String) -> Result<BackupConfig, String> {
+  authorize(&token)?;
   load_backup_config_internal()
 }
 
 #[tauri::command]
-pub fn update_backup_config(config: BackupConfig) -> Result<BackupConfig, String> {
+pub fn update_backup_config(token: String, config: BackupConfig) -> Result<BackupConfig, String> {
+  authorize(&token)?;
   save_backup_config_internal(&config)
 }
 
 #[tauri::command]
-pub fn save_backup_client_state(client_state_json: String) -> Result<String, String> {
+pub fn save_backup_client_state(token: String, client_state_json: String) -> Result<String, String> {
+  authorize(&token)?;
   save_client_state_snapshot(&client_state_json)?;
   Ok("ok".to_string())
 }
 
 #[tauri::command]
-pub fn create_manual_backup(client_state_json: Option<String>) -> Result<BackupHistoryItem, String> {
+pub fn create_manual_backup(token: String, client_state_json: Option<String>) -> Result<BackupHistoryItem, String> {
+  authorize(&token)?;
   create_backup_internal("manual", client_state_json)
 }
 
 #[tauri::command]
-pub fn create_startup_backup() -> Result<Option<BackupHistoryItem>, String> {
+pub fn create_startup_backup(token: String) -> Result<Option<BackupHistoryItem>, String> {
+  authorize(&token)?;
   let config = load_backup_config_internal()?;
   if !config.auto_enabled || !config.startup_backup {
     return Ok(None);
@@ -698,7 +704,8 @@ pub fn create_startup_backup() -> Result<Option<BackupHistoryItem>, String> {
 }
 
 #[tauri::command]
-pub fn run_auto_backup_if_due() -> Result<Option<BackupHistoryItem>, String> {
+pub fn run_auto_backup_if_due(token: String) -> Result<Option<BackupHistoryItem>, String> {
+  authorize(&token)?;
   let config = load_backup_config_internal()?;
   if !should_run_auto_backup(&config) {
     return Ok(None);
@@ -710,19 +717,22 @@ pub fn run_auto_backup_if_due() -> Result<Option<BackupHistoryItem>, String> {
 }
 
 #[tauri::command]
-pub fn list_backups() -> Result<Vec<BackupHistoryItem>, String> {
+pub fn list_backups(token: String) -> Result<Vec<BackupHistoryItem>, String> {
+  authorize(&token)?;
   let config = load_backup_config_internal()?;
   let backup_dir = backup_root_dir(&config)?;
   list_backups_from_dir(&backup_dir)
 }
 
 #[tauri::command]
-pub fn validate_backup(file_path: String) -> Result<BackupValidationResult, String> {
+pub fn validate_backup(token: String, file_path: String) -> Result<BackupValidationResult, String> {
+  authorize(&token)?;
   Ok(validate_backup_file(Path::new(&file_path)))
 }
 
 #[tauri::command]
-pub fn delete_backup(file_path: String) -> Result<String, String> {
+pub fn delete_backup(token: String, file_path: String) -> Result<String, String> {
+  authorize(&token)?;
   let path = PathBuf::from(file_path);
   if !path.exists() {
     return Ok("already deleted".to_string());
@@ -733,7 +743,8 @@ pub fn delete_backup(file_path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn open_backup_folder() -> Result<String, String> {
+pub fn open_backup_folder(token: String) -> Result<String, String> {
+  authorize(&token)?;
   let config = load_backup_config_internal()?;
   let backup_dir = backup_root_dir(&config)?;
   open_folder_in_os(&backup_dir)?;
@@ -741,7 +752,8 @@ pub fn open_backup_folder() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn export_backup(file_path: String) -> Result<String, String> {
+pub fn export_backup(token: String, file_path: String) -> Result<String, String> {
+  authorize(&token)?;
   let source = PathBuf::from(file_path);
   if !source.exists() {
     return Err("backup file does not exist".to_string());
@@ -763,7 +775,8 @@ pub fn export_backup(file_path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn restore_backup(file_path: String, app: AppHandle) -> Result<RestoreResult, String> {
+pub fn restore_backup(token: String, file_path: String, app: AppHandle) -> Result<RestoreResult, String> {
+  authorize(&token)?;
   let backup_path = PathBuf::from(&file_path);
   if !backup_path.exists() {
     return Err("backup file does not exist".to_string());

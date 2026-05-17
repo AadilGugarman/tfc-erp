@@ -30,7 +30,7 @@ export function CompanySwitcher({
   const [companies, setCompanies] = useState<any[]>([]);
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
-  const { companies: storeCompanies } = useAppStore();
+  const { companies: storeCompanies, setCurrentCompany } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -70,6 +70,8 @@ export function CompanySwitcher({
     setSwitchingTo(companyId);
 
     try {
+      setCurrentCompany(companyId);
+
       // Extract current page from URL
       const pathParts = location.pathname.split("/");
       const currentPage = pathParts.length >= 4 ? pathParts[3] : "dashboard";

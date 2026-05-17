@@ -1,7 +1,7 @@
 import { cn } from "@/utils/cn";
 import { useAppStore } from "@/stores/useAppStore";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { authService } from "@/services/auth";
 import {
   LayoutDashboard,
@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
+  ShoppingCart,
 } from "lucide-react";
 
 const NAV_GROUPS = [
@@ -33,6 +34,12 @@ const NAV_GROUPS = [
         labelKey: "navigation.transactions",
         icon: Receipt,
         shortcut: "Alt+5",
+      },
+      {
+        id: "purchases",
+        labelKey: "navigation.purchases",
+        icon: ShoppingCart,
+        shortcut: "Alt+P",
       },
     ],
   },
@@ -156,7 +163,7 @@ export function Sidebar() {
             <div className={cn("space-y-1", !sidebarOpen && "space-y-2")}>
               {group.items.map((item) => {
                 const Icon = item.icon;
-                const isActive = false; // Will check from URL path
+                const isActive = location.pathname.includes(item.id); // Will check from URL path
                 const label = t(item.labelKey);
 
                 return (

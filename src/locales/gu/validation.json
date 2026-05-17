@@ -9,5 +9,6 @@
     "selectItem":  "કૃપા કરીને આઇટમ પસંદ કરો",
     "fillAllFields":  "કૃપા કરીને તમામ ક્ષેત્ર ભરો",
     "minAmount":  "રકમ 0 કરતાં વધુ હોવી જોઈએ",
-    "invalidFile":  "અમાન્ય ફાઇલ"
+    "invalidFile":  "અમાન્ય ફાઇલ",
+    "gstinLength": "GSTIN 15 અક્ષરોનો હોવો જોઈએ"
 }

@@ -5,7 +5,7 @@ mod db;
 mod backup;
 
 fn main() {
-  db::ensure_database().expect("failed to initialize the SQLite database");
+  db::init_database().expect("failed to initialize the SQLite database");
   backup::get_backup_config().expect("failed to initialize backup configuration");
 
   tauri::Builder::default()
@@ -16,20 +16,26 @@ fn main() {
     .invoke_handler(tauri::generate_handler![
       // Auth commands
       auth::login,
+      auth::has_users,
+      auth::setup_initial_admin,
       auth::refresh_access_token,
       auth::verify_access_token,
       auth::get_user,
       auth::list_users,
       auth::create_user,
       auth::update_user,
+      auth::update_user_companies,
       auth::change_password,
       // Database commands
+      db::reset_database_dev,
+      db::wipe_database,
+      db::get_companies,
+      db::get_vehicle_registers,
+      db::create_vehicle_register,
       db::get_dashboard_summary,
-      db::list_vehicle_registers,
-      db::save_vehicle_register,
-      db::init_database,
-      db::load_app_state,
-      db::save_app_state,
+      db::create_company,
+      db::update_company,
+      db::delete_company,
       // Backup commands
       backup::get_backup_config,
       backup::update_backup_config,

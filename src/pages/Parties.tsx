@@ -25,7 +25,7 @@ import { useShortcutAction } from "@/keyboard/shortcutManager";
 
 export function PartiesPage() {
   const { t } = useTranslation();
-  const { parties, loadParties } = useAppStore();
+  const { parties, currentCompanyId, loadParties } = useAppStore();
   const { toasts, removeToast, success, error } = useToast();
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -110,6 +110,11 @@ export function PartiesPage() {
         });
         success("Party Updated", "Party information updated successfully");
       } else {
+        if (!currentCompanyId) {
+          error("Validation Error", "No company selected");
+          setSaveLoading(false);
+          return;
+        }
         db.createParty({
           name: formName,
           phone: formPhone,
@@ -123,7 +128,7 @@ export function PartiesPage() {
           commissionPercent: formComm,
           notes: formNotes,
           isSupplier: false,
-          companyId: currentCompanyId || undefined,
+          companyId: currentCompanyId,
         });
         success("Party Created", "New party added successfully");
       }

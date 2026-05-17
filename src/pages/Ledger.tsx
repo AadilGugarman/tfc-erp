@@ -35,6 +35,7 @@ export function LedgerPage() {
     parties,
     suppliers,
     ledgerEntries,
+    currentCompanyId,
     loadParties,
     loadSuppliers,
     loadLedgerEntries,
@@ -104,7 +105,12 @@ export function LedgerPage() {
       return;
     }
     try {
+      if (!currentCompanyId) {
+        error("Error", "No company selected");
+        return;
+      }
       db.addLedgerEntry({
+        companyId: currentCompanyId,
         partyId: selectedParty,
         partyName: party.name,
         date: fDate,

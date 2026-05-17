@@ -11,7 +11,6 @@ import { useAppStore } from "@/stores/useAppStore";
  */
 export function AppLayout() {
   const {
-    settings,
     sidebarOpen,
     setCurrentCompanyId,
     refreshDataFromDb,
@@ -20,7 +19,6 @@ export function AppLayout() {
   } = useAppStore();
   const { companyId } = useParams<{ companyId: string }>();
 
-  // Sync company ID from URL to store and refresh data
   useEffect(() => {
     // Ensure companies are loaded first
     if (companies.length === 0) {
