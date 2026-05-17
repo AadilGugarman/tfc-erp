@@ -1,6 +1,7 @@
 import React, { useState, useEffect, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "@/services/auth";
+import { useAuth } from "@/hooks/useAuth";
 import { useAppStore } from "@/stores/useAppStore";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -112,6 +113,7 @@ function BackgroundFX() {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { isAuthenticated, isInitializing } = useAuth();
   const setCurrentCompanyId = useAppStore((state) => state.setCurrentCompanyId);
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("admin");
@@ -121,6 +123,12 @@ export function LoginPage() {
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!isInitializing && isAuthenticated) {
+      navigate("/");
+    }
+  }, [isAuthenticated, isInitializing, navigate]);
 
   useEffect(() => {
     const checkSetup = async () => {
@@ -164,10 +172,11 @@ export function LoginPage() {
 
         const companyIds = response.company_ids || [];
         if (companyIds.length > 0) {
-          setCurrentCompanyId(companyIds[0]);
-          setTimeout(() => navigate(`/app/${companyIds[0]}/dashboard`), 1000);
+          const targetCompanyId = response.default_company_id || companyIds[0];
+          setCurrentCompanyId(targetCompanyId);
+          setTimeout(() => navigate(`/app/${targetCompanyId}/dashboard`), 1000);
         } else {
-          setTimeout(() => navigate(`/app/dashboard`), 1000);
+          setTimeout(() => navigate("/no-company"), 1000);
         }
       } else {
         const response = await authService.login(username, password);
@@ -177,13 +186,17 @@ export function LoginPage() {
 
         const companyIds = response.company_ids || [];
         if (companyIds.length > 0) {
-          setCurrentCompanyId(companyIds[0]);
+          // If there's a default company or multiple companies, pick one and go to dashboard
+          // Use default_company_id if provided, otherwise first one
+          const targetCompanyId = response.default_company_id || companyIds[0];
+          setCurrentCompanyId(targetCompanyId);
           setTimeout(() => {
-            navigate(`/app/${companyIds[0]}/dashboard`);
+            navigate(`/app/${targetCompanyId}/dashboard`);
           }, 1000);
         } else {
+          // No companies assigned yet
           setTimeout(() => {
-            navigate(`/app/dashboard`);
+            navigate("/no-company");
           }, 1000);
         }
       }

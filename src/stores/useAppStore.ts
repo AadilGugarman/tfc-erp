@@ -37,6 +37,7 @@ interface AppState {
   logout: () => void;
 
   companies: Company[];
+  companiesLoaded: boolean;
   currentCompany?: Company | null; // Make optional
   currentCompanyId: string | null;
   loadCompanies: () => void;
@@ -130,6 +131,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   companies: db.getCompaniesSync(),
+  companiesLoaded: false,
   currentCompanyId: authService.getCurrentCompany(),
   currentCompany: (() => {
     const storedCompanyId = authService.getCurrentCompany();
@@ -140,13 +142,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   })(),
   loadCompanies: async () => {
     const companies = await db.getCompanies();
-    const storedCompanyId = authService.getCurrentCompany(); // Get remembered company from localStorage
+    let storedCompanyId = authService.getCurrentCompany(); // Get remembered company from localStorage
+
+    // Auto-select first company if none is stored but companies exist
+    if (!storedCompanyId && companies.length > 0) {
+      storedCompanyId = companies[0].id;
+      authService.setCurrentCompany(storedCompanyId);
+    }
+
     const currentCompany = storedCompanyId
       ? companies.find((c) => c.id === storedCompanyId)
       : undefined; // Set if remembered and valid, otherwise undefined
-    set({ companies, currentCompany, currentCompanyId: currentCompany?.id || null });
-    console.log("Loaded companies:", companies);
-    console.log("Current company after load:", currentCompany);
+
+    set({
+      companies,
+      currentCompany,
+      currentCompanyId: currentCompany?.id || null,
+      companiesLoaded: true,
+    });
   },
   setCurrentCompany: (companyId: string) => {
     const companies = get().companies;
@@ -161,10 +174,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCurrentCompanyId: (companyId: string) => {
     const { companies } = get();
     const company = companies.find((c) => c.id === companyId);
+
+    // Always update authService/localStorage even if company object isn't in store yet
+    authService.setCurrentCompany(companyId);
+
     if (company) {
-      authService.setCurrentCompany(companyId);
       set({ currentCompanyId: companyId, currentCompany: company });
       get().refreshDataFromDb();
+    } else {
+      // If company object isn't in store, just set the ID
+      set({ currentCompanyId: companyId, currentCompany: null });
     }
   },
   createCompany: async (
@@ -387,7 +406,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // ENFORCE: No data loading without a company context
     if (!currentCompanyId) {
-      console.warn("[Store] No company selected - refusing to load data");
+      console.debug("[Store] No company selected - skipping data load");
       set({
         parties: [],
         suppliers: [],

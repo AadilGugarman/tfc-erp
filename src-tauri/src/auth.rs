@@ -108,14 +108,6 @@ fn get_db_connection() -> Result<Connection, String> {
     Connection::open(db_path).map_err(|e| e.to_string())
 }
 
-/// Initialize default admin user if no users exist
-///
-/// Default user seeding is disabled to avoid demo data and hardcoded credentials.
-/// Seed users and companies explicitly through your own import or setup flow.
-pub fn init_default_user() -> Result<(), String> {
-    Ok(())
-}
-
 /// Generate JWT access token (15 minutes expiry)
 pub fn generate_access_token(user_id: &str, username: &str, role: &str) -> Result<String, String> {
     let now = Utc::now();

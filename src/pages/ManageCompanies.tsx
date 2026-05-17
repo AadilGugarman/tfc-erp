@@ -2,59 +2,40 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Modal } from "@/components/ui/Modal";
-import { CompanyForm, type CompanyFormData } from "@/components/CompanyForm";
 import { useAppStore } from "@/stores/useAppStore";
 import { toast } from "sonner";
-import { Edit2, Trash2, Plus, ArrowRight } from "lucide-react";
+import { Edit2, Trash2, Plus, ArrowLeft } from "lucide-react";
 import type { Company } from "@/db/schema";
+import { authService } from "@/services/auth";
 
 export function ManageCompaniesPage() {
   const navigate = useNavigate();
   const {
     companies,
     loadCompanies,
-    updateCompany,
     deleteCompany,
     setCurrentCompany,
     currentCompany,
   } = useAppStore();
   const [loading, setLoading] = useState(false);
-  const [showCompanyModal, setShowCompanyModal] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
 
   useEffect(() => {
     loadCompanies();
   }, [loadCompanies]);
 
-  const openEditModal = (company: Company) => {
-    setEditingCompany(company);
-    setShowCompanyModal(true);
-  };
-
-  const closeModal = () => {
-    setShowCompanyModal(false);
-    setEditingCompany(null);
-  };
-
-  const handleSaveCompany = async (companyData: CompanyFormData) => {
-    if (!editingCompany) return;
-    setLoading(true);
-    try {
-      const updated = updateCompany({
-        ...editingCompany,
-        ...companyData,
-        updatedAt: new Date().toISOString(),
-      });
-      if (updated) {
-        toast.success("Company updated successfully");
-      }
-      closeModal();
-    } catch (error) {
-      toast.error("Failed to update company");
-    } finally {
-      setLoading(false);
+  const handleBack = () => {
+    const lastCompanyId = authService.getCurrentCompany();
+    if (lastCompanyId) {
+      navigate(`/app/${lastCompanyId}/dashboard`);
+    } else if (companies.length > 0) {
+      navigate(`/app/${companies[0].id}/dashboard`);
+    } else {
+      navigate("/select-company");
     }
+  };
+
+  const openEditPage = (companyId: string) => {
+    navigate(`/edit-company/${companyId}`);
   };
 
   const handleDelete = async (companyId: string) => {
@@ -85,6 +66,16 @@ export function ManageCompaniesPage() {
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 to-blue-50 dark:from-[#0a0f1d] dark:to-[#1a2d4d] p-4">
       <div className="max-w-5xl mx-auto">
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={handleBack}
+            className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-blue-600 mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </Button>
+        </div>
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">
             Manage Companies
@@ -170,7 +161,7 @@ export function ManageCompaniesPage() {
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={() => openEditModal(company)}
+                    onClick={() => openEditPage(company.id)}
                     className="gap-2"
                   >
                     <Edit2 className="w-4 h-4" />
@@ -203,22 +194,6 @@ export function ManageCompaniesPage() {
           </Card>
         )}
       </div>
-
-      <Modal
-        open={showCompanyModal}
-        onClose={closeModal}
-        title={editingCompany ? "Edit Company" : "Edit Company"}
-      >
-        {editingCompany ? (
-          <CompanyForm
-            submitLabel="Save Changes"
-            initialData={editingCompany}
-            onSubmit={handleSaveCompany}
-            onCancel={closeModal}
-            isLoading={loading}
-          />
-        ) : null}
-      </Modal>
     </div>
   );
 }

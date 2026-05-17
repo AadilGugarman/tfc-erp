@@ -10,59 +10,75 @@ import { useAppStore } from "@/stores/useAppStore";
  * Usage: Used as a nested route element in AppRoutes
  */
 export function ProtectedCompanyRoute() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isInitializing: authLoading } = useAuth();
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { companies, loadCompanies, setCurrentCompanyId } = useAppStore();
+  const { companies, companiesLoaded, currentCompanyId, setCurrentCompanyId } = useAppStore();
 
   useEffect(() => {
     const checkAccess = async () => {
+      if (authLoading) return;
+
       if (!isAuthenticated) {
         navigate("/login");
         return;
       }
 
-      // Ensure companies are loaded
-      if (companies.length === 0) {
-        await loadCompanies(); // Ensure companies are loaded before checking access
+      // If companies aren't loaded yet, wait for them
+      if (!companiesLoaded) {
+        return;
       }
 
       const accessibleCompanies = authService.getAccessibleCompanies();
 
       // This route MUST have a companyId in the URL
       if (!companyId) {
-        // If we somehow landed here without a companyId, redirect to generic dashboard
         navigate("/app/dashboard");
         return;
       }
 
       // Check if user has access to this company
       if (accessibleCompanies.includes(companyId)) {
-        setCurrentCompanyId(companyId); // Set the company in the store
+        // Sync the store if needed
+        if (currentCompanyId !== companyId) {
+          setCurrentCompanyId(companyId);
+        }
         setIsAuthorized(true);
         setIsLoading(false);
       } else {
         // Company in URL is not accessible, or user has no companies at all
         if (accessibleCompanies.length > 0) {
-          navigate("/select-company"); // User has companies, but not this one
+          navigate("/select-company");
         } else {
-          navigate("/no-company"); // User has no accessible companies
+          navigate("/no-company");
         }
         setIsLoading(false);
       }
     };
 
     checkAccess();
-  }, [isAuthenticated, companyId, navigate, loadCompanies, companies.length, setCurrentCompanyId]);
+  }, [
+    isAuthenticated,
+    authLoading,
+    companyId,
+    navigate,
+    companies.length,
+    currentCompanyId,
+    setCurrentCompanyId,
+  ]);
 
-  if (isLoading) {
+  if (authLoading || (isLoading && isAuthenticated)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading company context...</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            {authLoading
+              ? "Verifying session..."
+              : "Loading company context..."}
+          </p>
         </div>
       </div>
     );
@@ -75,8 +91,13 @@ export function ProtectedCompanyRoute() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Access Denied
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">You do not have access to this company or it does not exist.</p>
-          <button onClick={() => navigate("/app/dashboard")} className="mt-4 px-4 py-2 bg-emerald-500 text-white rounded-md">
+          <p className="text-gray-600 dark:text-gray-400">
+            You do not have access to this company or it does not exist.
+          </p>
+          <button
+            onClick={() => navigate("/app/dashboard")}
+            className="mt-4 px-4 py-2 bg-emerald-500 text-white rounded-md"
+          >
             Go to Dashboard
           </button>
         </div>
@@ -92,24 +113,53 @@ export function ProtectedCompanyRoute() {
  */
 import { ReactNode } from "react";
 
-export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+export interface ProtectedRouteProps {
+  children: ReactNode;
+  requiredRole?: string;
+}
+
+export function ProtectedRoute({
+  children,
+  requiredRole,
+}: ProtectedRouteProps) {
+  const { isAuthenticated, user, isInitializing } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (isInitializing) return;
+
     if (!isAuthenticated) {
       navigate("/login");
     }
     setIsLoading(false);
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isInitializing, navigate]);
 
-  if (isLoading) {
+  if (isInitializing || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            {isInitializing ? "Checking session..." : "Loading..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check role if required
+  if (requiredRole && user?.role !== requiredRole) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-slate-600 mb-4">
+            You do not have permission to access this page.
+          </p>
+          <p className="text-sm text-slate-500">
+            Required role: <strong>{requiredRole}</strong>
+          </p>
         </div>
       </div>
     );

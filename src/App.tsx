@@ -12,17 +12,17 @@ import type { Bill, Company, Purchase } from "@/db/schema";
 import { LoginPage } from "@/pages/Login";
 
 function AppContent() {
-  const {
-    settings,
-    refreshDataFromDb,
-    loadCompanies,
-    setCurrentPage,
-    modalOpen,
-    modalContent,
-    modalData,
-    closeModal,
-    currentCompany,
-  } = useAppStore();
+  const settings = useAppStore((state) => state.settings);
+  const refreshDataFromDb = useAppStore((state) => state.refreshDataFromDb);
+  const loadCompanies = useAppStore((state) => state.loadCompanies);
+  const setCurrentPage = useAppStore((state) => state.setCurrentPage);
+  const modalOpen = useAppStore((state) => state.modalOpen);
+  const modalContent = useAppStore((state) => state.modalContent);
+  const modalData = useAppStore((state) => state.modalData);
+  const closeModal = useAppStore((state) => state.closeModal);
+  const currentCompany = useAppStore((state) => state.currentCompany);
+  const currentCompanyId = useAppStore((state) => state.currentCompanyId);
+
   const { commandPaletteOpen, closeCommandPalette } = useGlobalKeyboardManager({
     setCurrentPage,
   });
@@ -31,7 +31,6 @@ function AppContent() {
   useEffect(() => {
     const initializeAppData = async () => {
       await loadCompanies();
-      refreshDataFromDb();
     };
     initializeAppData();
 
@@ -40,6 +39,13 @@ function AppContent() {
     });
     return unsubscribe;
   }, [refreshDataFromDb, loadCompanies]);
+
+  // Refresh data whenever company changes
+  useEffect(() => {
+    if (currentCompanyId) {
+      refreshDataFromDb();
+    }
+  }, [currentCompanyId, refreshDataFromDb]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", settings.darkMode);

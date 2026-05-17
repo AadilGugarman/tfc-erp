@@ -5,6 +5,7 @@ export interface UseAuthReturn {
   isAuthenticated: boolean;
   user: ReturnType<typeof authService.getCurrentUser>;
   loading: boolean;
+  isInitializing: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -19,6 +20,7 @@ export function useAuth(): UseAuthReturn {
   );
   const [user, setUser] = useState(authService.getCurrentUser());
   const [loading, setLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Check authentication status on mount and when auth service changes
@@ -42,6 +44,10 @@ export function useAuth(): UseAuthReturn {
         if (isMounted && !isLoggingOut) {
           setIsAuthenticated(false);
           setUser(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsInitializing(false);
         }
       }
     };
@@ -82,6 +88,7 @@ export function useAuth(): UseAuthReturn {
     isAuthenticated,
     user,
     loading,
+    isInitializing,
     login,
     logout,
   };

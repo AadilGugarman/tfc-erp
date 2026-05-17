@@ -1,3 +1,5 @@
+import { useNavigate } from "react-router-dom";
+import { authService } from "@/services/auth";
 import { useAppStore } from "@/stores/useAppStore";
 import {
   Truck,
@@ -79,7 +81,9 @@ const QUICK_ACTIONS: QuickAction[] = [
 ];
 
 export function QuickActions() {
-  const { setCurrentPage, setInvoiceCreationMode } = useAppStore();
+  const navigate = useNavigate();
+  const { setInvoiceCreationMode } = useAppStore();
+  const currentCompanyId = authService.getCurrentCompany();
 
   return (
     <div className="space-y-3">
@@ -95,7 +99,12 @@ export function QuickActions() {
                 action.id === "sales" ? "sales" : "purchase",
               );
             }
-            setCurrentPage(action.page as any);
+
+            if (currentCompanyId) {
+              navigate(`/app/${currentCompanyId}/${action.page}`);
+            } else {
+              navigate("/select-company");
+            }
           };
           return (
             <button

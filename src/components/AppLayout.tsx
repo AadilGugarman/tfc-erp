@@ -20,22 +20,10 @@ export function AppLayout() {
   const { companyId } = useParams<{ companyId: string }>();
 
   useEffect(() => {
-    // Ensure companies are loaded first
-    if (companies.length === 0) {
-      loadCompanies();
-    }
-
     if (companyId) {
       setCurrentCompanyId(companyId);
-      refreshDataFromDb();
     }
-  }, [
-    companyId,
-    setCurrentCompanyId,
-    refreshDataFromDb,
-    companies.length,
-    loadCompanies,
-  ]);
+  }, [companyId, setCurrentCompanyId]);
 
   return (
     <div className="min-h-screen">

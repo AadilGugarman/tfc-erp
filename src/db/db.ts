@@ -13,13 +13,10 @@ import type {
   User,
   Company,
 } from "./schema";
-import { secureInvoke } from "@/services/auth";
+import { secureInvoke, getTauriInvoke } from "@/utils/tauri";
 
 let dbCache: Database | null = null;
 let backendInitPromise: Promise<void> | null = null;
-let tauriInvokePromise: Promise<
-  ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null
-> | null = null;
 
 interface Database {
   parties: Party[];
@@ -106,26 +103,6 @@ function normalizeDb(data: Partial<Database>): Database {
     ...data,
     settings: { ...base.settings, ...(data.settings || {}) },
   };
-}
-
-function isTauriRuntime(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
-
-async function getTauriInvoke(): Promise<
-  ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null
-> {
-  if (!isTauriRuntime()) {
-    return null;
-  }
-
-  if (!tauriInvokePromise) {
-    tauriInvokePromise = import("@tauri-apps/api/core")
-      .then((mod) => mod.invoke)
-      .catch(() => null);
-  }
-
-  return tauriInvokePromise;
 }
 
 async function loadFromBackend(): Promise<Database | null> {

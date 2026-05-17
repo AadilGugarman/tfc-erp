@@ -113,8 +113,16 @@ export function Sidebar() {
   const effectiveCompanyId = companyId || currentCompanyId;
 
   const handleNavigate = (pageId: string) => {
+    if (pageId === "dashboard") {
+      navigate("/app/dashboard");
+      return;
+    }
+
     if (effectiveCompanyId) {
       navigate(`/app/${effectiveCompanyId}/${pageId}`);
+    } else {
+      // If no company context, most pages won't work, redirect to selection
+      navigate("/select-company");
     }
   };
 

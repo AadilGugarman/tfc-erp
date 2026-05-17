@@ -1,0 +1,38 @@
+[[permission]]
+identifier = "main"
+description = "Allow all main application commands"
+commands.allow = [
+  "login",
+  "has_users",
+  "setup_initial_admin",
+  "refresh_access_token",
+  "verify_access_token",
+  "get_user",
+  "list_users",
+  "create_user",
+  "update_user",
+  "update_user_companies",
+  "change_password",
+  "reset_database_dev",
+  "wipe_database",
+  "get_companies",
+  "get_vehicle_registers",
+  "create_vehicle_register",
+  "get_dashboard_summary",
+  "create_company",
+  "update_company",
+  "delete_company",
+  "get_backup_config",
+  "update_backup_config",
+  "save_backup_client_state",
+  "create_manual_backup",
+  "create_startup_backup",
+  "run_auto_backup_if_due",
+  "list_backups",
+  "validate_backup",
+  "delete_backup",
+  "open_backup_folder",
+  "export_backup",
+  "restore_backup",
+  "restart_application"
+]

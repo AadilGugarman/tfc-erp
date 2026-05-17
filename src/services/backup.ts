@@ -1,5 +1,8 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { secureInvoke } from "./auth";
+import {
+  secureInvoke,
+  isTauriRuntime as isDesktopRuntime,
+} from "@/utils/tauri";
 
 export type BackupFrequency =
   | "daily"
@@ -64,10 +67,6 @@ interface ClientStateSnapshot {
   companies_json: string | null;
   session_json: string | null;
   user_json: string | null;
-}
-
-function isDesktopRuntime(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
 export function collectClientStateSnapshot(): string {

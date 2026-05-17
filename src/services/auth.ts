@@ -1,8 +1,4 @@
-import * as db from "@/db/db";
-
-let tauriInvokePromise: Promise<
-  ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null
-> | null = null;
+import { secureInvoke } from "@/utils/tauri";
 
 export interface AuthResponse {
   user_id: string;
@@ -42,82 +38,6 @@ const USER_KEY = "tfc-erp-user";
 const TOKEN_EXPIRY_KEY = "tfc-erp-token-expiry";
 const CURRENT_COMPANY_ID_KEY = "tfc-erp-current-company-id";
 const COMPANY_IDS_KEY = "tfc-erp-company-ids";
-
-function isTauriRuntime(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
-
-async function getTauriInvoke(): Promise<
-  ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null
-> {
-  if (!isTauriRuntime()) {
-    return null;
-  }
-
-  if (!tauriInvokePromise) {
-    tauriInvokePromise = import("@tauri-apps/api/core")
-      .then((mod) => mod.invoke)
-      .catch(() => null);
-  }
-
-  return tauriInvokePromise;
-}
-
-const waitForTauri = async (maxAttempts = 10, delayMs = 100): Promise<void> => {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    if (isTauriRuntime()) {
-      console.debug(
-        "[AuthService] Tauri runtime detected after",
-        attempt,
-        "attempts",
-      );
-      return;
-    }
-    if (attempt < maxAttempts - 1) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-  console.warn(
-    "[AuthService] Tauri did not become available after",
-    maxAttempts,
-    "attempts",
-  );
-};
-
-// Safe invoke with fallback
-export const secureInvoke = async <T>(
-  command: string,
-  args?: Record<string, unknown>,
-): Promise<T> => {
-  // Wait for Tauri to be available
-  await waitForTauri();
-
-  const invokeFn = await getTauriInvoke();
-  if (!invokeFn) {
-    console.warn(
-      "Tauri backend is not available. Backend service unavailable.",
-    );
-
-    throw new Error(
-      'Backend service unavailable. Please make sure you started the app with "npm run desktop:dev" and not just "npm run dev".',
-    );
-  }
-
-  // Inject token if available
-  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
-  const enrichedArgs = {
-    ...args,
-    token: args?.token || token || undefined,
-  };
-
-  try {
-    return (await invokeFn(command, enrichedArgs)) as T;
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error(`Tauri command failed: ${command}`, error);
-    throw new Error(`Command failed: ${errorMsg}`);
-  }
-};
 
 const safeInvoke = secureInvoke;
 
@@ -340,8 +260,8 @@ class AuthService {
 
     if (!token) return false;
 
-    // Check if token is expired (with 5 minute buffer for refresh)
-    if (expiry && expiry < Date.now() + 5 * 60000) {
+    // Check if token is strictly expired
+    if (expiry && expiry < Date.now()) {
       return false;
     }
 
@@ -351,9 +271,9 @@ class AuthService {
   /**
    * Get user by ID (admin only)
    */
-  async getUser(userId: string): Promise<User> {
+  async getUser(user_id: string): Promise<User> {
     try {
-      const response = await safeInvoke<any>("get_user", { userId: userId });
+      const response = await safeInvoke<any>("get_user", { user_id });
       return {
         id: response.id,
         username: response.username,
@@ -425,17 +345,17 @@ class AuthService {
    * Update user (admin only)
    */
   async updateUser(
-    userId: string,
+    user_id: string,
     name: string,
     role: string,
-    isActive: boolean,
+    is_active: boolean,
   ): Promise<User> {
     try {
       const response = await safeInvoke<any>("update_user", {
-        user_id: userId,
+        user_id,
         name,
         role,
-        is_active: isActive,
+        is_active,
       });
       return {
         id: response.id,
@@ -482,15 +402,15 @@ class AuthService {
    * Change password
    */
   async changePassword(
-    userId: string,
-    oldPassword: string,
-    newPassword: string,
+    user_id: string,
+    old_password: string,
+    new_password: string,
   ): Promise<void> {
     try {
       await safeInvoke<void>("change_password", {
-        user_id: userId,
-        old_password: oldPassword,
-        new_password: newPassword,
+        user_id,
+        old_password,
+        new_password,
       });
     } catch (error) {
       throw new Error(`Failed to change password: ${error}`);

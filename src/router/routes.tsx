@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { LoginPage } from "@/pages/Login";
 import { DashboardPage } from "@/pages/Dashboard";
 import { VehicleArrivalRegisterPage } from "@/pages/VehicleArrivalRegister";
@@ -13,6 +13,7 @@ import { ReportsPage } from "@/pages/Reports";
 import { SettingsPage } from "@/pages/Settings";
 import { SearchPage } from "@/pages/Search";
 import { CreateCompanyPage } from "@/pages/CreateCompany";
+import { EditCompanyPage } from "@/pages/EditCompany";
 import { ManageCompaniesPage } from "@/pages/ManageCompanies";
 import { SelectCompanyPage } from "@/pages/SelectCompany";
 import { NoCompanyAssignedPage } from "@/pages/NoCompanyAssigned";
@@ -21,15 +22,54 @@ import {
   ProtectedRoute,
 } from "@/components/ProtectedCompanyRoute";
 import { AppLayout } from "@/components/AppLayout";
+import { useAuth } from "@/hooks/useAuth";
+import { authService } from "@/services/auth";
+
+/**
+ * Redirects users to the appropriate starting page based on auth status
+ */
+function RootRedirect() {
+  const { isAuthenticated, isInitializing } = useAuth();
+  const lastCompanyId = authService.getCurrentCompany();
+  const accessibleCompanies = authService.getAccessibleCompanies();
+
+  if (isInitializing) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // If we have a last selected company, use it
+  if (lastCompanyId && accessibleCompanies.includes(lastCompanyId)) {
+    return <Navigate to={`/app/${lastCompanyId}/dashboard`} replace />;
+  }
+
+  // If we have companies but none selected, pick the first one automatically
+  // (As requested: directly navigate to dashboard if there's more than one)
+  if (accessibleCompanies.length > 0) {
+    const firstCompanyId = accessibleCompanies[0];
+    return <Navigate to={`/app/${firstCompanyId}/dashboard`} replace />;
+  }
+
+  // If no companies at all, go to selection/creation screen
+  return <Navigate to="/select-company" replace />;
+}
 
 /**
  * Main router configuration with multi-company routes
- * Structure: /app/:companyId/page for all authenticated pages
- * Structure: /login for authentication
  */
 export function AppRoutes() {
   return (
     <Routes>
+      {/* Root redirection */}
+      <Route path="/" element={<RootRedirect />} />
+
       {/* Authentication */}
       <Route path="/login" element={<LoginPage />} />
 
@@ -39,6 +79,14 @@ export function AppRoutes() {
         element={
           <ProtectedRoute>
             <CreateCompanyPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/edit-company/:companyId"
+        element={
+          <ProtectedRoute>
+            <EditCompanyPage />
           </ProtectedRoute>
         }
       />
@@ -60,15 +108,13 @@ export function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<DashboardPage />} />
+        <Route index element={<RootRedirect />} />
+        <Route path="dashboard" element={<RootRedirect />} />
 
         {/* Nested routes requiring company context */}
-        <Route
-          path=":companyId"
-          element={<ProtectedCompanyRoute />}
-        >
+        <Route path=":companyId" element={<ProtectedCompanyRoute />}>
           {/* Operations */}
+          <Route path="dashboard" element={<DashboardPage />} />
           <Route
             path="vehicle-register"
             element={<VehicleArrivalRegisterPage />}
@@ -113,9 +159,8 @@ export function AppRoutes() {
         }
       />
 
-      {/* Catch-all redirects to login */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* Catch-all redirects back to root which handles intelligent redirection */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
