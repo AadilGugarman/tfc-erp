@@ -42,13 +42,8 @@ function getFinancialYearLabel(
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const {
-    loadParties,
-    loadSuppliers,
-    loadPayments,
-    loadInventory,
-    currentCompany,
-  } = useAppStore();
+  const { loadParties, loadPayments, loadInventory, currentCompany } =
+    useAppStore();
   const [selectedFinancialYear, setSelectedFinancialYear] = useState(
     getFinancialYearLabel(currentCompany),
   );
@@ -57,10 +52,9 @@ export function DashboardPage() {
 
   useEffect(() => {
     loadParties();
-    loadSuppliers();
     loadPayments();
     loadInventory();
-  }, [loadParties, loadSuppliers, loadPayments, loadInventory]);
+  }, [loadParties, loadPayments, loadInventory]);
 
   useEffect(() => {
     setSelectedFinancialYear(getFinancialYearLabel(currentCompany));

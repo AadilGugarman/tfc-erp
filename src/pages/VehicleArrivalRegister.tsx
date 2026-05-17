@@ -24,6 +24,8 @@ import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { cn } from "@/utils/cn";
+import { PartySelect } from "@/components/PartySelect";
+import { CreatePartyModal } from "@/components/CreatePartyModal";
 
 type Row = {
   id: string;
@@ -72,6 +74,10 @@ export function VehicleArrivalRegisterPage() {
   const [registers, setRegisters] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRegister, setSelectedRegister] = useState<any>(null);
+  const [isCreatePartyModalOpen, setIsCreatePartyModalOpen] = useState(false);
+  const [currentRowIdForParty, setCurrentRowIdForParty] = useState<
+    string | null
+  >(null);
 
   // Form State
   const [date, setDate] = useState(todayStr());
@@ -88,7 +94,13 @@ export function VehicleArrivalRegisterPage() {
   useEffect(() => {
     loadParties();
     loadRegisters();
-  }, [loadParties]);
+  }, [loadParties, currentCompanyId]);
+
+  const suppliers = useMemo(() => {
+    return parties.filter(
+      (p) => p.partyType === "supplier" || p.partyType === "both",
+    );
+  }, [parties]);
 
   const loadRegisters = async () => {
     if (!currentCompanyId) return;
@@ -593,8 +605,14 @@ export function VehicleArrivalRegisterPage() {
                   <td className="px-0 py-0 border-r border-slate-200 dark:border-slate-800">
                     <PartySelect
                       value={row.partyId}
-                      parties={parties}
-                      onChange={(v) => updateRow(idx, "partyId", v)}
+                      parties={suppliers}
+                      onChange={(val) => updateRow(idx, "partyId", val)}
+                      placeholder="Select Supplier"
+                      onCreateNew={() => {
+                        setCurrentRowIdForParty(row.id);
+                        setIsCreatePartyModalOpen(true);
+                      }}
+                      createLabel="+ Create Supplier"
                     />
                   </td>
                   <td className="px-0 py-0 border-r border-slate-200 dark:border-slate-800">
@@ -699,6 +717,20 @@ export function VehicleArrivalRegisterPage() {
           {t("vehicleArrival.commitSave")}
         </Button>
       </div>
+      <CreatePartyModal
+        isOpen={isCreatePartyModalOpen}
+        onClose={() => setIsCreatePartyModalOpen(false)}
+        initialType="supplier"
+        onSuccess={(p) => {
+          if (currentRowIdForParty !== null) {
+            const idx = rows.findIndex((r) => r.id === currentRowIdForParty);
+            if (idx !== -1) {
+              updateRow(idx, "partyId", p.id);
+              updateRow(idx, "partyName", p.name);
+            }
+          }
+        }}
+      />
     </div>
   );
 }
@@ -887,94 +919,6 @@ function VehicleDetailModal({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function PartySelect({
-  value,
-  parties,
-  onChange,
-}: {
-  value: string;
-  parties: any[];
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const selected = parties.find((p) => p.id === value);
-
-  const filtered = useMemo(() => {
-    if (!search.trim()) return parties.slice(0, 10);
-    return parties
-      .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
-      .slice(0, 10);
-  }, [parties, search]);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  return (
-    <div ref={containerRef} className="relative w-full h-full">
-      <button
-        onClick={() => setOpen(!open)}
-        className={cn(
-          "w-full h-11 px-4 text-left text-sm outline-none transition-all",
-          selected
-            ? "text-slate-900 dark:text-white font-medium"
-            : "text-slate-400",
-          open && "ring-2 ring-blue-500/50 bg-blue-50/50 dark:bg-blue-900/20",
-        )}
-      >
-        {selected ? selected.name : "-- Select Supplier --"}
-      </button>
-
-      {open && (
-        <div className="absolute top-full left-0 z-50 w-72 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-          <div className="p-2 border-b border-slate-100 dark:border-slate-800">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-              <input
-                autoFocus
-                placeholder="Search party..."
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 rounded-lg outline-none"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="max-h-60 overflow-y-auto py-1">
-            {filtered.map((p) => (
-              <button
-                key={p.id}
-                className="w-full px-4 py-2 text-left text-xs hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors flex items-center justify-between"
-                onClick={() => {
-                  onChange(p.id);
-                  setOpen(false);
-                  setSearch("");
-                }}
-              >
-                <span>{p.name}</span>
-                {p.city && (
-                  <span className="text-[10px] text-slate-400">{p.city}</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

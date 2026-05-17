@@ -2,6 +2,7 @@
 // Simulating SQLite schema with TypeScript types
 
 export type LedgerType = "debit" | "credit";
+export type PartyType = "customer" | "supplier" | "both";
 export type PaymentMode = "cash" | "bank" | "upi" | "cheque" | "other";
 export type TaxType = "gst" | "none";
 export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
@@ -16,31 +17,16 @@ export interface Party {
   email: string;
   gstin: string;
   address: string;
+  shippingAddress: string;
   city: string;
   state: string;
   openingBalance: number;
   balanceType: LedgerType;
   createdAt: string;
   updatedAt: string;
-  isSupplier: boolean;
+  partyType: PartyType;
   commissionPercent: number;
-  notes: string;
-}
-
-export interface Supplier {
-  id: string;
-  companyId: string;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-  city: string;
-  state: string;
-  openingBalance: number;
-  balanceType: LedgerType;
-  createdAt: string;
-  updatedAt: string;
-  commissionPercent: number;
+  creditLimit: number;
   notes: string;
 }
 
@@ -225,30 +211,105 @@ export interface Payment {
   createdAt: string;
 }
 
-export interface Settings {
-  businessName: string;
-  businessAddress: string;
+export interface CompanySettings {
+  companyName: string;
+  legalName: string;
+  gstin: string;
+  panNumber: string;
+  address: string;
   city: string;
   state: string;
+  country: string;
+  pincode: string;
   phone: string;
   email: string;
-  gstin: string;
-  commissionPercent: number;
-  taxPercent: number;
+  website: string;
+  logo: string | null;
+  signature: string | null;
+  whatsappPhone: string;
+}
+
+export interface FinancialSettings {
+  financialYearStart: string;
+  financialYearEnd: string;
   currency: string;
-  billPrefix: string;
+  currencySymbol: string;
+  taxSystem: "GST" | "VAT" | "Sales Tax" | "None";
+  invoicePrefix: string;
+  invoiceStartingNumber: number;
   purchasePrefix: string;
+  purchaseStartingNumber: number;
   vehiclePrefix: string;
-  nextBillNo: number;
-  nextPurchaseNo: number;
-  nextVehicleEntryNo: number;
+  vehicleStartingNumber: number;
+  decimalPrecision: number;
+  roundOffRule: "up" | "down" | "nearest" | "bankers";
+  dateFormat: string;
+  timeFormat: "12h" | "24h";
+  timezone: string;
+}
+
+export interface InvoiceSettings {
+  template: "modern" | "classic" | "minimal" | "professional";
+  termsAndConditions: string;
+  footerNotes: string;
+  defaultTax: number;
+  commissionPercent: number;
+  enableQRCode: boolean;
+  autoInvoiceNumber: boolean;
+  invoiceColorTheme: string;
+  showPaymentDetails: boolean;
+  showCompanyDetails: boolean;
+  dueDateDays: number;
+}
+
+export interface BackupInfo {
+  id: string;
+  name: string;
+  path: string;
+  size: string;
+  date: string;
+  type: "auto" | "manual" | "export";
+  encrypted: boolean;
+}
+
+export interface BackupSettings {
+  autoBackupEnabled: boolean;
+  backupFrequency: "daily" | "weekly" | "monthly";
+  backupLocation: string;
+  lastBackupDate: string | null;
+  backupRetentionDays: number;
+  encryptBackups: boolean;
+  cloudBackupEnabled: boolean;
+  backupHistory: BackupInfo[];
+}
+
+export interface AppearanceSettings {
+  theme: "light" | "dark" | "system";
+  accentColor: string;
+  fontSize: "small" | "medium" | "large";
+  compactMode: boolean;
+  animations: boolean;
   language: "english" | "gujarati";
-  darkMode: boolean;
   lowStockAlert: boolean;
-  logoUrl?: string;
-  signatureUrl?: string;
-  whatsappPhone?: string;
-  termsAndConditions?: string;
+}
+
+export interface SecuritySettings {
+  requirePassword: boolean;
+  passwordTimeoutMinutes: number;
+  twoFactorEnabled: boolean;
+  sessionTimeoutMinutes: number;
+  allowExport: boolean;
+  auditLogEnabled: boolean;
+  dataEncryptionEnabled: boolean;
+}
+
+export interface Settings {
+  company: CompanySettings;
+  financial: FinancialSettings;
+  invoice: InvoiceSettings;
+  backup: BackupSettings;
+  appearance: AppearanceSettings;
+  security: SecuritySettings;
 }
 
 export interface Company {

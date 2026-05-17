@@ -3,8 +3,7 @@ import { LoginPage } from "@/pages/Login";
 import { DashboardPage } from "@/pages/Dashboard";
 import { VehicleArrivalRegisterPage } from "@/pages/VehicleArrivalRegister";
 import { PartiesPage } from "@/pages/Parties";
-import { SuppliersPage } from "@/pages/Suppliers";
-import { LedgerPage } from "@/pages/Ledger";
+import { PartyDetailsPage } from "@/pages/PartyDetails";
 import { SalesAndPurchasePage } from "@/pages/SalesAndPurchase";
 import { PurchasePage } from "@/pages/PurchasePage";
 import { InventoryPage } from "@/pages/Inventory";
@@ -122,10 +121,9 @@ export function AppRoutes() {
 
           {/* Masters */}
           <Route path="parties" element={<PartiesPage />} />
-          <Route path="suppliers" element={<SuppliersPage />} />
+          <Route path="parties/:partyId" element={<PartyDetailsPage />} />
 
           {/* Ledger & Transactions */}
-          <Route path="ledger" element={<LedgerPage />} />
           <Route path="transactions" element={<SalesAndPurchasePage />} />
           <Route path="purchases" element={<PurchasePage />} />
 

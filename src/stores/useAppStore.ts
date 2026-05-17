@@ -2,7 +2,6 @@ import { create } from "zustand";
 import type {
   Settings,
   Party,
-  Supplier,
   Bill,
   Purchase,
   Payment,
@@ -61,10 +60,6 @@ interface AppState {
   loadParties: () => void;
   searchParties: (query: string) => Party[];
 
-  suppliers: Supplier[];
-  loadSuppliers: () => void;
-  searchSuppliers: (query: string) => Supplier[];
-
   inventoryItems: InventoryItem[];
   loadInventory: () => void;
 
@@ -111,7 +106,7 @@ interface AppState {
 
 const getStoredLanguage = (): "english" | "gujarati" => {
   const settings = db.getSettings();
-  return settings.language || "english";
+  return settings.appearance?.language || "english";
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -272,7 +267,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setLanguage: (lang) => {
     const i18nLang = lang === "gujarati" ? "gu" : "en";
     localStorage.setItem("appLanguage", i18nLang);
-    db.updateSettings({ language: lang });
+    const currentSettings = get().settings;
+    db.updateSettings({
+      appearance: { ...currentSettings.appearance, language: lang },
+    });
     set({ language: lang });
     const i18n = window.__i18n;
     if (i18n) {
@@ -287,8 +285,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ settings });
   },
   setDarkMode: (dark) => {
-    db.updateSettings({ darkMode: dark });
-    set({ settings: { ...get().settings, darkMode: dark } });
+    const currentSettings = get().settings;
+    const theme = dark ? "dark" : "light";
+    db.updateSettings({
+      appearance: { ...currentSettings.appearance, theme },
+    });
+    set({
+      settings: {
+        ...currentSettings,
+        appearance: { ...currentSettings.appearance, theme },
+      },
+    });
     if (dark) {
       document.documentElement.classList.add("dark");
     } else {
@@ -312,25 +319,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const q = query.toLowerCase();
     return parties.filter(
       (p) => p.name.toLowerCase().includes(q) || p.phone.includes(q),
-    );
-  },
-
-  suppliers: [],
-  loadSuppliers: () => {
-    const { currentCompanyId } = get();
-    if (!currentCompanyId) {
-      set({ suppliers: [] });
-      return;
-    }
-    const suppliers = db.getSuppliersByCompany(currentCompanyId);
-    set({ suppliers });
-  },
-  searchSuppliers: (query) => {
-    const { currentCompanyId, suppliers } = get();
-    if (!currentCompanyId) return [];
-    const q = query.toLowerCase();
-    return suppliers.filter(
-      (s) => s.name.toLowerCase().includes(q) || s.phone.includes(q),
     );
   },
 
@@ -409,7 +397,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.debug("[Store] No company selected - skipping data load");
       set({
         parties: [],
-        suppliers: [],
         inventoryItems: [],
         payments: [],
         bills: [],
@@ -422,7 +409,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // Load ONLY company-specific data
     const parties = db.getPartiesByCompany(currentCompanyId);
-    const suppliers = db.getSuppliersByCompany(currentCompanyId);
     const inventoryItems = db.getInventoryItemsByCompany(currentCompanyId);
     const payments = db.getPaymentsByCompany(currentCompanyId);
     const bills = db.getBillsByCompany(currentCompanyId);
@@ -434,7 +420,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       settings: db.getSettings(),
       parties,
-      suppliers,
       inventoryItems,
       payments,
       bills,

@@ -2,7 +2,6 @@ import { CompanyFormData, ExistingCompany } from "../types/company";
 
 export const LANGUAGES = [
   { id: "en", name: "English (US)" },
-  { id: "en-gb", name: "English (UK)" },
   { id: "gu", name: "Gujarati (ભારતીય)" },
  
 ];

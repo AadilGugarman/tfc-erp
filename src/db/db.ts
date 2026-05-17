@@ -20,7 +20,6 @@ let backendInitPromise: Promise<void> | null = null;
 
 interface Database {
   parties: Party[];
-  suppliers: Supplier[];
   ledgerEntries: LedgerEntry[];
   bills: Bill[];
   inventoryItems: InventoryItem[];
@@ -57,32 +56,89 @@ export function subscribeDbChanges(listener: DbChangeListener): () => void {
 
 function createDefaultSettings(): Settings {
   return {
-    businessName: "",
-    businessAddress: "",
-    city: "",
-    state: "",
-    phone: "",
-    email: "",
-    gstin: "",
-    commissionPercent: 0,
-    taxPercent: 0,
-    currency: "₹",
-    billPrefix: "INV",
-    purchasePrefix: "PO",
-    vehiclePrefix: "VR",
-    nextBillNo: 1001,
-    nextPurchaseNo: 5001,
-    nextVehicleEntryNo: 2001,
-    language: "english",
-    darkMode: false,
-    lowStockAlert: true,
+    company: {
+      companyName: "",
+      legalName: "",
+      gstin: "",
+      panNumber: "",
+      address: "",
+      city: "",
+      state: "",
+      country: "India",
+      pincode: "",
+      phone: "",
+      email: "",
+      website: "",
+      logo: null,
+      signature: null,
+      whatsappPhone: "",
+    },
+    financial: {
+      financialYearStart: "2024-04-01",
+      financialYearEnd: "2025-03-31",
+      currency: "INR",
+      currencySymbol: "₹",
+      taxSystem: "GST",
+      invoicePrefix: "INV",
+      invoiceStartingNumber: 1001,
+      purchasePrefix: "PO",
+      purchaseStartingNumber: 5001,
+      vehiclePrefix: "VR",
+      vehicleStartingNumber: 2001,
+      decimalPrecision: 2,
+      roundOffRule: "nearest",
+      dateFormat: "DD/MM/YYYY",
+      timeFormat: "12h",
+      timezone: "Asia/Kolkata",
+    },
+    invoice: {
+      template: "modern",
+      termsAndConditions:
+        "1. Goods once sold will not be taken back.\n2. Subject to local jurisdiction.",
+      footerNotes: "Thank you for your business!",
+      defaultTax: 0,
+      commissionPercent: 0,
+      enableQRCode: true,
+      autoInvoiceNumber: true,
+      invoiceColorTheme: "#2563eb",
+      showPaymentDetails: true,
+      showCompanyDetails: true,
+      dueDateDays: 7,
+    },
+    backup: {
+      autoBackupEnabled: true,
+      backupFrequency: "daily",
+      backupLocation: "./backups",
+      lastBackupDate: null,
+      backupRetentionDays: 30,
+      encryptBackups: false,
+      cloudBackupEnabled: false,
+      backupHistory: [],
+    },
+    appearance: {
+      theme: "light",
+      accentColor: "#2563eb",
+      fontSize: "medium",
+      compactMode: false,
+      animations: true,
+      language: "english",
+      lowStockAlert: true,
+    },
+    security: {
+      requirePassword: true,
+      passwordTimeoutMinutes: 15,
+      twoFactorEnabled: false,
+      sessionTimeoutMinutes: 60,
+      allowExport: true,
+      auditLogEnabled: true,
+      dataEncryptionEnabled: false,
+    },
   };
 }
 
 function createEmptyDb(): Database {
   return {
     parties: [],
-    suppliers: [],
     ledgerEntries: [],
     bills: [],
     inventoryItems: [],
@@ -219,71 +275,6 @@ export function deleteParty(id: string): boolean {
   return true;
 }
 
-export function getSuppliersByCompany(companyId: string): Supplier[] {
-  return getDb().suppliers.filter((s) => s.companyId === companyId);
-}
-
-export function getSupplier(id: string): Supplier | undefined {
-  return getDb().suppliers.find((s) => s.id === id);
-}
-
-export function createSupplier(
-  data: Omit<Supplier, "id" | "createdAt" | "updatedAt">,
-): Supplier {
-  const db = getDb();
-  const supplier: Supplier = {
-    ...data,
-    id: genId(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  db.suppliers.push(supplier);
-
-  if (data.openingBalance !== 0) {
-    const entry: LedgerEntry = {
-      id: genId(),
-      companyId: data.companyId,
-      partyId: supplier.id,
-      partyName: supplier.name,
-      date: new Date().toISOString().split("T")[0],
-      type: data.balanceType,
-      amount: data.openingBalance,
-      description: "Opening Balance",
-      referenceType: "manual",
-      referenceId: "",
-      runningBalance: data.openingBalance,
-      createdAt: new Date().toISOString(),
-    };
-    db.ledgerEntries.push(entry);
-  }
-
-  saveDb(db);
-  return supplier;
-}
-
-export function updateSupplier(
-  id: string,
-  data: Partial<Supplier>,
-): Supplier | null {
-  const db = getDb();
-  const idx = db.suppliers.findIndex((s) => s.id === id);
-  if (idx === -1) return null;
-  db.suppliers[idx] = {
-    ...db.suppliers[idx],
-    ...data,
-    updatedAt: new Date().toISOString(),
-  };
-  saveDb(db);
-  return db.suppliers[idx];
-}
-
-export function deleteSupplier(id: string): boolean {
-  const db = getDb();
-  db.suppliers = db.suppliers.filter((s) => s.id !== id);
-  saveDb(db);
-  return true;
-}
-
 export function getLedgerEntriesByCompany(
   companyId: string,
   partyId?: string,
@@ -358,16 +349,16 @@ export function getBill(id: string): Bill | undefined {
 
 export function getNextBillNo(): string {
   const db = getDb();
-  const no = db.settings.nextBillNo;
-  return `${db.settings.billPrefix}-${no}`;
+  const no = db.settings.financial.invoiceStartingNumber;
+  return `${db.settings.financial.invoicePrefix}-${no}`;
 }
 
 export function createBill(
   data: Omit<Bill, "id" | "billNo" | "createdAt" | "updatedAt">,
 ): { bill: Bill; ledgerEntry: LedgerEntry } {
   const db = getDb();
-  const billNo = `${db.settings.billPrefix}-${db.settings.nextBillNo}`;
-  db.settings.nextBillNo += 1;
+  const billNo = `${db.settings.financial.invoicePrefix}-${db.settings.financial.invoiceStartingNumber}`;
+  db.settings.financial.invoiceStartingNumber += 1;
 
   const previousBal = getPartyBalance(data.companyId, data.partyId);
   const prevAmount =
@@ -582,16 +573,16 @@ export function getPurchase(id: string): Purchase | undefined {
 
 export function getNextPurchaseNo(): string {
   const db = getDb();
-  const no = db.settings.nextPurchaseNo;
-  return `${db.settings.purchasePrefix}-${no}`;
+  const no = db.settings.financial.purchaseStartingNumber;
+  return `${db.settings.financial.purchasePrefix}-${no}`;
 }
 
 export function createPurchase(
   data: Omit<Purchase, "id" | "purchaseNo" | "createdAt" | "updatedAt">,
 ): { purchase: Purchase } {
   const db = getDb();
-  const purchaseNo = `${db.settings.purchasePrefix}-${db.settings.nextPurchaseNo}`;
-  db.settings.nextPurchaseNo += 1;
+  const purchaseNo = `${db.settings.financial.purchasePrefix}-${db.settings.financial.purchaseStartingNumber}`;
+  db.settings.financial.purchaseStartingNumber += 1;
 
   const purchase: Purchase = {
     ...data,

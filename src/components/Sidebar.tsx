@@ -41,40 +41,22 @@ const NAV_GROUPS = [
         icon: ShoppingCart,
         shortcut: "Alt+P",
       },
-    ],
-  },
-  {
-    label: "Accounting",
-    items: [
-      {
-        id: "vehicle-register",
-        labelKey: "navigation.vehicleArrivalRegister",
-        icon: Truck,
-        shortcut: "Alt+V",
-      },
       {
         id: "inventory",
         labelKey: "navigation.inventory",
         icon: Package,
         shortcut: "Alt+6",
       },
+    ],
+  },
+  {
+    label: "Relationships",
+    items: [
       {
         id: "parties",
         labelKey: "navigation.parties",
         icon: Users,
         shortcut: "Alt+2",
-      },
-      {
-        id: "suppliers",
-        labelKey: "navigation.suppliers",
-        icon: Layers,
-        shortcut: "Alt+3",
-      },
-      {
-        id: "ledger",
-        labelKey: "navigation.ledger",
-        icon: BookOpen,
-        shortcut: "Alt+4",
       },
       {
         id: "payments",

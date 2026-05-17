@@ -32,15 +32,8 @@ import { useShortcutAction } from "@/keyboard/shortcutManager";
 
 export function PaymentsPage() {
   const { t } = useTranslation();
-  const {
-    parties,
-    suppliers,
-    payments,
-    currentCompanyId,
-    loadParties,
-    loadSuppliers,
-    loadPayments,
-  } = useAppStore();
+  const { parties, payments, currentCompanyId, loadParties, loadPayments } =
+    useAppStore();
   const { toasts, removeToast, success, error } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -56,21 +49,17 @@ export function PaymentsPage() {
 
   useEffect(() => {
     loadParties();
-    loadSuppliers();
     loadPayments();
   }, []);
 
-  const allParties = [
-    ...parties.map((p) => ({ id: p.id, name: p.name })),
-    ...suppliers.map((s) => ({ id: s.id, name: s.name })),
-  ];
+  const allParties = parties.map((p) => ({ id: p.id, name: p.name }));
   const sortedPayments = [...payments].sort((a, b) =>
     b.createdAt.localeCompare(a.createdAt),
   );
   const filtered = sortedPayments.filter(
     (p) =>
-      p.partyName.toLowerCase().includes(search.toLowerCase()) ||
-      p.referenceNo.toLowerCase().includes(search.toLowerCase()),
+      (p.partyName || "").toLowerCase().includes(search.toLowerCase()) ||
+      (p.referenceNo || "").toLowerCase().includes(search.toLowerCase()),
   );
 
   useEffect(() => {

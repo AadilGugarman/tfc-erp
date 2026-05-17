@@ -3,10 +3,10 @@ import { useAppStore } from "@/stores/useAppStore";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Input, Select } from "@/components/ui/Input";
-import { SupplierSelect } from "@/components/SupplierSelect";
+import { PartySelect } from "@/components/PartySelect";
 import { Card } from "@/components/ui/Card";
 import { formatCurrency, formatDate, todayStr } from "@/utils/formatters";
-import type { Purchase, PurchaseItem, Supplier } from "@/db/schema";
+import type { Purchase, PurchaseItem, Party } from "@/db/schema";
 import {
   Plus,
   Trash2,
@@ -29,6 +29,14 @@ import { cn } from "@/utils/cn";
 import * as db from "@/db/db";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import {
+  PremiumModal,
+  PremiumInput,
+  PremiumSelect,
+  PremiumTextarea,
+} from "@/components";
+import type { LedgerType, PartyType } from "@/db/schema";
+import { CreatePartyModal } from "@/components/CreatePartyModal";
 
 type ViewMode = "list" | "form";
 
@@ -57,10 +65,10 @@ const createEmptyLineItem = (id = Date.now().toString()): LineItem => ({
 export function PurchasePage() {
   const { t } = useTranslation();
   const {
-    suppliers,
+    parties,
     purchases,
     currentCompanyId,
-    loadSuppliers,
+    loadParties,
     loadPurchases,
     showNotification,
     openModal,
@@ -68,6 +76,7 @@ export function PurchasePage() {
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [searchTerm, setSearchTerm] = useState("");
+  const [isCreatePartyModalOpen, setIsCreatePartyModalOpen] = useState(false);
 
   // Form State
   const [invoiceDate, setInvoiceDate] = useState(todayStr());
@@ -79,9 +88,15 @@ export function PurchasePage() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    loadSuppliers();
+    loadParties();
     loadPurchases();
   }, []);
+
+  const suppliers = useMemo(() => {
+    return parties.filter(
+      (p) => p.partyType === "supplier" || p.partyType === "both",
+    );
+  }, [parties]);
 
   const selectedSupplier = useMemo(
     () => suppliers.find((p) => p.id === selectedSupplierId),
@@ -386,11 +401,13 @@ export function PurchasePage() {
             <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-slate-400 mb-1.5">
               {t("purchaseBilling.searchSupplier")}
             </label>
-            <SupplierSelect
+            <PartySelect
               value={selectedSupplierId}
-              suppliers={suppliers}
+              parties={suppliers}
               onChange={setSelectedSupplierId}
               placeholder={t("purchaseBilling.selectSupplier")}
+              onCreateNew={() => setIsCreatePartyModalOpen(true)}
+              createLabel="+ Create Supplier"
             />
           </div>
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 flex flex-col justify-center">
@@ -657,6 +674,13 @@ export function PurchasePage() {
           {t("purchaseBilling.commitSave")}
         </Button>
       </div>
+
+      <CreatePartyModal
+        isOpen={isCreatePartyModalOpen}
+        onClose={() => setIsCreatePartyModalOpen(false)}
+        initialType="supplier"
+        onSuccess={(p) => setSelectedSupplierId(p.id)}
+      />
     </div>
   );
 }

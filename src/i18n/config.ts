@@ -23,7 +23,6 @@ import enReports from "../locales/en/reports.json";
 import enSettings from "../locales/en/settings.json";
 import enSidebar from "../locales/en/sidebar.json";
 import enStatuses from "../locales/en/statuses.json";
-import enSuppliers from "../locales/en/suppliers.json";
 import enTableHeaders from "../locales/en/tableHeaders.json";
 import enValidation from "../locales/en/validation.json";
 import enVehicle from "../locales/en/vehicle.json";
@@ -53,7 +52,6 @@ import guReports from "../locales/gu/reports.json";
 import guSettings from "../locales/gu/settings.json";
 import guSidebar from "../locales/gu/sidebar.json";
 import guStatuses from "../locales/gu/statuses.json";
-import guSuppliers from "../locales/gu/suppliers.json";
 import guTableHeaders from "../locales/gu/tableHeaders.json";
 import guValidation from "../locales/gu/validation.json";
 import guVehicle from "../locales/gu/vehicle.json";
@@ -86,7 +84,6 @@ const namespaces = [
   "reports",
   "parties",
   "payments",
-  "suppliers",
   "navigation",
   "header",
   "buttons",
@@ -127,7 +124,6 @@ const enTranslations = {
   settings: enSettings,
   sidebar: enSidebar,
   statuses: enStatuses,
-  suppliers: enSuppliers,
   tableHeaders: enTableHeaders,
   validation: enValidation,
   vehicle: enVehicle,
@@ -159,7 +155,6 @@ const guTranslations = {
   settings: guSettings,
   sidebar: guSidebar,
   statuses: guStatuses,
-  suppliers: guSuppliers,
   tableHeaders: guTableHeaders,
   validation: guValidation,
   vehicle: guVehicle,

@@ -15,7 +15,7 @@ import { cn } from "@/utils/cn";
 
 interface SearchResult {
   id: string;
-  type: "party" | "supplier" | "vehicle";
+  type: "party" | "vehicle";
   title: string;
   description: string;
   value: string;
@@ -28,11 +28,10 @@ export function SearchPage() {
   const {
     setCurrentPage,
     parties,
-    suppliers,
     vehicleRegisters,
     loadParties,
-    loadSuppliers,
     loadVehicleRegisters,
+    currentCompanyId,
   } = useAppStore();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -41,7 +40,6 @@ export function SearchPage() {
   useEffect(() => {
     inputRef.current?.focus();
     loadParties();
-    loadSuppliers();
     loadVehicleRegisters();
   }, []);
 
@@ -54,34 +52,26 @@ export function SearchPage() {
     // Search parties
     parties
       .filter(
-        (item) => item.name.toLowerCase().includes(q) || item.phone.includes(q),
+        (item) =>
+          (item.name || "").toLowerCase().includes(q) ||
+          (item.phone || "").includes(q),
       )
       .forEach((party) => {
         allResults.push({
           id: `party-${party.id}`,
           type: "party",
           title: party.name,
-          description: `${party.city} • ${party.phone}`,
-          value: formatCurrency(db.getPartyBalance(party.id).balance),
+          description: `${party.partyType.toUpperCase()} • ${party.city} • ${party.phone}`,
+          value: formatCurrency(
+            db.getPartyBalance(currentCompanyId || "", party.id).balance,
+          ),
           icon: Users,
-          color: "text-pink-600 dark:text-pink-400",
-        });
-      });
-
-    // Search suppliers
-    suppliers
-      .filter(
-        (item) => item.name.toLowerCase().includes(q) || item.phone.includes(q),
-      )
-      .forEach((supplier) => {
-        allResults.push({
-          id: `supplier-${supplier.id}`,
-          type: "supplier",
-          title: supplier.name,
-          description: `${supplier.city} • ${supplier.phone}`,
-          value: formatCurrency(db.getPartyBalance(supplier.id).balance),
-          icon: Users,
-          color: "text-cyan-600 dark:text-cyan-400",
+          color:
+            party.partyType === "customer"
+              ? "text-pink-600 dark:text-pink-400"
+              : party.partyType === "supplier"
+                ? "text-cyan-600 dark:text-cyan-400"
+                : "text-purple-600 dark:text-purple-400",
         });
       });
 
@@ -107,7 +97,7 @@ export function SearchPage() {
       });
 
     return allResults;
-  }, [query, parties, suppliers, vehicleRegisters]);
+  }, [query, parties, vehicleRegisters]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
@@ -144,7 +134,7 @@ export function SearchPage() {
                   setSelectedIndex(0);
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Search parties, suppliers, vehicles..."
+                placeholder="Search parties, vehicles..."
                 className="flex-1 bg-transparent text-lg font-medium text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none"
               />
             </div>
@@ -222,7 +212,7 @@ export function SearchPage() {
         {!query.trim() && (
           <div className="rounded-lg border border-slate-200 dark:border-[#2a3550] bg-white dark:bg-[#111827] p-4 text-center">
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Type to search parties, suppliers, and vehicles
+              Type to search parties and vehicles
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
               Use{" "}

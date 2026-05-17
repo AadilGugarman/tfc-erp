@@ -2,14 +2,12 @@
   "dashboard":  "Dashboard",
   "vehicleRegister":  "Vehicle Arrival Register",
   "vehicleArrivalRegister":  "Vehicle Arrival Register",
-  "parties":  "Parties",
-  "suppliers":  "Suppliers",
-  "ledger":  "Ledger",
-  "transactions":  "Sales",
-  "purchases":  "Purchases",
-  "inventory":  "Inventory",
-  "payments":  "Payments",
-  "billing":  "Billing",
-  "reports":  "Reports",
-  "settings":  "Settings"
+  "parties": "Parties",
+  "transactions": "Sales",
+  "purchases": "Purchases",
+  "inventory": "Inventory",
+  "payments": "Payments",
+  "billing": "Billing",
+  "reports": "Reports",
+  "settings": "Settings"
 }
