@@ -195,9 +195,13 @@ export const InvoiceSettings: React.FC = () => {
             label="Signature Image"
             description="Upload your signature (PNG with transparent background recommended)"
             accept="image/*"
-            currentUrl={settings.invoice.signature}
+            currentUrl={settings.company.signature ?? undefined}
             onFileChange={() => {}}
-            onUrlChange={(url) => handleUpdate({ signature: url })}
+            onUrlChange={(url) =>
+              updateSettings({
+                company: { ...settings.company, signature: url ?? null },
+              })
+            }
             maxSize={1 * 1024 * 1024}
           />
         </CardContent>
@@ -443,9 +447,9 @@ export const InvoiceSettings: React.FC = () => {
                       <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">
                         Authorized Signature
                       </h3>
-                      {settings.invoice.signature ? (
+                      {settings.company.signature ? (
                         <img 
-                          src={settings.invoice.signature} 
+                          src={settings.company.signature} 
                           alt="Signature" 
                           className="h-14 object-contain mb-1"
                         />

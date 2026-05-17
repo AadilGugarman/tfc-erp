@@ -2,9 +2,14 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./i18n/config";
+import { initializeCursorControl } from "./utils/cursorControl";
 import App from "./App";
 import { initializeBackendStorage } from "./db/db";
-import { createStartupBackup, runAutoBackupIfDue, saveClientStateForBackups } from "./services/backup";
+import {
+  createStartupBackup,
+  runAutoBackupIfDue,
+  saveClientStateForBackups,
+} from "./services/backup";
 
 async function bootstrap() {
   try {
@@ -23,10 +28,11 @@ async function bootstrap() {
   createRoot(rootElement).render(
     <StrictMode>
       <App />
-    </StrictMode>
+    </StrictMode>,
   );
 
-  // Run backup operations in the background
+  // Initialize cursor control to enforce strict cursor behavior
+  initializeCursorControl();
   try {
     void (async () => {
       await saveClientStateForBackups();

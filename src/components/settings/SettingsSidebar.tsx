@@ -1,16 +1,17 @@
 import React from 'react';
-import { cn } from '../../utils/cn';
+import { cn } from "@/utils/cn";
 import { SettingsCategory } from '@/db/schema';
-import { 
-  Building2, 
-  Wallet, 
-  FileText, 
-  Database, 
-  Palette, 
+import {
+  Building2,
+  Wallet,
+  FileText,
+  Database,
+  Palette,
   Shield,
   Search,
-  X
-} from 'lucide-react';
+  X,
+  Layers,
+} from "lucide-react";
 
 export interface SettingsCategoryConfig {
   id: SettingsCategory;
@@ -21,13 +22,13 @@ export interface SettingsCategoryConfig {
 
 export const SETTINGS_CATEGORIES: SettingsCategoryConfig[] = [
   {
-    id: 'company',
-    label: 'Company',
-    icon: 'building',
-    description: 'Company information and branding',
+    id: "companies",
+    label: "Companies",
+    icon: "layers",
+    description: "Create, edit, and switch business entities",
   },
   {
-    id: 'financial',
+    id: "financial",
     label: 'Financial',
     icon: 'wallet',
     description: 'Fiscal year, currency, and tax settings',
@@ -69,6 +70,7 @@ interface SettingsSidebarProps {
 
 const iconMap: Record<string, React.ElementType> = {
   building: Building2,
+  layers: Layers,
   wallet: Wallet,
   'file-text': FileText,
   database: Database,

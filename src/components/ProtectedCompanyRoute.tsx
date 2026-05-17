@@ -129,7 +129,7 @@ export function ProtectedRoute({
   useEffect(() => {
     if (isInitializing) return;
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !authService.isAuthenticatedSync()) {
       navigate("/login");
     }
     setIsLoading(false);

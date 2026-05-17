@@ -84,6 +84,174 @@ html.dark body {
 }
 
 /* ============================================================
+   CURSOR & TEXT SELECTION CONTROL — STRICT ENFORCEMENT
+   ============================================================ */
+
+/* GLOBAL: Disable text cursor everywhere */
+* {
+  cursor: default !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+*::before,
+*::after {
+  cursor: default !important;
+  user-select: none !important;
+}
+
+/* === EDITABLE FIELDS: Allow text cursor ONLY here === */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+    [type="file"]
+  ):not([type="color"]),
+textarea,
+select,
+[contenteditable="true"],
+[contenteditable="plaintext-only"],
+.editable,
+[data-editable="true"] {
+  cursor: text !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+/* === CLICKABLE ELEMENTS: pointer cursor === */
+button,
+a,
+[role="button"],
+[role="link"],
+[role="tab"],
+[role="menuitem"],
+[role="menuitemcheckbox"],
+[role="menuitemradio"],
+summary,
+[onclick],
+[href],
+.cursor-pointer,
+.clickable,
+label[for],
+[tabindex]:not([tabindex="-1"]) {
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+/* === DISABLED/NON-INTERACTIVE === */
+:disabled,
+[disabled],
+[aria-disabled="true"],
+[readonly]:not(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="file"]
+    ):not([type="color"]),
+  textarea,
+  select
+),
+[contenteditable="false"] {
+  cursor: not-allowed !important;
+  user-select: none !important;
+}
+
+/* === DRAGGABLE === */
+[draggable="true"] {
+  cursor: grab !important;
+  user-select: none !important;
+}
+
+[draggable="true"]:active {
+  cursor: grabbing !important;
+}
+
+/* === UI CONTAINERS: No text cursor === */
+nav,
+header,
+footer,
+[role="navigation"],
+[role="tablist"],
+[role="tabpanel"],
+[role="menubar"],
+[role="toolbar"],
+[role="region"],
+[role="complementary"],
+aside,
+section:not([contenteditable]),
+article:not([contenteditable]),
+.navbar,
+.header,
+.sidebar,
+.navigation,
+.menu,
+.toolbar {
+  cursor: default !important;
+  user-select: none !important;
+}
+
+/* === TEXT CONTENT: Allow text selection in readable areas === */
+[role="main"] p,
+[role="main"] span:not([role="button"]),
+[role="main"] li,
+.content p,
+.content span:not([role="button"]),
+.content li,
+.prose p,
+.prose span,
+[data-selectable="true"],
+.selectable {
+  cursor: default !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* === NEVER TEXT CURSOR ON === */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+label:not([for]),
+[role="heading"],
+.label,
+.tab,
+.btn,
+.button,
+.badge,
+.chip,
+.card,
+.list-item,
+[class*="tab-"],
+[class*="btn-"],
+[class*="button-"] {
+  cursor: default !important;
+  user-select: none !important;
+}
+
+/* Ensure input placeholders don't get text cursor */
+input::placeholder,
+textarea::placeholder {
+  cursor: text !important;
+}
+
+/* Resize cursor for resizable elements */
+[style*="resize"],
+textarea {
+  cursor: text;
+}
+
+/* Grab cursor for draggable elements */
+[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+}
+
+[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* ============================================================
    GLOBAL INPUT DESIGN SYSTEM
    ============================================================ */
 :root {

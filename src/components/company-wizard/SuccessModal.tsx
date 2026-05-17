@@ -135,7 +135,7 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
 
         <div className="text-center mt-6 relative z-10">
           <span className="text-[11px] text-slate-400">
-            Tauri IPC connection active • SQLite Journal Mode: WAL
+            Secure Session • Configuration Saved
           </span>
         </div>
       </div>

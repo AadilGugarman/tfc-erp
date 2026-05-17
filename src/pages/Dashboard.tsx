@@ -83,8 +83,6 @@ export function DashboardPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CompanySwitcher
             currentCompanyName={currentCompany?.name ?? "Select Company"}
-            onAddCompany={() => navigate("/create-company")}
-            onManageCompanies={() => navigate("/manage-companies")}
           />
           <div className="relative" ref={yearMenuRef}>
             <button

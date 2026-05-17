@@ -82,8 +82,6 @@ export const Stepper: React.FC<StepperProps> = ({
             {STEPS.map((step, index) => {
               const isCurrent = currentStep === step.id;
               const status = getStepStatus(step.id);
-              const isClickable = true; // Free navigation
-
               return (
                 <li key={step.id} className="relative flex-1 w-full">
                   <div className="flex items-center w-full">

@@ -46,17 +46,42 @@ class AuthService {
    * Check if any user exists in the database
    */
   async hasUsers(): Promise<boolean> {
+    const status = await this.getSetupStatus();
+    return status.hasUsers;
+  }
+
+  /**
+   * Check whether initial admin setup is required.
+   * On backend errors, assumes setup is needed so the setup form is shown.
+   */
+  async getSetupStatus(): Promise<{
+    hasUsers: boolean;
+    error?: string;
+  }> {
     try {
-      return await safeInvoke<boolean>("has_users");
+      const hasUsers = await safeInvoke<boolean>("has_users", undefined, {
+        maxAttempts: 50,
+        delayMs: 200,
+      });
+      return { hasUsers };
     } catch (error) {
-      console.error("[AuthService] hasUsers check failed:", error);
-      return true; // Default to true to show login instead of setup on error
+      const message =
+        error instanceof Error ? error.message : String(error);
+      console.error("[AuthService] getSetupStatus failed:", error);
+      return {
+        hasUsers: false,
+        error: message,
+      };
     }
   }
 
   /**
    * Setup the initial admin user
    */
+  async clearUsersForSetup(): Promise<void> {
+    await safeInvoke("clear_users_for_setup");
+  }
+
   async setupInitialAdmin(data: {
     username: string;
     password: string;
@@ -88,7 +113,13 @@ class AuthService {
       this.scheduleTokenRefresh(response.expires_in);
       return response;
     } catch (error) {
-      throw new Error(`Setup failed: ${error}`);
+      const message =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(
+        message.startsWith("Setup failed:")
+          ? message
+          : message.replace(/^Command failed:\s*/i, ""),
+      );
     }
   }
 

@@ -102,10 +102,7 @@ pub struct User {
 }
 
 fn get_db_connection() -> Result<Connection, String> {
-    let base_dir = dirs::data_dir().ok_or_else(|| "unable to locate application data directory".to_string())?;
-    let app_dir = base_dir.join("Fruit Market ERP");
-    let db_path = app_dir.join("fruit-market-erp.sqlite");
-    Connection::open(db_path).map_err(|e| e.to_string())
+    crate::db::open_connection()
 }
 
 /// Generate JWT access token (15 minutes expiry)
@@ -174,39 +171,107 @@ pub fn has_users() -> Result<bool, String> {
     Ok(count > 0)
 }
 
+fn build_auth_response(
+    user_id: &str,
+    username: &str,
+    name: &str,
+    email: &str,
+    role: &str,
+    company_ids: Vec<String>,
+    default_company_id: Option<String>,
+) -> Result<AuthResponse, String> {
+    let access_token = generate_access_token(user_id, username, role)?;
+    let refresh_token = generate_refresh_token(user_id, username, role)?;
+
+    Ok(AuthResponse {
+        user_id: user_id.to_string(),
+        username: username.to_string(),
+        email: email.to_string(),
+        name: name.to_string(),
+        role: role.to_string(),
+        company_ids,
+        default_company_id,
+        access_token,
+        refresh_token,
+        expires_in: 900,
+    })
+}
+
 /// Create the initial admin user
 #[tauri::command]
 pub fn setup_initial_admin(username: String, password: String, name: String, email: String) -> Result<AuthResponse, String> {
     let conn = get_db_connection()?;
-    
-    // Check if users already exist
+
     let count: i64 = conn
         .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
         .map_err(|e| e.to_string())?;
-    
-    #[cfg(not(debug_assertions))]
-    {
-        if count > 0 {
-            return Err("Initial setup already completed".to_string());
+
+    let existing_user: Option<(String, String, String, String, String, Option<String>, String)> = conn
+        .query_row(
+            "SELECT id, name, email, role, company_ids, default_company_id, password_hash FROM users WHERE username = ? COLLATE NOCASE AND is_active = 1",
+            params![&username],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+
+    if let Some((user_id, _, _, role, company_ids_str, default_company_id, password_hash)) = existing_user {
+        if !verify_any_password(&password, &password_hash)? {
+            return Err(format!(
+                "Username \"{}\" is already registered. Sign in with your password, or choose a different username.",
+                username
+            ));
         }
+
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE users SET name = ?, email = ?, updated_at = ? WHERE id = ?",
+            params![name, email, now, user_id],
+        )
+        .map_err(|e| e.to_string())?;
+
+        let company_ids: Vec<String> =
+            serde_json::from_str(&company_ids_str).unwrap_or_default();
+
+        return build_auth_response(
+            &user_id,
+            &username,
+            &name,
+            &email,
+            &role,
+            company_ids,
+            default_company_id,
+        );
     }
-    #[cfg(debug_assertions)]
-    {
-        let _ = count; // Suppress unused warning in debug mode
+
+    if count > 0 {
+        return Err(
+            "Initial setup is already complete. Please sign in with your existing account."
+                .to_string(),
+        );
     }
 
     let admin_id = Uuid::new_v4().to_string();
-    
-    // Use Argon2 for production-grade password hashing
+
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
-    let password_hash = argon2.hash_password(password.as_bytes(), &salt)
+    let password_hash = argon2
+        .hash_password(password.as_bytes(), &salt)
         .map_err(|e| e.to_string())?
         .to_string();
 
     let now = Utc::now().to_rfc3339();
 
-    // Create admin user
     conn.execute(
         "INSERT INTO users (id, username, name, email, role, company_ids, default_company_id, password_hash, is_active, created_at, updated_at)
          VALUES (?, ?, ?, ?, 'admin', '[]', NULL, ?, 1, ?, ?)",
@@ -220,24 +285,65 @@ pub fn setup_initial_admin(username: String, password: String, name: String, ema
             now
         ],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| {
+        if e.to_string().contains("UNIQUE constraint failed: users.username") {
+            format!(
+                "Username \"{}\" is already registered. Sign in instead.",
+                username
+            )
+        } else {
+            e.to_string()
+        }
+    })?;
 
-    // Log the user in immediately after setup
-    let access_token = generate_access_token(&admin_id, &username, "admin")?;
-    let refresh_token = generate_refresh_token(&admin_id, &username, "admin")?;
+    build_auth_response(
+        &admin_id,
+        &username,
+        &name,
+        &email,
+        "admin",
+        vec![],
+        None,
+    )
+}
 
-    Ok(AuthResponse {
-        user_id: admin_id,
-        username,
-        email,
-        name,
-        role: "admin".to_string(),
-        company_ids: vec![],
-        default_company_id: None,
-        access_token,
-        refresh_token,
-        expires_in: 900,
-    })
+/// Clear users (and dependent company data) so setup can run again.
+/// Development / debug builds only — no auth token required.
+#[tauri::command]
+pub fn clear_users_for_setup() -> Result<(), String> {
+    #[cfg(debug_assertions)]
+    {
+        let conn = get_db_connection()?;
+
+        // Companies reference users (owner_id); delete companies first so CASCADE
+        // clears related rows, then remove users.
+        conn.execute_batch(
+            "PRAGMA foreign_keys = ON;
+             DELETE FROM companies;
+             DELETE FROM users;",
+        )
+        .map_err(|e| format!("Failed to reset for setup: {}", e))?;
+
+        let remaining: i64 = conn
+            .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+
+        if remaining > 0 {
+            return Err(format!(
+                "Reset incomplete: {} user(s) still in database",
+                remaining
+            ));
+        }
+
+        Ok(())
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        Err(
+            "Reset is only available in development builds. Run: npm run desktop:dev"
+                .to_string(),
+        )
+    }
 }
 
 /// Login user with username and password

@@ -42,6 +42,12 @@ const NAV_GROUPS = [
         shortcut: "Alt+P",
       },
       {
+        id: "vehicle-register",
+        labelKey: "navigation.aavakRegister",
+        icon: Truck,
+        shortcut: "Alt+V",
+      },
+      {
         id: "inventory",
         labelKey: "navigation.inventory",
         icon: Package,

@@ -52,12 +52,17 @@ export const waitForTauri = async (maxAttempts = 10, delayMs = 100): Promise<voi
 /**
  * Safe invoke with fallback and automatic token injection
  */
+export type SecureInvokeOptions = {
+  maxAttempts?: number;
+  delayMs?: number;
+};
+
 export const secureInvoke = async <T>(
   command: string,
   args?: Record<string, unknown>,
+  options?: SecureInvokeOptions,
 ): Promise<T> => {
-  // Wait for Tauri to be available
-  await waitForTauri();
+  await waitForTauri(options?.maxAttempts ?? 10, options?.delayMs ?? 100);
 
   const invokeFn = await getTauriInvoke();
   if (!invokeFn) {

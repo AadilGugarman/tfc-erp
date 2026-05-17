@@ -1,38 +1,39 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "@/stores/useAppStore";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import {
   Section,
-  PremiumModal,
-  PremiumInput,
-  PremiumSelect,
-  PremiumTextarea,
   PageTransition,
   ToastContainer,
   useToast,
-  PremiumTable,
-  PremiumTableHeader,
-  PremiumTableRow,
-  PremiumTableCell,
 } from "@/components";
-import { formatCurrency } from "@/utils/formatters";
+import { PartyCard } from "@/components/PartyCard";
+import { PartyDetailDrawer } from "@/components/PartyDetailDrawer";
+import { StatCard } from "@/components/StatCard";
+import { CreatePartyModal } from "@/components/CreatePartyModal";
 import * as db from "@/db/db";
 import {
   Search,
   Plus,
-  Edit2,
-  Trash2,
+  Grid3X3,
+  List,
+  ArrowUpDown,
+  Users,
   Phone,
-  Mail,
+  MapPin,
   User,
-  ExternalLink,
+  Building2,
+  DollarSign,
 } from "lucide-react";
-import type { Party, LedgerType, PartyType } from "@/db/schema";
+import type { Party, PartyType } from "@/db/schema";
 import { useShortcutAction } from "@/keyboard/shortcutManager";
 import { cn } from "@/utils/cn";
+import { formatCurrency } from "@/utils/formatters";
+
+type ViewMode = "grid" | "list";
+type SortField = "name" | "city" | "balance" | "createdAt";
 
 export function PartiesPage() {
   const { t } = useTranslation();
@@ -42,108 +43,107 @@ export function PartiesPage() {
   const { toasts, removeToast, success, error } = useToast();
 
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<
-    "all" | "customer" | "supplier" | "both"
-  >("all");
+  const [activeTab, setActiveTab] = useState<PartyType | "all">("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [sortField, setSortField] = useState<SortField>("name");
   const [modalOpen, setModalOpen] = useState(false);
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState<Party | null>(null);
   const [editParty, setEditParty] = useState<Party | null>(null);
 
-  // Form states
-  const [formName, setFormName] = useState("");
-  const [formPhone, setFormPhone] = useState("");
-  const [formEmail, setFormEmail] = useState("");
-  const [formGstin, setFormGstin] = useState("");
-  const [formAddress, setFormAddress] = useState("");
-  const [formShippingAddress, setFormShippingAddress] = useState("");
-  const [formCity, setFormCity] = useState("");
-  const [formState, setFormState] = useState("");
-  const [formOpenBal, setFormOpenBal] = useState(0);
-  const [formBalType, setFormBalType] = useState<LedgerType>("debit");
-  const [formComm, setFormComm] = useState(3);
-  const [formCreditLimit, setFormCreditLimit] = useState(0);
-  const [formPartyType, setFormPartyType] = useState<PartyType>("customer");
-  const [formNotes, setFormNotes] = useState("");
-
+  // Form states removed - now handled in CreatePartyModal
   const [saveLoading, setSaveLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
-  const [selectedRowIndex, setSelectedRowIndex] = useState(0);
 
   useEffect(() => {
     loadParties();
   }, []);
 
-  const filtered = parties.filter((p) => {
-    const matchesSearch =
-      (p.name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (p.phone || "").includes(search);
-    const matchesTab = activeTab === "all" || p.partyType === activeTab;
-    return matchesSearch && matchesTab;
-  });
+  // Calculate statistics
+  const stats = useMemo(() => {
+    const total = parties.length;
+    const customers = parties.filter(
+      (p) => p.partyType === "customer" || p.partyType === "both",
+    ).length;
+    const suppliers = parties.filter(
+      (p) => p.partyType === "supplier" || p.partyType === "both",
+    ).length;
+    const totalBalance = parties.reduce((sum, p) => sum + p.openingBalance, 0);
+    return { total, customers, suppliers, totalBalance };
+  }, [parties]);
+
+  // Filter and sort parties
+  const filtered = useMemo(() => {
+    let list = [...parties];
+
+    // Search filter
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.phone.includes(q) ||
+          p.email.toLowerCase().includes(q) ||
+          p.gstin.toLowerCase().includes(q) ||
+          p.city.toLowerCase().includes(q),
+      );
+    }
+
+    // Type filter
+    if (activeTab !== "all") {
+      list = list.filter((p) => p.partyType === activeTab);
+    }
+
+    // Sort
+    list.sort((a, b) => {
+      switch (sortField) {
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "city":
+          return a.city.localeCompare(b.city);
+        case "balance":
+          return b.openingBalance - a.openingBalance;
+        case "createdAt":
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        default:
+          return 0;
+      }
+    });
+
+    return list;
+  }, [parties, search, activeTab, sortField]);
 
   const openNew = () => {
     setEditParty(null);
-    setFormName("");
-    setFormPhone("");
-    setFormEmail("");
-    setFormGstin("");
-    setFormAddress("");
-    setFormShippingAddress("");
-    setFormCity("");
-    setFormState("");
-    setFormOpenBal(0);
-    setFormBalType("debit");
-    setFormComm(3);
-    setFormCreditLimit(0);
-    setFormPartyType("customer");
-    setFormNotes("");
     setModalOpen(true);
   };
 
   const openEdit = (party: Party) => {
     setEditParty(party);
-    setFormName(party.name);
-    setFormPhone(party.phone);
-    setFormEmail(party.email);
-    setFormGstin(party.gstin);
-    setFormAddress(party.address);
-    setFormShippingAddress(party.shippingAddress || "");
-    setFormCity(party.city);
-    setFormState(party.state);
-    setFormOpenBal(party.openingBalance);
-    setFormBalType(party.balanceType);
-    setFormComm(party.commissionPercent);
-    setFormCreditLimit(party.creditLimit || 0);
-    setFormPartyType(party.partyType || "customer");
-    setFormNotes(party.notes);
     setModalOpen(true);
   };
 
-  const handleSave = async () => {
-    if (!formName.trim()) {
-      error("Validation Error", "Party name is required");
-      return;
-    }
+  const handleSave = async (formData: {
+    name: string;
+    phone: string;
+    email: string;
+    gstin: string;
+    address: string;
+    shippingAddress: string;
+    city: string;
+    state: string;
+    openingBalance: number;
+    balanceType: "debit" | "credit";
+    commissionPercent: number;
+    creditLimit: number;
+    partyType: PartyType;
+    notes: string;
+  }) => {
     setSaveLoading(true);
     try {
-      const partyData = {
-        name: formName,
-        phone: formPhone,
-        email: formEmail,
-        gstin: formGstin,
-        address: formAddress,
-        shippingAddress: formShippingAddress,
-        city: formCity,
-        state: formState,
-        openingBalance: formOpenBal,
-        balanceType: formBalType,
-        commissionPercent: formComm,
-        creditLimit: formCreditLimit,
-        partyType: formPartyType,
-        notes: formNotes,
-      };
-
       if (editParty) {
-        db.updateParty(editParty.id, partyData);
+        db.updateParty(editParty.id, formData);
         success("Party Updated", "Party information updated successfully");
       } else {
         if (!currentCompanyId) {
@@ -151,470 +151,306 @@ export function PartiesPage() {
           setSaveLoading(false);
           return;
         }
-        db.createParty({
-          ...partyData,
-          companyId: currentCompanyId,
-        });
+        db.addParty(currentCompanyId, formData);
         success("Party Created", "New party added successfully");
       }
       setModalOpen(false);
       loadParties();
-    } catch (err) {
-      error("Error", (err as Error).message);
+    } catch (err: any) {
+      error("Error", err.message || "Failed to save party");
     } finally {
       setSaveLoading(false);
     }
   };
 
-  const handleDeleteParty = (id: string) => {
-    if (confirm("Are you sure you want to delete this party?")) {
-      setDeleteLoading(id);
-      try {
-        db.deleteParty(id);
-        success("Party Deleted", "Party removed successfully");
-        loadParties();
-      } catch (err) {
-        error("Error", (err as Error).message);
-      } finally {
-        setDeleteLoading(null);
-      }
+  const handleDelete = async (party: Party) => {
+    if (!confirm(`Delete "${party.name}"? This action cannot be undone.`)) {
+      return;
+    }
+    setDeleteLoading(party.id);
+    try {
+      db.deleteParty(party.id);
+      success("Party Deleted", "Party removed successfully");
+      loadParties();
+    } catch (err: any) {
+      error("Error", err.message || "Failed to delete party");
+    } finally {
+      setDeleteLoading(null);
     }
   };
 
-  useEffect(() => {
-    if (filtered.length === 0) {
-      setSelectedRowIndex(0);
-      return;
-    }
-    if (selectedRowIndex > filtered.length - 1) {
-      setSelectedRowIndex(filtered.length - 1);
-    }
-  }, [filtered.length, selectedRowIndex]);
-
-  useShortcutAction("new-entry", () => {
-    const activeElement = document.activeElement as HTMLElement | null;
-    if (!activeElement?.closest('[data-entry-surface="parties"]')) return;
-    openNew();
-  });
-
-  useShortcutAction("save", () => {
-    const activeElement = document.activeElement as HTMLElement | null;
-    if (!activeElement?.closest('[data-entry-surface="parties"]')) return;
-    if (!modalOpen) return;
-    handleSave();
-  });
-
-  useShortcutAction("delete-row", () => {
-    const activeElement = document.activeElement as HTMLElement | null;
-    if (!activeElement?.closest('[data-entry-surface="parties"]')) return;
-    if (modalOpen) return;
-    const selected = filtered[selectedRowIndex];
-    if (!selected) return;
-    handleDeleteParty(selected.id);
-  });
-
-  useEffect(() => {
-    const onHistoryKeyDown = (event: KeyboardEvent) => {
-      if (modalOpen) return;
-      const activeElement = document.activeElement as HTMLElement | null;
-      if (!activeElement?.closest('[data-entry-surface="parties"]')) return;
-      if (
-        activeElement.tagName === "INPUT" ||
-        activeElement.tagName === "TEXTAREA"
-      )
-        return;
-
-      if (event.key === "ArrowDown") {
-        if (filtered.length === 0) return;
-        event.preventDefault();
-        setSelectedRowIndex((prev) => Math.min(prev + 1, filtered.length - 1));
-      }
-      if (event.key === "ArrowUp") {
-        if (filtered.length === 0) return;
-        event.preventDefault();
-        setSelectedRowIndex((prev) => Math.max(prev - 1, 0));
-      }
-    };
-
-    document.addEventListener("keydown", onHistoryKeyDown);
-    return () => document.removeEventListener("keydown", onHistoryKeyDown);
-  }, [filtered.length, modalOpen]);
+  useShortcutAction("new_party", openNew);
 
   return (
     <PageTransition>
-      <div data-entry-surface="parties">
-        {/* Header & Tabs */}
-        <Section>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
-                <User className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        {/* Header Section */}
+        <div className="bg-white border-b border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900">Parties</h1>
+                <p className="text-slate-500 mt-1">
+                  Manage customers and suppliers
+                </p>
               </div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                {t("parties.title")}
-              </h1>
-            </div>
-            <Button icon={<Plus size={16} />} onClick={openNew}>
-              {t("parties.addParty")}
-            </Button>
-          </div>
-
-          <div className="flex flex-col md:flex-row md:items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search by name or phone..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 dark:border-[#2a3550] rounded-lg bg-white dark:bg-[#111827] text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500 transition-all"
-              />
-            </div>
-
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-lg self-start">
-              {[
-                { id: "all", label: t("parties.allParties") },
-                { id: "customer", label: t("parties.customers") },
-                { id: "supplier", label: t("parties.suppliers") },
-                { id: "both", label: t("parties.customerSupplier") },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                  className={cn(
-                    "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                    activeTab === tab.id
-                      ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              <Button
+                onClick={openNew}
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                <Plus size={18} />
+                New Party
+              </Button>
             </div>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            {filtered.length} {t("parties.title").toLowerCase()} found
-          </p>
-        </Section>
+        </div>
 
-        {/* Parties Table */}
-        <Section>
-          {filtered.length === 0 ? (
-            <div className="text-center py-12">
-              <User className="mx-auto h-12 w-12 text-slate-300 dark:text-slate-700 mb-3" />
-              <p className="text-slate-500 dark:text-slate-400">
-                No parties found
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                    <PremiumTableHeader>Name</PremiumTableHeader>
-                    <PremiumTableHeader>Type</PremiumTableHeader>
-                    <PremiumTableHeader>Contact</PremiumTableHeader>
-                    <PremiumTableHeader>City</PremiumTableHeader>
-                    <PremiumTableHeader numeric>Balance</PremiumTableHeader>
-                    <PremiumTableHeader>Actions</PremiumTableHeader>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {filtered.map((party, index) => {
-                    const balance = db.getPartyBalance(
-                      currentCompanyId || "",
-                      party.id,
-                    );
-                    return (
-                      <PremiumTableRow
-                        key={party.id}
-                        onClick={() =>
-                          navigate(`/app/${companyId}/parties/${party.id}`)
-                        }
-                        className="cursor-pointer group"
-                      >
-                        <PremiumTableCell
-                          className={
-                            index === selectedRowIndex
-                              ? "bg-blue-50/60 dark:bg-blue-950/20"
-                              : ""
-                          }
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="font-medium text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                              {party.name}
-                            </div>
-                            <ExternalLink className="w-3 h-3 text-slate-300 group-hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all" />
-                          </div>
-                          {party.gstin && (
-                            <div className="text-[10px] font-mono text-slate-400 mt-0.5">
-                              {party.gstin}
-                            </div>
-                          )}
-                        </PremiumTableCell>
-                        <PremiumTableCell
-                          className={
-                            index === selectedRowIndex
-                              ? "bg-blue-50/60 dark:bg-blue-950/20"
-                              : ""
-                          }
-                        >
-                          <Badge
-                            variant="soft"
-                            className={cn(
-                              "capitalize text-[10px] px-1.5 py-0",
-                              party.partyType === "customer"
-                                ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
-                                : party.partyType === "supplier"
-                                  ? "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"
-                                  : "bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400",
-                            )}
-                          >
-                            {party.partyType === "both"
-                              ? t("parties.customerSupplier")
-                              : t(`parties.${party.partyType}`)}
-                          </Badge>
-                        </PremiumTableCell>
-                        <PremiumTableCell
-                          className={
-                            index === selectedRowIndex
-                              ? "bg-blue-50/60 dark:bg-blue-950/20"
-                              : ""
-                          }
-                        >
-                          <div className="text-slate-600 dark:text-slate-400">
-                            {party.phone || "—"}
-                          </div>
-                        </PremiumTableCell>
-                        <PremiumTableCell
-                          className={
-                            index === selectedRowIndex
-                              ? "bg-blue-50/60 dark:bg-blue-950/20"
-                              : ""
-                          }
-                        >
-                          {party.city || "—"}
-                        </PremiumTableCell>
-                        <PremiumTableCell
-                          numeric
-                          className={`${
-                            balance.type === "receivable"
-                              ? "text-blue-600 dark:text-blue-400"
-                              : "text-red-600 dark:text-red-400"
-                          } ${index === selectedRowIndex ? "bg-blue-50/60 dark:bg-blue-950/20" : ""}`}
-                        >
-                          <div className="font-semibold">
-                            {formatCurrency(balance.balance)}
-                          </div>
-                          <div className="text-[10px] uppercase tracking-wider opacity-70">
-                            {balance.type}
-                          </div>
-                        </PremiumTableCell>
-                        <PremiumTableCell
-                          className={
-                            index === selectedRowIndex
-                              ? "bg-blue-50/60 dark:bg-blue-950/20"
-                              : ""
-                          }
-                        >
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              icon={<Edit2 size={14} />}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedRowIndex(index);
-                                openEdit(party);
-                              }}
-                            />
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              loading={deleteLoading === party.id}
-                              className="text-red-500 hover:text-red-600 dark:text-red-400/80"
-                              icon={<Trash2 size={14} />}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedRowIndex(index);
-                                handleDeleteParty(party.id);
-                              }}
-                            />
-                          </div>
-                        </PremiumTableCell>
-                      </PremiumTableRow>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Section>
-
-        {/* Party Modal */}
-        <PremiumModal
-          isOpen={modalOpen}
-          onClose={() => setModalOpen(false)}
-          title={editParty ? t("parties.editParty") : t("parties.addParty")}
-          size="xl"
-          footer={
-            <>
-              <Button variant="outline" onClick={() => setModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button loading={saveLoading} onClick={handleSave}>
-                {editParty ? "Update Party" : "Create Party"}
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Primary Info */}
-              <div className="md:col-span-2 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <PremiumInput
-                    label={t("parties.partyName") + " *"}
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    placeholder="Enter party name"
-                  />
-                  <PremiumInput
-                    label={t("parties.phone")}
-                    value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    placeholder="10-digit phone number"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <PremiumInput
-                    label={t("parties.email")}
-                    type="email"
-                    value={formEmail}
-                    onChange={(e) => setFormEmail(e.target.value)}
-                    placeholder="party@example.com"
-                  />
-                  <PremiumInput
-                    label={t("parties.gstin")}
-                    value={formGstin}
-                    onChange={(e) => setFormGstin(e.target.value)}
-                    placeholder="15-digit GST ID"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <PremiumTextarea
-                    label={t("parties.address")}
-                    value={formAddress}
-                    onChange={(e) => setFormAddress(e.target.value)}
-                    placeholder="Billing address"
-                    rows={3}
-                  />
-                  <PremiumTextarea
-                    label={t("parties.shippingAddress")}
-                    value={formShippingAddress}
-                    onChange={(e) => setFormShippingAddress(e.target.value)}
-                    placeholder="Shipping address (optional)"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <PremiumInput
-                    label="City"
-                    value={formCity}
-                    onChange={(e) => setFormCity(e.target.value)}
-                    placeholder="City name"
-                  />
-                  <PremiumInput
-                    label="State"
-                    value={formState}
-                    onChange={(e) => setFormState(e.target.value)}
-                    placeholder="State name"
-                  />
-                </div>
-              </div>
-
-              {/* Business Settings */}
-              <div className="space-y-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">
-                  {t("parties.partyType")}
-                </h3>
-
-                <PremiumSelect
-                  label={t("parties.partyType") + " *"}
-                  value={formPartyType}
-                  onChange={(e) =>
-                    setFormPartyType(e.target.value as PartyType)
-                  }
-                  options={[
-                    { value: "customer", label: t("parties.customer") },
-                    { value: "supplier", label: t("parties.supplier") },
-                    { value: "both", label: t("parties.both") },
-                  ]}
-                />
-
-                <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
-                  <PremiumSelect
-                    label={t("parties.type") + " (Opening)"}
-                    value={formBalType}
-                    onChange={(e) =>
-                      setFormBalType(e.target.value as LedgerType)
-                    }
-                    options={[
-                      { value: "debit", label: "Debit (We receive)" },
-                      { value: "credit", label: "Credit (They receive)" },
-                    ]}
-                  />
-
-                  <PremiumInput
-                    label={t("parties.openingBalance")}
-                    type="number"
-                    value={formOpenBal}
-                    onChange={(e) =>
-                      setFormOpenBal(parseFloat(e.target.value) || 0)
-                    }
-                    placeholder="₹ 0.00"
-                  />
-
-                  <PremiumInput
-                    label={t("parties.creditLimit")}
-                    type="number"
-                    value={formCreditLimit}
-                    onChange={(e) =>
-                      setFormCreditLimit(parseFloat(e.target.value) || 0)
-                    }
-                    placeholder="₹ 0.00"
-                  />
-
-                  <PremiumInput
-                    label="Commission %"
-                    type="number"
-                    value={formComm}
-                    onChange={(e) =>
-                      setFormComm(parseFloat(e.target.value) || 0)
-                    }
-                    placeholder="3%"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <PremiumTextarea
-              label={t("parties.notes")}
-              value={formNotes}
-              onChange={(e) => setFormNotes(e.target.value)}
-              placeholder="Additional notes or remarks"
-              rows={2}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Statistics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <StatCard
+              icon={Users}
+              label="Total Parties"
+              value={stats.total}
+              variant="blue"
+            />
+            <StatCard
+              icon={User}
+              label="Customers"
+              value={stats.customers}
+              variant="purple"
+            />
+            <StatCard
+              icon={Building2}
+              label="Suppliers"
+              value={stats.suppliers}
+              variant="teal"
+            />
+            <StatCard
+              icon={DollarSign}
+              label="Total Balance"
+              value={formatCurrency(stats.totalBalance, "INR")}
+              variant={stats.totalBalance >= 0 ? "blue" : "amber"}
             />
           </div>
-        </PremiumModal>
 
-        {/* Toast Container */}
-        <ToastContainer toasts={toasts} onClose={removeToast} />
+          {/* Controls */}
+          <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-6 mb-6 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              {/* Search */}
+              <div className="relative">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={18}
+                />
+                <input
+                  type="text"
+                  placeholder="Search by name, phone, email..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+                />
+              </div>
+
+              {/* Type Filter */}
+              <select
+                value={activeTab}
+                onChange={(e) =>
+                  setActiveTab(e.target.value as PartyType | "all")
+                }
+                className="px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+              >
+                <option value="all">All Types</option>
+                <option value="customer">Customers</option>
+                <option value="supplier">Suppliers</option>
+                <option value="both">Both</option>
+              </select>
+
+              {/* Sort */}
+              <div className="flex items-center gap-2">
+                <ArrowUpDown size={18} className="text-slate-400" />
+                <select
+                  value={sortField}
+                  onChange={(e) => setSortField(e.target.value as SortField)}
+                  className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+                >
+                  <option value="name">Sort by Name</option>
+                  <option value="city">Sort by City</option>
+                  <option value="balance">Sort by Balance</option>
+                  <option value="createdAt">Sort by Created Date</option>
+                </select>
+              </div>
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-600">
+                {filtered.length} parties found
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={cn(
+                    "p-2.5 rounded-lg transition-colors",
+                    viewMode === "grid"
+                      ? "bg-indigo-50 text-indigo-600"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                  )}
+                  title="Grid view"
+                >
+                  <Grid3X3 size={18} />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={cn(
+                    "p-2.5 rounded-lg transition-colors",
+                    viewMode === "list"
+                      ? "bg-indigo-50 text-indigo-600"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                  )}
+                  title="List view"
+                >
+                  <List size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Parties Display */}
+          {filtered.length === 0 ? (
+            <div className="bg-white rounded-lg border border-slate-200 p-12 text-center shadow-sm">
+              <Users size={48} className="mx-auto text-slate-300 mb-4" />
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                No parties found
+              </h3>
+              <p className="text-slate-500 mb-6">
+                {search
+                  ? "Try adjusting your search criteria"
+                  : "Create your first party to get started"}
+              </p>
+              {!search && (
+                <Button
+                  onClick={openNew}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  <Plus size={16} />
+                  New Party
+                </Button>
+              )}
+            </div>
+          ) : viewMode === "grid" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filtered.map((party) => (
+                <PartyCard
+                  key={party.id}
+                  party={party}
+                  onView={() => setDetailDrawerOpen(party)}
+                  onEdit={openEdit}
+                  onDelete={() => handleDelete(party)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((party) => (
+                <div
+                  key={party.id}
+                  className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group flex items-center justify-between"
+                  onClick={() => setDetailDrawerOpen(party)}
+                >
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                      {party.name
+                        .split(" ")
+                        .slice(0, 2)
+                        .map((w) => w[0])
+                        .join("")
+                        .toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-1">
+                        <h3 className="text-sm font-semibold text-slate-900 truncate">
+                          {party.name}
+                        </h3>
+                        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 flex-shrink-0">
+                          {party.partyType.charAt(0).toUpperCase() +
+                            party.partyType.slice(1)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-[12px] text-slate-500">
+                        {party.phone && (
+                          <span className="flex items-center gap-1">
+                            <Phone size={12} />
+                            {party.phone}
+                          </span>
+                        )}
+                        {party.city && (
+                          <span className="flex items-center gap-1">
+                            <MapPin size={12} />
+                            {party.city}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex-shrink-0 flex items-center gap-4 ml-4">
+                    <div className="text-right">
+                      <div
+                        className={cn(
+                          "text-sm font-bold",
+                          party.openingBalance >= 0
+                            ? "text-emerald-600"
+                            : "text-rose-600",
+                        )}
+                      >
+                        {formatCurrency(party.openingBalance, "INR")}
+                      </div>
+                      <div className="text-[11px] text-slate-400">Balance</div>
+                    </div>
+
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit(party);
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      >
+                        <User size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Detail Drawer */}
+      <PartyDetailDrawer
+        party={detailDrawerOpen}
+        onClose={() => setDetailDrawerOpen(null)}
+        onEdit={(party) => {
+          openEdit(party);
+          setDetailDrawerOpen(null);
+        }}
+        onDelete={(party) => {
+          handleDelete(party);
+          setDetailDrawerOpen(null);
+        }}
+      />
+
+      {/* Modal */}
+      <CreatePartyModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSave={handleSave}
+        editParty={editParty}
+      />
+
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </PageTransition>
   );
 }

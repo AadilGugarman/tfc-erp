@@ -1,13 +1,14 @@
 {
-    "dashboard":  "ડેશબોર્ડ",
-    "vehicleRegister":  "વાહન આગમન રજીસ્ટર",
-    "vehicleArrivalRegister":  "વાહન આગમન રજીસ્ટર",
-    "parties": "પક્ષો",
-    "transactions": "વેચાણ",
-    "purchases": "ખરીદી",
-    "inventory": "ઇન્વેન્ટરી",
-    "payments": "ચુકવણીઓ",
-    "billing": "બિલિંગ",
-    "reports": "અહેવાલો",
-    "settings": "સેટિંગ્સ"
+  "dashboard": "ડેશબોર્ડ",
+  "vehicleRegister": "વાહન આગમન રજીસ્ટર",
+  "vehicleArrivalRegister": "વાહન આગમન રજીસ્ટર",
+  "parties": "પક્ષો",
+  "transactions": "વેચાણ",
+  "purchases": "ખરીદી",
+  "aavakRegister": "આવક રજીસ્ટર",
+  "inventory": "ઇન્વેન્ટરી",
+  "payments": "ચુકવણીઓ",
+  "billing": "બિલિંગ",
+  "reports": "અહેવાલો",
+  "settings": "સેટિંગ્સ"
 }

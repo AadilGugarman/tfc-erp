@@ -42,6 +42,7 @@ function MangoLogo() {
 
 export function Header() {
   const { settings, setDarkMode, sidebarOpen, setSidebarOpen } = useAppStore();
+  const isDarkMode = settings.appearance.theme === "dark";
   const { user, logout } = useAuth();
   const { t } = useTranslation();
   const { companyId } = useParams<{ companyId: string }>();
@@ -150,16 +151,16 @@ export function Header() {
 
         {/* Theme Toggle */}
         <button
-          onClick={() => setDarkMode(!settings.darkMode)}
+          onClick={() => setDarkMode(!isDarkMode)}
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-xl",
             "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
             "bg-white/90 dark:bg-[#111b30] border border-slate-200/90 dark:border-[#2a3550]",
             "hover:bg-white dark:hover:bg-[#16203a] transition-all duration-150",
           )}
-          title={settings.darkMode ? "Light mode" : "Dark mode"}
+          title={isDarkMode ? "Light mode" : "Dark mode"}
         >
-          {settings.darkMode ? (
+          {isDarkMode ? (
             <Sun className="h-4.5 w-4.5" />
           ) : (
             <Moon className="h-4.5 w-4.5" />

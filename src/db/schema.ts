@@ -303,6 +303,14 @@ export interface SecuritySettings {
   dataEncryptionEnabled: boolean;
 }
 
+export type SettingsCategory =
+  | "companies"
+  | "financial"
+  | "invoice"
+  | "backup"
+  | "appearance"
+  | "security";
+
 export interface Settings {
   company: CompanySettings;
   financial: FinancialSettings;

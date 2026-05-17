@@ -48,8 +48,13 @@ function AppContent() {
   }, [currentCompanyId, refreshDataFromDb]);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", settings.darkMode);
-  }, [settings.darkMode]);
+    const theme = settings.appearance.theme;
+    const isDark =
+      theme === "dark" ||
+      (theme === "system" &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.classList.toggle("dark", isDark);
+  }, [settings.appearance.theme]);
 
   // Map modalContent strings to actual components
   const renderModalContent = () => {

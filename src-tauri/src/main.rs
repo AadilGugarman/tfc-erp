@@ -18,6 +18,7 @@ fn main() {
       auth::login,
       auth::has_users,
       auth::setup_initial_admin,
+      auth::clear_users_for_setup,
       auth::refresh_access_token,
       auth::verify_access_token,
       auth::get_user,

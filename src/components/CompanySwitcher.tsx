@@ -1,33 +1,22 @@
 import { useState, useEffect, useRef } from "react";
-import {
-  ChevronDown,
-  Plus,
-  Settings,
-  LogOut,
-  Building2,
-  Loader2,
-  Check,
-} from "lucide-react";
+import { ChevronDown, Building2, Loader2, Check } from "lucide-react";
 import { useAppStore } from "@/stores/useAppStore";
 import { authService } from "@/services/auth";
 import { cn } from "@/utils/cn";
 import { useNavigate, useLocation } from "react-router-dom";
+import type { Company } from "@/db/schema";
 
 interface CompanySwitcherProps {
   currentCompanyName: string;
   onCompanyChange?: (companyId: string) => void;
-  onAddCompany?: () => void;
-  onManageCompanies?: () => void;
 }
 
 export function CompanySwitcher({
   currentCompanyName,
   onCompanyChange,
-  onAddCompany,
-  onManageCompanies,
 }: CompanySwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [companies, setCompanies] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const { companies: storeCompanies, setCurrentCompany } = useAppStore();
@@ -36,7 +25,6 @@ export function CompanySwitcher({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Get list of accessible companies
     const companyIds = authService.getAccessibleCompanies();
     const accessibleCompanies = storeCompanies.filter((c) =>
       companyIds.includes(c.id),
@@ -72,14 +60,11 @@ export function CompanySwitcher({
     try {
       setCurrentCompany(companyId);
 
-      // Extract current page from URL
       const pathParts = location.pathname.split("/");
       const currentPage = pathParts.length >= 4 ? pathParts[3] : "dashboard";
 
-      // Navigate to the same page in the new company
       navigate(`/app/${companyId}/${currentPage}`);
 
-      // Small delay for visual feedback
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       setIsOpen(false);
@@ -96,7 +81,6 @@ export function CompanySwitcher({
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Trigger Button */}
       <button
         onClick={() => !isSwitching && setIsOpen(!isOpen)}
         disabled={isSwitching}
@@ -111,7 +95,6 @@ export function CompanySwitcher({
             "ring-2 ring-blue-500/20 border-blue-300 dark:border-blue-600",
         )}
       >
-        {/* Company Icon */}
         <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
           {isSwitching ? (
             <Loader2 className="w-4 h-4 text-white animate-spin" />
@@ -120,7 +103,6 @@ export function CompanySwitcher({
           )}
         </div>
 
-        {/* Company Info */}
         <div className="flex-1 min-w-0 text-left">
           <div className="text-sm font-semibold truncate">
             {isSwitching ? "Switching..." : currentCompanyName}
@@ -132,7 +114,6 @@ export function CompanySwitcher({
           )}
         </div>
 
-        {/* Chevron */}
         <ChevronDown
           className={cn(
             "w-4 h-4 shrink-0 transition-transform duration-200 text-gray-400",
@@ -142,7 +123,6 @@ export function CompanySwitcher({
         />
       </button>
 
-      {/* Dropdown Menu */}
       {isOpen && (
         <div
           className={cn(
@@ -152,7 +132,6 @@ export function CompanySwitcher({
             "animate-in fade-in-0 zoom-in-95 duration-200",
           )}
         >
-          {/* Header */}
           <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
               Switch Company
@@ -162,8 +141,7 @@ export function CompanySwitcher({
             </p>
           </div>
 
-          {/* Companies List */}
-          <div className="py-2 max-h-[280px] overflow-y-auto">
+          <div className="py-2 max-h-[320px] overflow-y-auto">
             {companies.length > 0 ? (
               companies.map((company) => {
                 const isCurrent = company.name === currentCompanyName;
@@ -182,7 +160,6 @@ export function CompanySwitcher({
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      {/* Company Icon */}
                       <div
                         className={cn(
                           "flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm",
@@ -200,7 +177,6 @@ export function CompanySwitcher({
                         )}
                       </div>
 
-                      {/* Company Details */}
                       <div className="flex-1 min-w-0">
                         <div
                           className={cn(
@@ -229,9 +205,8 @@ export function CompanySwitcher({
                         </div>
                       </div>
 
-                      {/* Status Indicator */}
                       {isCurrent && (
-                        <div className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500"></div>
+                        <div className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500" />
                       )}
                     </div>
                   </button>
@@ -244,65 +219,14 @@ export function CompanySwitcher({
                   No companies available
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  Create a company to get started
+                  Add companies from Settings → Companies
                 </p>
               </div>
             )}
           </div>
-
-          {/* Divider */}
-          <div className="border-t border-gray-100 dark:border-gray-700" />
-
-          {/* Actions */}
-          <div className="py-2">
-            <button
-              onClick={() => {
-                onAddCompany?.();
-                setIsOpen(false);
-              }}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 text-sm text-left",
-                "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30",
-                "transition-all duration-150",
-              )}
-            >
-              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center">
-                <Plus className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="font-medium">Add Company</div>
-                <div className="text-xs text-blue-500 dark:text-blue-400 opacity-75">
-                  Create a new company
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => {
-                onManageCompanies?.();
-                setIsOpen(false);
-              }}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 text-sm text-left",
-                "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50",
-                "transition-all duration-150",
-              )}
-            >
-              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center">
-                <Settings className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="font-medium">Manage Companies</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 opacity-75">
-                  Edit company settings
-                </div>
-              </div>
-            </button>
-          </div>
         </div>
       )}
 
-      {/* Backdrop */}
       {isOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/5 backdrop-blur-sm"

@@ -5,6 +5,7 @@ commands.allow = [
   "login",
   "has_users",
   "setup_initial_admin",
+  "clear_users_for_setup",
   "refresh_access_token",
   "verify_access_token",
   "get_user",

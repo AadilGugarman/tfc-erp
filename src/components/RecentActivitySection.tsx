@@ -92,13 +92,7 @@ export function RecentActivitySection() {
     .slice(0, 10);
 
   if (recentActivities.length === 0) {
-    return (
-      <div className="rounded-lg border border-slate-200 dark:border-[#2a3550] bg-white dark:bg-[#111827] px-6 py-8">
-        <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-          No recent activity
-        </p>
-      </div>
-    );
+    return null;
   }
 
   return (

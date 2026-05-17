@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "./Header";
 import { Stepper, STEPS } from "./Stepper";
@@ -10,7 +10,21 @@ import { SuccessModal } from "./SuccessModal";
 import { CompanyListModal } from "./CompanyListModal";
 import { CompanyFormData, ValidationErrors } from "../../types/company";
 import { useAppStore } from "../../stores/useAppStore";
+import { authService } from "@/services/auth";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import type { NavigateFunction } from "react-router-dom";
+
+function goToCompaniesSettings(
+  navigate: NavigateFunction,
+  companyId?: string | null,
+) {
+  const targetId = companyId ?? authService.getCurrentCompany();
+  if (targetId) {
+    navigate(`/app/${targetId}/settings?section=companies`);
+  } else {
+    navigate("/select-company");
+  }
+}
 
 const INITIAL_DATA: CompanyFormData = {
   details: {
@@ -41,6 +55,17 @@ const INITIAL_DATA: CompanyFormData = {
 };
 
 const DRAFT_STORAGE_KEY = "tfc_company_wizard_draft";
+
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+const GSTIN_REGEX =
+  /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+
+function hasValidationErrors(errors: ValidationErrors): boolean {
+  return (
+    Object.keys(errors.details).length > 0 ||
+    Object.keys(errors.financial).length > 0
+  );
+}
 
 interface CompanyWizardProps {
   mode?: "create" | "edit";
@@ -110,6 +135,7 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showListModal, setShowListModal] = useState(false);
+  const [createdCompanyId, setCreatedCompanyId] = useState<string | null>(null);
 
   // Auto-save and persistence
   useEffect(() => {
@@ -147,10 +173,20 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
         if (!data.details.legalName)
           newErrors.details.legalName = "Legal business name is required";
         if (data.details.country === "India") {
-          if (!data.details.gstin)
+          const gstin = data.details.gstin.trim().toUpperCase();
+          if (!gstin) {
             newErrors.details.gstin = "GSTIN is required";
-          if (!data.details.panNumber)
+          } else if (gstin.length === 15 && !GSTIN_REGEX.test(gstin)) {
+            newErrors.details.gstin =
+              "Invalid GSTIN format (e.g. 27AAAAA0000A1Z5)";
+          }
+          const pan = data.details.panNumber.trim().toUpperCase();
+          if (!pan) {
             newErrors.details.panNumber = "PAN number is required";
+          } else if (pan.length === 10 && !PAN_REGEX.test(pan)) {
+            newErrors.details.panNumber =
+              "Invalid PAN format (e.g. ABCDE1234F)";
+          }
         }
         if (!data.details.address)
           newErrors.details.address = "Street address is required";
@@ -182,10 +218,19 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
     [],
   );
 
-  // Update errors whenever formData changes (soft validation)
+  const strictErrors = useMemo(
+    () => validateForm(formData, true),
+    [formData, validateForm],
+  );
+
+  // Only show validation errors on the review step (steps 1–2 are free to navigate)
   useEffect(() => {
-    setErrors(validateForm(formData, false));
-  }, [formData, validateForm]);
+    if (currentStep === 3) {
+      setErrors(strictErrors);
+    } else {
+      setErrors({ details: {}, financial: {} });
+    }
+  }, [currentStep, strictErrors]);
 
   const handleUpdateDetails = (fields: Partial<CompanyFormData["details"]>) => {
     setFormData((prev) => ({
@@ -233,18 +278,13 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
   };
 
   const handleSubmit = async () => {
-    const strictErrors = validateForm(formData, true);
-    const hasErrors = Object.values(strictErrors).some(
-      (stepErrors) => Object.keys(stepErrors).length > 0,
-    );
-
-    if (hasErrors) {
-      setErrors(strictErrors);
+    const submissionErrors = validateForm(formData, true);
+    if (hasValidationErrors(submissionErrors)) {
+      setErrors(submissionErrors);
       showNotification(
-        "Statutory validation failed. Please resolve all required fields in the Review step.",
+        "Please complete all required fields before saving.",
         "error",
       );
-      setCurrentStep(3);
       return;
     }
 
@@ -271,9 +311,9 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
           updatedAt: new Date().toISOString(),
         });
         showNotification("Company updated successfully", "success");
-        navigate("/manage-companies");
+        goToCompaniesSettings(navigate, companyId);
       } else {
-        await createCompany({
+        const newCompany = await createCompany({
           name: formData.details.companyName,
           address: formData.details.address,
           city: formData.details.city,
@@ -290,6 +330,7 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
         });
 
         localStorage.removeItem(DRAFT_STORAGE_KEY);
+        setCreatedCompanyId(newCompany.id);
         setShowSuccessModal(true);
       }
     } catch (error) {
@@ -316,32 +357,20 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
   const getStepStatus = (
     stepId: number,
   ): "completed" | "warning" | "incomplete" | "pending" => {
-    const strictErrors = validateForm(formData, true);
-    if (stepId === 1) {
-      if (!formData.details.companyName || !formData.details.country)
-        return "incomplete";
-      return Object.keys(strictErrors.details).length === 0
-        ? "completed"
-        : "warning";
-    }
-    if (stepId === 2) {
-      if (!formData.financial.currency) return "incomplete";
-      return Object.keys(strictErrors.financial).length === 0
-        ? "completed"
-        : "warning";
-    }
+    if (stepId < currentStep) return "completed";
+    if (stepId === currentStep) return "completed";
     return "pending";
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 flex flex-col overflow-hidden">
       <Header
         title={mode === "edit" ? "Edit Company" : "Create New Company"}
         onBackClick={() => {
           if (isDirty) {
             setShowUnsavedModal(true);
           } else if (mode === "edit") {
-            navigate("/manage-companies");
+            goToCompaniesSettings(navigate, companyId);
           } else {
             setShowListModal(true);
           }
@@ -372,14 +401,16 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
 
       <Stepper
         currentStep={currentStep}
-        onStepClick={setCurrentStep}
+        onStepClick={(step) => {
+          setCurrentStep(step);
+          window.scrollTo(0, 0);
+        }}
         getStepStatus={getStepStatus}
       />
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-8 flex flex-col gap-8">
-        <div className="flex-1">
-          <div className="bg-white rounded-3xl shadow-xs border border-slate-200 p-8 min-h-[600px] flex flex-col">
-            <div className="flex-1">
+      <main className="flex-1 min-h-0 max-w-5xl mx-auto w-full px-6 py-8 flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-y-auto p-8">
               {currentStep === 1 && (
                 <CompanyDetailsStep
                   data={formData.details}
@@ -400,14 +431,13 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
                   onEditStep={setCurrentStep}
                   onSubmit={handleSubmit}
                   isSubmitting={isSubmitting}
-                  validationErrors={errors}
+                  validationErrors={strictErrors}
                 />
               )}
             </div>
 
-            {/* Navigation Footer */}
             {currentStep < 3 && (
-              <div className="mt-12 pt-8 border-t border-slate-100 flex items-center justify-between">
+              <div className="shrink-0 px-8 py-4 border-t border-slate-100 bg-white flex items-center justify-between gap-4">
                 <button
                   type="button"
                   onClick={handleBack}
@@ -428,7 +458,6 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
                 </button>
               </div>
             )}
-          </div>
         </div>
       </main>
 
@@ -437,20 +466,35 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
         isOpen={showUnsavedModal}
         onClose={() => setShowUnsavedModal(false)}
         onConfirm={() =>
-          navigate(mode === "edit" ? "/manage-companies" : "/select-company")
+          mode === "edit"
+            ? goToCompaniesSettings(navigate, companyId)
+            : navigate("/select-company")
         }
       />
 
       <SuccessModal
         isOpen={showSuccessModal}
         formData={formData}
-        onDashboardClick={() => navigate("/")}
+        onDashboardClick={() => {
+          if (createdCompanyId) {
+            navigate(`/app/${createdCompanyId}/dashboard`);
+          } else {
+            navigate("/");
+          }
+        }}
         onCreateAnother={() => {
           setShowSuccessModal(false);
+          setCreatedCompanyId(null);
           setFormData(INITIAL_DATA);
           setCurrentStep(1);
         }}
-        onConfigureTemplates={() => navigate("/settings")}
+        onConfigureTemplates={() => {
+          if (createdCompanyId) {
+            navigate(`/app/${createdCompanyId}/settings?section=invoice`);
+          } else {
+            goToCompaniesSettings(navigate);
+          }
+        }}
       />
 
       <CompanyListModal
