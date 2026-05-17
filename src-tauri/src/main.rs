@@ -6,7 +6,7 @@ mod backup;
 
 fn main() {
   db::init_database().expect("failed to initialize the SQLite database");
-  backup::get_backup_config().expect("failed to initialize backup configuration");
+  backup::get_backup_config_internal().expect("failed to initialize backup configuration");
 
   tauri::Builder::default()
     .setup(|_app| {

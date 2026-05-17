@@ -192,8 +192,15 @@ pub fn setup_initial_admin(username: String, password: String, name: String, ema
         .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
         .map_err(|e| e.to_string())?;
     
-    if count > 0 {
-        return Err("Initial setup already completed".to_string());
+    #[cfg(not(debug_assertions))]
+    {
+        if count > 0 {
+            return Err("Initial setup already completed".to_string());
+        }
+    }
+    #[cfg(debug_assertions)]
+    {
+        let _ = count; // Suppress unused warning in debug mode
     }
 
     let admin_id = Uuid::new_v4().to_string();

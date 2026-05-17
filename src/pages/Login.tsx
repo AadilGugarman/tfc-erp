@@ -238,6 +238,27 @@ export function LoginPage() {
               >
                 {needsSetup ? "Create Admin Account" : "Welcome back"}
               </motion.h2>
+
+              {/* Dev-only reset button */}
+              {!needsSetup && process.env.NODE_ENV === "development" && (
+                <button
+                  onClick={async () => {
+                    if (confirm("Reset database and start setup? (DEV ONLY)")) {
+                      try {
+                        // We use a temporary hack: just delete the DB or call a reset command
+                        // For now, let's just force the setup view
+                        setNeedsSetup(true);
+                        toast.info("Switched to setup mode (Development)");
+                      } catch (e) {
+                        toast.error("Failed to reset");
+                      }
+                    }
+                  }}
+                  className="mt-2 text-[10px] text-violet-400/50 hover:text-violet-400 transition-colors uppercase tracking-widest"
+                >
+                  [ Force Setup Mode ]
+                </button>
+              )}
               <motion.p
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

@@ -671,6 +671,10 @@ pub fn get_backup_config(token: String) -> Result<BackupConfig, String> {
   load_backup_config_internal()
 }
 
+pub fn get_backup_config_internal() -> Result<BackupConfig, String> {
+  load_backup_config_internal()
+}
+
 #[tauri::command]
 pub fn update_backup_config(token: String, config: BackupConfig) -> Result<BackupConfig, String> {
   authorize(&token)?;
@@ -693,6 +697,10 @@ pub fn create_manual_backup(token: String, client_state_json: Option<String>) ->
 #[tauri::command]
 pub fn create_startup_backup(token: String) -> Result<Option<BackupHistoryItem>, String> {
   authorize(&token)?;
+  create_startup_backup_internal()
+}
+
+pub fn create_startup_backup_internal() -> Result<Option<BackupHistoryItem>, String> {
   let config = load_backup_config_internal()?;
   if !config.auto_enabled || !config.startup_backup {
     return Ok(None);
@@ -706,6 +714,10 @@ pub fn create_startup_backup(token: String) -> Result<Option<BackupHistoryItem>,
 #[tauri::command]
 pub fn run_auto_backup_if_due(token: String) -> Result<Option<BackupHistoryItem>, String> {
   authorize(&token)?;
+  run_auto_backup_if_due_internal()
+}
+
+pub fn run_auto_backup_if_due_internal() -> Result<Option<BackupHistoryItem>, String> {
   let config = load_backup_config_internal()?;
   if !should_run_auto_backup(&config) {
     return Ok(None);
@@ -855,7 +867,7 @@ pub fn restart_application(app: AppHandle) -> Result<String, String> {
 
 pub fn start_backup_scheduler() {
   thread::spawn(|| loop {
-    let _ = run_auto_backup_if_due();
+    let _ = run_auto_backup_if_due_internal();
     thread::sleep(Duration::from_secs(60));
   });
 }
