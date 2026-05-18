@@ -407,6 +407,21 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
+    // ENFORCE: No backend data loads without a valid access token
+    if (!authService.isAuthenticatedSync()) {
+      console.debug("[Store] Skipping DB refresh: auth token not available.");
+      set({
+        parties: [],
+        inventoryItems: [],
+        payments: [],
+        bills: [],
+        purchases: [],
+        ledgerEntries: [],
+        vehicleRegisters: [],
+      });
+      return;
+    }
+
     // Load ONLY company-specific data
     const parties = db.getPartiesByCompany(currentCompanyId);
     const inventoryItems = db.getInventoryItemsByCompany(currentCompanyId);

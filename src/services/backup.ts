@@ -3,6 +3,7 @@ import {
   secureInvoke,
   isTauriRuntime as isDesktopRuntime,
 } from "@/utils/tauri";
+import { getAccessToken } from "@/utils/tokenRegistry";
 
 export type BackupFrequency =
   | "daily"
@@ -101,8 +102,14 @@ export function applyClientStateSnapshot(snapshotJson: string): void {
 
 export async function saveClientStateForBackups(): Promise<void> {
   if (!isDesktopRuntime()) return;
+  if (!getAccessToken()) return;
+
   const clientStateJson = collectClientStateSnapshot();
-  await secureInvoke("save_backup_client_state", { clientStateJson });
+  await secureInvoke(
+    "save_backup_client_state",
+    { clientStateJson },
+    { skipKeyNormalization: true },
+  );
 }
 
 export async function getBackupConfig(): Promise<BackupConfig | null> {
@@ -133,19 +140,23 @@ export async function createManualBackup(): Promise<BackupHistoryItem> {
     throw new Error("Desktop runtime required");
   }
   const clientStateJson = collectClientStateSnapshot();
-  return secureInvoke<BackupHistoryItem>("create_manual_backup", {
-    clientStateJson,
-  });
+  return secureInvoke<BackupHistoryItem>(
+    "create_manual_backup",
+    { clientStateJson },
+    { skipKeyNormalization: true },
+  );
 }
 
 export async function createStartupBackup(): Promise<BackupHistoryItem | null> {
   if (!isDesktopRuntime()) return null;
+  if (!getAccessToken()) return null;
   await saveClientStateForBackups();
   return secureInvoke<BackupHistoryItem | null>("create_startup_backup");
 }
 
 export async function runAutoBackupIfDue(): Promise<BackupHistoryItem | null> {
   if (!isDesktopRuntime()) return null;
+  if (!getAccessToken()) return null;
   await saveClientStateForBackups();
   return secureInvoke<BackupHistoryItem | null>("run_auto_backup_if_due");
 }

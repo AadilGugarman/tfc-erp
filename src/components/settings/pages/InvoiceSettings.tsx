@@ -4,9 +4,11 @@ import { Input, Textarea, Select, Toggle, Button, SectionDivider } from '../Base
 import { FileUpload, ColorPicker } from '../FileUpload';
 import { useAppStore } from '@/stores/useAppStore';
 import { Download, Printer, MessageCircle, Eye, X } from 'lucide-react';
+import { useDialog } from '@/components/ui/dialogs';
 
 export const InvoiceSettings: React.FC = () => {
   const { settings, updateSettings } = useAppStore();
+  const dialog = useDialog();
   
   const [showPreview, setShowPreview] = React.useState(false);
   
@@ -54,7 +56,12 @@ export const InvoiceSettings: React.FC = () => {
   };
 
   const handleDownloadPDF = () => {
-    alert('PDF download would be triggered here. In production, integrate with jsPDF or react-pdf library.');
+    dialog.error({
+      title: "PDF Export Not Yet Available",
+      description:
+        "PDF generation is coming in a future release. To print your invoice now, use the Print button — your browser will let you save it as a PDF from the print dialog.",
+      confirmLabel: "Got It",
+    });
   };
 
   return (

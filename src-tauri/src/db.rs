@@ -527,6 +527,8 @@ pub fn init_database() -> Result<(), String> {
   .map_err(|error| error.to_string())?;
 
   seed_default_settings(&connection)?;
+  // Ensure refresh_tokens table exists (auth security layer)
+  crate::auth::ensure_refresh_tokens_table(&connection)?;
   Ok(())
 }
 

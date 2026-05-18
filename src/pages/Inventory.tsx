@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "@/stores/useAppStore";
+import { useBatchPageData } from "@/hooks/usePageData";
+import { useDebouncedFilter } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -32,12 +34,15 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useShortcutAction } from "@/keyboard/shortcutManager";
+import { useDialog } from "@/components/ui/dialogs";
 
 export function InventoryPage() {
   const { t } = useTranslation();
-  const { inventoryItems, loadInventory, currentCompanyId } = useAppStore();
+  const { inventoryItems } = useAppStore();
   const { toasts, removeToast, success, error } = useToast();
-  const [search, setSearch] = useState("");
+
+  useBatchPageData(["inventory"]);
+  const dialog = useDialog();
   const [showForm, setShowForm] = useState(false);
   const [showInward, setShowInward] = useState(false);
   const [showTxn, setShowTxn] = useState(false);
@@ -61,23 +66,32 @@ export function InventoryPage() {
   const [inwardRate, setInwardRate] = useState(0);
   const [inwardNotes, setInwardNotes] = useState("");
 
-  useEffect(() => {
-    loadInventory();
-  }, []);
-
-  const filtered = inventoryItems.filter(
-    (i) =>
-      i.name.toLowerCase().includes(search.toLowerCase()) ||
-      i.grade.toLowerCase().includes(search.toLowerCase()) ||
-      i.warehouse.toLowerCase().includes(search.toLowerCase()),
+  const {
+    query: search,
+    setQuery: setSearch,
+    results: filtered,
+  } = useDebouncedFilter(
+    inventoryItems,
+    (item, query) => {
+      const q = query.trim().toLowerCase();
+      return (
+        item.name.toLowerCase().includes(q) ||
+        item.grade.toLowerCase().includes(q) ||
+        item.warehouse.toLowerCase().includes(q)
+      );
+    },
+    250,
   );
 
-  const statusCounts = {
-    in_stock: inventoryItems.filter((i) => i.status === "in_stock").length,
-    low_stock: inventoryItems.filter((i) => i.status === "low_stock").length,
-    out_of_stock: inventoryItems.filter((i) => i.status === "out_of_stock")
-      .length,
-  };
+  const statusCounts = useMemo(
+    () => ({
+      in_stock: inventoryItems.filter((i) => i.status === "in_stock").length,
+      low_stock: inventoryItems.filter((i) => i.status === "low_stock").length,
+      out_of_stock: inventoryItems.filter((i) => i.status === "out_of_stock")
+        .length,
+    }),
+    [inventoryItems],
+  );
 
   const openNew = () => {
     setEditItem(null);
@@ -181,32 +195,43 @@ export function InventoryPage() {
     }
   };
 
-  const handleOpenOutward = (itemId: string) => {
-    const qty = parseFloat(prompt("Enter quantity to remove:") || "0");
-    if (qty > 0) {
-      const item = inventoryItems.find((i) => i.id === itemId);
-      if (item) {
-        try {
-          db.addInventoryTransaction({
-            itemId,
-            itemName: item.name,
-            type: "outward",
-            quantity: qty,
-            rate: 0,
-            referenceType: "manual",
-            referenceId: "",
-            date: todayStr(),
-            notes: "Manual outward",
-          });
-          success(
-            "Stock Removed",
-            `${qty} ${item.unit} removed from inventory`,
-          );
-          loadInventory();
-        } catch (err) {
-          error("Error", (err as Error).message);
-        }
-      }
+  const handleOpenOutward = async (itemId: string) => {
+    const item = inventoryItems.find((i) => i.id === itemId);
+    if (!item) return;
+
+    const qtyStr = await dialog.input({
+      title: "Remove Stock",
+      description: `Enter the quantity to remove from "${item.name}" (${item.grade}). Current stock: ${item.currentStock} ${item.unit}.`,
+      inputLabel: `Quantity (${item.unit})`,
+      inputType: "number",
+      inputPlaceholder: "e.g. 10",
+      confirmLabel: "Remove Stock",
+      cancelLabel: "Cancel",
+    });
+
+    if (qtyStr === null) return;
+    const qty = parseFloat(qtyStr);
+    if (!qty || qty <= 0) {
+      error("Invalid Quantity", "Please enter a quantity greater than zero.");
+      return;
+    }
+
+    try {
+      db.addInventoryTransaction({
+        itemId,
+        itemName: item.name,
+        type: "outward",
+        quantity: qty,
+        rate: 0,
+        referenceType: "manual",
+        referenceId: "",
+        date: todayStr(),
+        notes: "Manual outward",
+      });
+      success("Stock Removed", `${qty} ${item.unit} removed from inventory`);
+      loadInventory();
+    } catch (err) {
+      error("Error", (err as Error).message);
     }
   };
 

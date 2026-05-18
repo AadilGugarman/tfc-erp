@@ -2,6 +2,7 @@ import { Cloud } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "@/stores/useAppStore";
+import { useBatchPageData } from "@/hooks/usePageData";
 import { DashboardHero } from "@/components/DashboardHero";
 import { QuickActions } from "@/components/QuickActions";
 import { PendingTasksWidgets } from "@/components/PendingTasksWidgets";
@@ -42,19 +43,16 @@ function getFinancialYearLabel(
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { loadParties, loadPayments, loadInventory, currentCompany } =
-    useAppStore();
+  const currentCompany = useAppStore((state) => state.currentCompany);
   const [selectedFinancialYear, setSelectedFinancialYear] = useState(
     getFinancialYearLabel(currentCompany),
   );
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   const yearMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    loadParties();
-    loadPayments();
-    loadInventory();
-  }, [loadParties, loadPayments, loadInventory]);
+  // OPTIMIZATION: Load only dashboard-needed data on mount
+  // Instead of loading ALL data on app startup, we load selectively here
+  useBatchPageData(["parties", "payments", "inventory"]);
 
   useEffect(() => {
     setSelectedFinancialYear(getFinancialYearLabel(currentCompany));

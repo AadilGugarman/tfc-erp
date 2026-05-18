@@ -16,17 +16,21 @@ import {
   Loader2,
   CheckCircle2,
   Sparkles,
-  Zap,
-  TrendingUp,
-  CreditCard,
-  FileText,
   Users,
 } from "lucide-react";
+import { useDialog } from "@/components/ui/dialogs";
 
-// --- Types ---
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 type Status = "idle" | "loading" | "success" | "error";
 
-// --- Components ---
+/**
+ * localStorage key for the "Remember me" checkbox UI state.
+ * This only persists the checkbox preference — NOT any credentials.
+ */
+const REMEMBER_ME_CHECKBOX_KEY = "tfc-erp-remember-me";
+
+// ─── Background FX ───────────────────────────────────────────────────────────
 
 function BackgroundFX() {
   return (
@@ -90,16 +94,8 @@ function BackgroundFX() {
               top: `${top}%`,
               boxShadow: "0 0 8px rgba(255,255,255,0.7)",
             }}
-            animate={{
-              y: [0, -30, 0],
-              opacity: [0.2, 0.9, 0.2],
-            }}
-            transition={{
-              duration: dur,
-              delay,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
+            animate={{ y: [0, -30, 0], opacity: [0.2, 0.9, 0.2] }}
+            transition={{ duration: dur, delay, repeat: Infinity, ease: "easeInOut" }}
           />
         );
       })}
@@ -110,12 +106,14 @@ function BackgroundFX() {
   );
 }
 
-// --- Main Page Component ---
+// ─── Main Page Component ──────────────────────────────────────────────────────
 
 export function LoginPage() {
   const navigate = useNavigate();
   const { isAuthenticated, isInitializing } = useAuth();
   const setCurrentCompanyId = useAppStore((state) => state.setCurrentCompanyId);
+  const dialog = useDialog();
+
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
@@ -126,6 +124,21 @@ export function LoginPage() {
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
   const [isCheckingSetup, setIsCheckingSetup] = useState(true);
 
+  /**
+   * "Remember me" checkbox state.
+   * Persisted in localStorage so the checkbox stays checked across page loads.
+   * This is purely a UI preference — no credentials are stored here.
+   */
+  const [rememberMe, setRememberMe] = useState<boolean>(() => {
+    return localStorage.getItem(REMEMBER_ME_CHECKBOX_KEY) === "true";
+  });
+
+  // Persist checkbox preference whenever it changes
+  useEffect(() => {
+    localStorage.setItem(REMEMBER_ME_CHECKBOX_KEY, rememberMe ? "true" : "false");
+  }, [rememberMe]);
+
+  // Redirect if already authenticated (e.g. session was silently restored)
   useEffect(() => {
     if (isInitializing || needsSetup === null) return;
     if (!isInitializing && isAuthenticated && needsSetup === false) {
@@ -133,6 +146,7 @@ export function LoginPage() {
     }
   }, [isAuthenticated, isInitializing, needsSetup, navigate]);
 
+  // Check whether initial admin setup is required
   useEffect(() => {
     const checkSetup = async () => {
       setIsCheckingSetup(true);
@@ -152,15 +166,15 @@ export function LoginPage() {
           }
         } else {
           setNeedsSetup(false);
-          setUsername("");
+          // Pre-fill username from "remember me" if available
+          const remembered = authService.getRememberedUsername();
+          if (remembered) setUsername(remembered);
         }
       } catch {
         authService.logout();
         setNeedsSetup(true);
         setEmail("");
-        toast.error(
-          'Setup check failed. Start the app with "npm run desktop:dev".',
-        );
+        toast.error('Setup check failed. Start the app with "npm run desktop:dev".');
       } finally {
         setIsCheckingSetup(false);
       }
@@ -190,35 +204,26 @@ export function LoginPage() {
   };
 
   const handleResetAndOpenSetup = async () => {
-    if (
-      !confirm(
-        "Delete all users and company data, then open setup again? (DEV ONLY)",
-      )
-    ) {
-      return;
-    }
+    const confirmed = await dialog.destructive({
+      title: "Reset All Users & Company Data?",
+      description:
+        "This will permanently delete all user accounts and company data, then reopen the initial setup wizard. This is a developer-only action and cannot be undone.",
+      confirmLabel: "Reset & Open Setup",
+      cancelLabel: "Cancel",
+    });
+    if (!confirmed) return;
 
     try {
       await authService.clearUsersForSetup();
       const { hasUsers } = await authService.getSetupStatus();
-
       if (hasUsers) {
-        throw new Error(
-          "Reset did not clear all users. Restart the app and try again.",
-        );
+        throw new Error("Reset did not clear all users. Restart the app and try again.");
       }
-
       openSetupMode();
       toast.success("Setup is ready — create your admin account");
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to reset for setup";
-      toast.error(errorMessage);
+      toast.error(err instanceof Error ? err.message : "Failed to reset for setup");
     }
-  };
-
-  const updatePassword = (v: string) => {
-    setPassword(v);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -234,6 +239,7 @@ export function LoginPage() {
 
     try {
       if (needsSetup) {
+        // ── First-run admin setup ──────────────────────────────────────────
         const response = await authService.setupInitialAdmin({
           username,
           password,
@@ -244,34 +250,30 @@ export function LoginPage() {
         setMessage(`Setup complete! Welcome, ${response.username}.`);
         toast.success(`Welcome, ${response.username}!`);
 
-        const companyIds = response.company_ids || [];
+        const companyIds = response.company_ids ?? [];
         if (companyIds.length > 0) {
-          const targetCompanyId = response.default_company_id || companyIds[0];
+          const targetCompanyId = response.default_company_id ?? companyIds[0];
           setCurrentCompanyId(targetCompanyId);
           setTimeout(() => navigate(`/app/${targetCompanyId}/dashboard`), 1000);
         } else {
           setTimeout(() => navigate("/no-company"), 1000);
         }
       } else {
-        const response = await authService.login(username, password);
+        // ── Normal login ──────────────────────────────────────────────────
+        // Pass rememberMe to authService — it handles all persistent session
+        // storage internally. Passwords are NEVER stored.
+        const response = await authService.login(username, password, rememberMe);
         setStatus("success");
         setMessage(`Welcome back, ${response.username}. Redirecting...`);
         toast.success(`Welcome, ${response.username}! Redirecting...`);
 
-        const companyIds = response.company_ids || [];
+        const companyIds = response.company_ids ?? [];
         if (companyIds.length > 0) {
-          // If there's a default company or multiple companies, pick one and go to dashboard
-          // Use default_company_id if provided, otherwise first one
-          const targetCompanyId = response.default_company_id || companyIds[0];
+          const targetCompanyId = response.default_company_id ?? companyIds[0];
           setCurrentCompanyId(targetCompanyId);
-          setTimeout(() => {
-            navigate(`/app/${targetCompanyId}/dashboard`);
-          }, 1000);
+          setTimeout(() => navigate(`/app/${targetCompanyId}/dashboard`), 1000);
         } else {
-          // No companies assigned yet
-          setTimeout(() => {
-            navigate("/no-company");
-          }, 1000);
+          setTimeout(() => navigate("/no-company"), 1000);
         }
       }
     } catch (err) {
@@ -280,9 +282,7 @@ export function LoginPage() {
 
       if (
         needsSetup &&
-        /already registered|already complete|UNIQUE constraint/i.test(
-          errorMessage,
-        )
+        /already registered|already complete|UNIQUE constraint/i.test(errorMessage)
       ) {
         const usersExist = await authService.hasUsers();
         if (usersExist) {
@@ -302,6 +302,8 @@ export function LoginPage() {
     }
   };
 
+  // ── Loading states ────────────────────────────────────────────────────────
+
   if (isCheckingSetup || needsSetup === null) {
     return (
       <div className="relative min-h-screen w-full flex items-center justify-center bg-[#0a0c10]">
@@ -312,6 +314,8 @@ export function LoginPage() {
       </div>
     );
   }
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-[#0a0c10] overflow-hidden">
@@ -326,7 +330,8 @@ export function LoginPage() {
         >
           <div className="glow-border">
             <div className="glass rounded-3xl p-8 sm:p-10 select-none cursor-default">
-              {/* Logo section */}
+
+              {/* Logo */}
               <div className="flex items-center gap-2.5 mb-6 select-none">
                 <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg">
                   <Sparkles className="h-5 w-5 text-white" />
@@ -362,9 +367,10 @@ export function LoginPage() {
                   onClick={handleResetAndOpenSetup}
                   className="mt-2 text-[10px] text-violet-400/50 hover:text-violet-400 transition-colors uppercase tracking-widest cursor-pointer select-none"
                 >
-                  [ Reset & open setup ]
+                  [ Reset &amp; open setup ]
                 </button>
               )}
+
               <motion.p
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -377,7 +383,8 @@ export function LoginPage() {
               </motion.p>
 
               <form onSubmit={handleSubmit} className="mt-7 space-y-4">
-                {/* Name - only for setup */}
+
+                {/* Full Name — setup only */}
                 {needsSetup && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -422,7 +429,7 @@ export function LoginPage() {
                   </div>
                 </motion.div>
 
-                {/* Email - only for setup */}
+                {/* Email — setup only */}
                 {needsSetup && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -462,7 +469,7 @@ export function LoginPage() {
                     <input
                       type={showPass ? "text" : "password"}
                       value={password}
-                      onChange={(e) => updatePassword(e.target.value)}
+                      onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••••"
                       className="flex-1 bg-transparent text-base text-white placeholder-white/20 outline-none border-none focus:ring-0 select-auto cursor-text"
                       autoComplete="current-password"
@@ -482,6 +489,72 @@ export function LoginPage() {
                   </div>
                 </motion.div>
 
+                {/* Remember Me — login only, never shown during setup */}
+                {!needsSetup && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.45 }}
+                    className="flex items-center justify-between"
+                  >
+                    <label className="flex items-center gap-2.5 cursor-pointer group select-none">
+                      <div className="relative flex items-center justify-center">
+                        {/* Hidden native checkbox for accessibility */}
+                        <input
+                          type="checkbox"
+                          id="remember-me"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="sr-only"
+                          aria-label="Remember me for 30 days"
+                        />
+                        {/* Custom styled checkbox */}
+                        <div
+                          role="checkbox"
+                          aria-checked={rememberMe}
+                          onClick={() => setRememberMe((v) => !v)}
+                          style={{ width: 18, height: 18 }}
+                          className={[
+                            "rounded-[5px] border flex items-center justify-center transition-all duration-150 cursor-pointer",
+                            rememberMe
+                              ? "bg-violet-500 border-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.4)]"
+                              : "bg-white/5 border-white/20 group-hover:border-white/40",
+                          ].join(" ")}
+                        >
+                          {rememberMe && (
+                            <svg
+                              className="w-2.5 h-2.5 text-white"
+                              viewBox="0 0 12 10"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <polyline points="1 5 4.5 8.5 11 1" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-sm text-white/50 group-hover:text-white/70 transition-colors">
+                        Remember me
+                      </span>
+                    </label>
+
+                    {/* Session duration hint */}
+                    {rememberMe && (
+                      <motion.span
+                        initial={{ opacity: 0, x: 8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="text-[11px] text-violet-300/60 select-none"
+                      >
+                        Stay signed in for 30 days
+                      </motion.span>
+                    )}
+                  </motion.div>
+                )}
+
                 {/* Status message */}
                 <AnimatePresence mode="wait">
                   {status === "error" && message && (
@@ -492,6 +565,7 @@ export function LoginPage() {
                       exit={{ opacity: 0 }}
                       transition={{ x: { duration: 0.4 } }}
                       className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs text-rose-200"
+                      role="alert"
                     >
                       {message}
                     </motion.div>
@@ -503,6 +577,7 @@ export function LoginPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
                       className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-200"
+                      role="status"
                     >
                       <CheckCircle2 className="h-4 w-4" />
                       {message}
@@ -539,7 +614,7 @@ export function LoginPage() {
                   )}
                 </motion.button>
 
-                {/* Back to Login - only shown during setup */}
+                {/* Back to Login — setup mode only */}
                 {needsSetup && (
                   <motion.button
                     initial={{ opacity: 0, y: 10 }}
@@ -555,7 +630,7 @@ export function LoginPage() {
                 )}
               </form>
 
-              {/* Footer section */}
+              {/* Footer */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -565,21 +640,12 @@ export function LoginPage() {
                 <span>© 2026 ASZ Nexus</span>
                 {!needsSetup && (
                   <div className="flex items-center gap-4">
-                    <a
-                      href="#"
-                      className="hover:text-white/70 transition cursor-pointer"
-                    >
-                      Secure Session
-                    </a>
-                    <a
-                      href="#"
-                      className="hover:text-white/70 transition cursor-pointer"
-                    >
-                      Encrypted
-                    </a>
+                    <span className="text-white/30">Secure Session</span>
+                    <span className="text-white/30">Encrypted</span>
                   </div>
                 )}
               </motion.div>
+
             </div>
           </div>
         </motion.div>

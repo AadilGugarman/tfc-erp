@@ -1,3 +1,7 @@
+## 17.0.8
+
+- fix(types): `<Trans i18nKey={$ => ...}>` now typechecks under `enableSelector: 'strict'`. The `Trans` component's conditional type was gated on `_EnableSelector extends true | 'optimize'`, excluding `'strict'` and falling back to the legacy string-key signature. Runtime was already correct (it calls `keyFromSelector(i18nKey)` whenever `typeof i18nKey === 'function'`); this is a type-only fix that widens the conditional to include `'strict'`. Thanks @Faithfinder ([#1921](https://github.com/i18next/react-i18next/pull/1921))
+
 ## 17.0.7
 
 - feat: `useTranslation([nsA, nsB, ...])` now passes its full namespace list to `getFixedT` via the new `scopeNs` opt (requires `i18next` ≥ v26.0.10). This makes selector calls with a secondary-namespace prefix resolve correctly under default `nsMode`: `t($ => $.nsB.foo)` previously missed silently because the bound `ns` was the primary string only and i18next's selector rewrite needed an array. Resolution semantics are unchanged — plain `t('key')` lookups still stay isolated to the primary namespace by default; use `nsMode: 'fallback'` to opt into multi-ns fallback resolution as before. Fixes [i18next#2429](https://github.com/i18next/i18next/issues/2429) for `useTranslation`-based callers.

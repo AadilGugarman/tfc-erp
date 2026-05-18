@@ -23,7 +23,7 @@ i18next provides:
 - Extensibility: eg. [sprintf](https://www.i18next.com/overview/plugins-and-utils#post-processors)
 - ...
 
-> **Pro Tip:** Looking for a way to manage your translations? Locize is the official service by i18next's creators and now offers a **[Free plan](https://www.locize.com/pricing?utm_source=i18next_readme&utm_medium=github&utm_campaign=readme)** for small projects.
+> **Pro Tip:** Looking for a way to manage your translations? [Locize](https://www.locize.com?utm_source=i18next_readme&utm_medium=github&utm_campaign=readme) is the official service by i18next's creators — drop in [`i18next-locize-backend`](https://github.com/locize/i18next-locize-backend) for CDN delivery, AI translation, and no redeploys for copy changes. **[Free plan](https://www.locize.com/pricing?utm_source=i18next_readme&utm_medium=github&utm_campaign=readme)** available for small projects.
 
 For more information visit the website:
 

@@ -14,9 +14,10 @@ import {
   Briefcase,
   Hash,
   AlertCircle,
+  Percent,
+  CreditCard,
 } from "lucide-react";
 import type { Party, LedgerType, PartyType } from "@/db/schema";
-import { cn } from "@/utils/cn";
 
 type Section = "basic" | "address" | "financial" | "notes";
 
@@ -36,16 +37,23 @@ const SECTIONS: {
     id: "address",
     label: "Address",
     icon: MapPin,
-    description: "Location & details",
+    description: "Location & shipping details",
   },
   {
     id: "financial",
     label: "Financial",
     icon: DollarSign,
-    description: "Balance & credit info",
+    description: "Balance, credit & commission",
   },
-  { id: "notes", label: "Notes", icon: StickyNote, description: "Remarks" },
+  {
+    id: "notes",
+    label: "Notes",
+    icon: StickyNote,
+    description: "Remarks & internal notes",
+  },
 ];
+
+/* ─── Reusable form primitives ─── */
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
@@ -71,22 +79,18 @@ const FormInput: React.FC<InputProps> = ({
     </label>
     <div className="relative">
       {Icon && (
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-350">
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
           <Icon size={14} className="text-slate-300" strokeWidth={2} />
         </div>
       )}
       <input
         className={`
-          premium-input w-full bg-white border border-slate-200 rounded-xl text-sm text-slate-700
+          w-full bg-white border border-slate-200 rounded-xl text-sm text-slate-700
           placeholder:text-slate-300 transition-all duration-150
           focus:outline-none focus:border-indigo-400 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.08)]
           hover:border-slate-300
           ${Icon ? "pl-9" : "pl-3.5"} pr-3.5 py-2.5
-          ${
-            error
-              ? "border-rose-300 focus:border-rose-400 focus:shadow-[0_0_0_3px_rgba(239,68,68,0.08)]"
-              : ""
-          }
+          ${error ? "border-rose-300 focus:border-rose-400 focus:shadow-[0_0_0_3px_rgba(239,68,68,0.08)]" : ""}
           ${className || ""}
         `}
         {...props}
@@ -129,13 +133,13 @@ const FormSelect: React.FC<SelectProps> = ({
     </label>
     <div className="relative">
       {Icon && (
-        <div className="absolute left-3 top-1/2 -translate-y-1/2">
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
           <Icon size={14} className="text-slate-300" strokeWidth={2} />
         </div>
       )}
       <select
         className={`
-          premium-input w-full bg-white border border-slate-200 rounded-xl text-sm text-slate-700
+          w-full bg-white border border-slate-200 rounded-xl text-sm text-slate-700
           transition-all duration-150 appearance-none
           focus:outline-none focus:border-indigo-400 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.08)]
           hover:border-slate-300 cursor-pointer
@@ -158,15 +162,14 @@ const FormSelect: React.FC<SelectProps> = ({
   </div>
 );
 
-interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+interface TextareaProps
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label: string;
-  icon?: React.ElementType;
   hint?: string;
 }
 
 const FormTextarea: React.FC<TextareaProps> = ({
   label,
-  icon: Icon,
   hint,
   className,
   ...props
@@ -177,7 +180,7 @@ const FormTextarea: React.FC<TextareaProps> = ({
     </label>
     <textarea
       className={`
-        premium-input w-full bg-white border border-slate-200 rounded-xl text-sm text-slate-700
+        w-full bg-white border border-slate-200 rounded-xl text-sm text-slate-700
         placeholder:text-slate-300 transition-all duration-150 resize-none
         focus:outline-none focus:border-indigo-400 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.08)]
         hover:border-slate-300 px-3.5 py-2.5
@@ -193,6 +196,8 @@ const FormTextarea: React.FC<TextareaProps> = ({
     )}
   </div>
 );
+
+/* ─── Section nav ─── */
 
 interface SectionNavProps {
   active: Section;
@@ -216,23 +221,13 @@ const SectionNav: React.FC<SectionNavProps> = ({
           onClick={() => onChange(section.id)}
           className={`
             group flex items-center gap-3 px-3.5 py-3 rounded-xl text-left transition-all duration-150 w-full
-            ${
-              isActive
-                ? "bg-indigo-50 border border-indigo-100"
-                : "hover:bg-slate-50 border border-transparent"
-            }
+            ${isActive ? "bg-indigo-50 border border-indigo-100" : "hover:bg-slate-50 border border-transparent"}
           `}
         >
           <div
             className={`
-            shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all
-            ${
-              isActive
-                ? "bg-indigo-100"
-                : isCompleted
-                  ? "bg-emerald-50"
-                  : "bg-slate-50"
-            }
+            flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all
+            ${isActive ? "bg-indigo-100" : isCompleted ? "bg-emerald-50" : "bg-slate-50"}
           `}
           >
             {isCompleted && !isActive ? (
@@ -247,9 +242,7 @@ const SectionNav: React.FC<SectionNavProps> = ({
           </div>
           <div className="flex-1 min-w-0">
             <div
-              className={`text-xs font-semibold leading-tight ${
-                isActive ? "text-indigo-700" : "text-slate-600"
-              }`}
+              className={`text-xs font-semibold leading-tight ${isActive ? "text-indigo-700" : "text-slate-600"}`}
             >
               {section.label}
             </div>
@@ -264,27 +257,48 @@ const SectionNav: React.FC<SectionNavProps> = ({
   </nav>
 );
 
+/* ─── Main modal ─── */
+
+export interface PartyFormData {
+  name: string;
+  phone: string;
+  email: string;
+  gstin: string;
+  address: string;
+  shippingAddress: string;
+  city: string;
+  state: string;
+  openingBalance: number;
+  balanceType: LedgerType;
+  commissionPercent: number;
+  creditLimit: number;
+  partyType: PartyType;
+  notes: string;
+}
+
 interface CreatePartyModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: {
-    name: string;
-    phone: string;
-    email: string;
-    gstin: string;
-    address: string;
-    shippingAddress: string;
-    city: string;
-    state: string;
-    openingBalance: number;
-    balanceType: LedgerType;
-    commissionPercent: number;
-    creditLimit: number;
-    partyType: PartyType;
-    notes: string;
-  }) => void;
+  onSave: (data: PartyFormData) => void;
   editParty?: Party | null;
 }
+
+const EMPTY_FORM: PartyFormData = {
+  name: "",
+  phone: "",
+  email: "",
+  gstin: "",
+  address: "",
+  shippingAddress: "",
+  city: "",
+  state: "",
+  openingBalance: 0,
+  balanceType: "debit",
+  commissionPercent: 3,
+  creditLimit: 0,
+  partyType: "customer",
+  notes: "",
+};
 
 export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
   open,
@@ -292,23 +306,7 @@ export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
   onSave,
   editParty,
 }) => {
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    gstin: "",
-    address: "",
-    shippingAddress: "",
-    city: "",
-    state: "",
-    openingBalance: 0,
-    balanceType: "debit" as LedgerType,
-    commissionPercent: 3,
-    creditLimit: 0,
-    partyType: "customer" as PartyType,
-    notes: "",
-  });
-
+  const [form, setForm] = useState<PartyFormData>(EMPTY_FORM);
   const [activeSection, setActiveSection] = useState<Section>("basic");
   const [completed, setCompleted] = useState<Set<Section>>(new Set());
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
@@ -327,22 +325,7 @@ export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
 
   useEffect(() => {
     if (!open) {
-      setForm({
-        name: "",
-        phone: "",
-        email: "",
-        gstin: "",
-        address: "",
-        shippingAddress: "",
-        city: "",
-        state: "",
-        openingBalance: 0,
-        balanceType: "debit",
-        commissionPercent: 3,
-        creditLimit: 0,
-        partyType: "customer",
-        notes: "",
-      });
+      setForm(EMPTY_FORM);
       setActiveSection("basic");
       setCompleted(new Set());
       setErrors({});
@@ -366,7 +349,7 @@ export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
     }
   }, [open, editParty]);
 
-  const update = (field: string, value: any) => {
+  const update = (field: keyof PartyFormData, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => {
@@ -428,15 +411,16 @@ export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
       }}
     >
       <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden"
+        className="animate-modal relative bg-white rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden"
         style={{
           maxWidth: 820,
           maxHeight: "min(92vh, 700px)",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.04)",
+          boxShadow:
+            "0 32px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.04)",
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div>
             <h2 className="text-base font-bold text-slate-800 tracking-tight">
               {editParty ? "Edit Party" : "New Party"}
@@ -456,8 +440,8 @@ export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
 
         {/* Body */}
         <div className="flex flex-1 overflow-hidden min-h-0">
-          {/* Left Nav — hidden on small screens */}
-          <div className="hidden md:flex flex-col w-[196px] shrink-0 bg-slate-50/60 border-r border-slate-100 py-2">
+          {/* Left Nav — desktop */}
+          <div className="hidden md:flex flex-col w-[196px] flex-shrink-0 bg-slate-50/60 border-r border-slate-100 py-2">
             <SectionNav
               active={activeSection}
               completed={completed}
@@ -478,12 +462,12 @@ export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
           </div>
 
           {/* Mobile section tabs */}
-          <div className="md:hidden flex items-center gap-1 px-4 py-2 border-b border-slate-100 bg-slate-50/60 overflow-x-auto shrink-0">
+          <div className="md:hidden flex items-center gap-1 px-4 py-2 border-b border-slate-100 bg-slate-50/60 overflow-x-auto flex-shrink-0">
             {SECTIONS.map((s) => (
               <button
                 key={s.id}
                 onClick={() => setActiveSection(s.id)}
-                className={`shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                className={`flex-shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors ${
                   activeSection === s.id
                     ? "bg-indigo-100 text-indigo-700"
                     : "bg-white text-slate-500 border border-slate-100"
@@ -497,7 +481,7 @@ export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
           {/* Form content */}
           <div className="flex-1 overflow-y-auto">
             <div className="p-6 space-y-6">
-              {/* BASIC INFORMATION */}
+              {/* ── BASIC INFO ── */}
               {activeSection === "basic" && (
                 <>
                   <div>
@@ -539,9 +523,10 @@ export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
                       <FormInput
                         label="GSTIN"
                         icon={Hash}
-                        placeholder="15-digit GST ID"
+                        placeholder="15-digit GST number"
                         value={form.gstin}
                         onChange={(e) => update("gstin", e.target.value)}
+                        hint="Leave blank if not applicable"
                       />
                     </div>
                   </div>
@@ -573,7 +558,7 @@ export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
                 </>
               )}
 
-              {/* ADDRESS DETAILS */}
+              {/* ── ADDRESS ── */}
               {activeSection === "address" && (
                 <div>
                   <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
@@ -587,7 +572,7 @@ export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
                       <FormInput
                         label="Address"
                         icon={MapPin}
-                        placeholder="Street address, building, etc."
+                        placeholder="Street address, building, area..."
                         value={form.address}
                         onChange={(e) => update("address", e.target.value)}
                       />
@@ -595,11 +580,12 @@ export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
                     <div className="sm:col-span-2">
                       <FormInput
                         label="Shipping Address"
-                        placeholder="Shipping address (optional)"
+                        placeholder="Shipping address (if different)"
                         value={form.shippingAddress}
                         onChange={(e) =>
                           update("shippingAddress", e.target.value)
                         }
+                        hint="Leave blank if same as above"
                       />
                     </div>
                     <FormInput
@@ -618,117 +604,183 @@ export const CreatePartyModal: React.FC<CreatePartyModalProps> = ({
                 </div>
               )}
 
-              {/* FINANCIAL DETAILS */}
+              {/* ── FINANCIAL ── */}
               {activeSection === "financial" && (
-                <div>
-                  <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center">
-                      <DollarSign size={12} className="text-emerald-600" />
+                <>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center">
+                        <DollarSign size={12} className="text-emerald-600" />
+                      </div>
+                      Financial Details
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormInput
+                        label="Opening Balance"
+                        icon={DollarSign}
+                        type="number"
+                        placeholder="₹ 0.00"
+                        value={form.openingBalance}
+                        onChange={(e) =>
+                          update(
+                            "openingBalance",
+                            parseFloat(e.target.value) || 0,
+                          )
+                        }
+                      />
+                      <FormSelect
+                        label="Balance Type"
+                        value={form.balanceType}
+                        onChange={(e) =>
+                          update("balanceType", e.target.value as LedgerType)
+                        }
+                        options={[
+                          { value: "debit", label: "Debit (We receive)" },
+                          { value: "credit", label: "Credit (They receive)" },
+                        ]}
+                      />
+                      <FormInput
+                        label="Credit Limit"
+                        icon={CreditCard}
+                        type="number"
+                        placeholder="₹ 0.00"
+                        value={form.creditLimit}
+                        onChange={(e) =>
+                          update(
+                            "creditLimit",
+                            parseFloat(e.target.value) || 0,
+                          )
+                        }
+                        hint="Leave 0 for unlimited"
+                      />
+                      <FormInput
+                        label="Commission %"
+                        icon={Percent}
+                        type="number"
+                        placeholder="3"
+                        value={form.commissionPercent}
+                        onChange={(e) =>
+                          update(
+                            "commissionPercent",
+                            parseFloat(e.target.value) || 0,
+                          )
+                        }
+                        step="0.01"
+                        hint="Default commission rate"
+                      />
                     </div>
-                    Financial Information
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormInput
-                      label="Opening Balance"
-                      icon={DollarSign}
-                      type="number"
-                      placeholder="₹ 0.00"
-                      value={form.openingBalance}
-                      onChange={(e) =>
-                        update(
-                          "openingBalance",
-                          parseFloat(e.target.value) || 0,
-                        )
-                      }
-                    />
-                    <FormSelect
-                      label="Balance Type"
-                      value={form.balanceType}
-                      onChange={(e) =>
-                        update("balanceType", e.target.value as LedgerType)
-                      }
-                      options={[
-                        { value: "debit", label: "Debit (We receive)" },
-                        { value: "credit", label: "Credit (They receive)" },
-                      ]}
-                    />
-                    <FormInput
-                      label="Credit Limit"
-                      icon={DollarSign}
-                      type="number"
-                      placeholder="₹ 0.00"
-                      value={form.creditLimit}
-                      onChange={(e) =>
-                        update("creditLimit", parseFloat(e.target.value) || 0)
-                      }
-                    />
-                    <FormInput
-                      label="Commission %"
-                      type="number"
-                      placeholder="3"
-                      value={form.commissionPercent}
-                      onChange={(e) =>
-                        update(
-                          "commissionPercent",
-                          parseFloat(e.target.value) || 0,
-                        )
-                      }
-                      step="0.01"
-                    />
                   </div>
-                </div>
+                </>
               )}
 
-              {/* NOTES */}
+              {/* ── NOTES ── */}
               {activeSection === "notes" && (
                 <div>
                   <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
                     <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center">
                       <StickyNote size={12} className="text-amber-600" />
                     </div>
-                    Additional Notes
+                    Notes & Remarks
                   </h3>
-                  <FormTextarea
-                    label="Notes"
-                    placeholder="Any additional remarks or information about this party..."
-                    value={form.notes}
-                    onChange={(e) => update("notes", e.target.value)}
-                    rows={6}
-                  />
+                  <div className="space-y-4">
+                    <FormTextarea
+                      label="Internal Notes"
+                      placeholder="Add any internal notes, special instructions, or relationship context..."
+                      rows={5}
+                      value={form.notes}
+                      onChange={(e) => update("notes", e.target.value)}
+                      hint="These notes are internal and not shared with the party."
+                    />
+                  </div>
+
+                  {/* Summary card */}
+                  {form.name && (
+                    <div className="mt-6 bg-slate-50 border border-slate-100 rounded-xl p-4">
+                      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">
+                        Summary
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {[
+                          { label: "Name", value: form.name },
+                          {
+                            label: "Type",
+                            value:
+                              form.partyType.charAt(0).toUpperCase() +
+                              form.partyType.slice(1),
+                          },
+                          { label: "Email", value: form.email || "—" },
+                          { label: "Phone", value: form.phone || "—" },
+                          {
+                            label: "City",
+                            value: form.city || "—",
+                          },
+                          {
+                            label: "Commission",
+                            value: `${form.commissionPercent}%`,
+                          },
+                        ].map((item) => (
+                          <div key={item.label}>
+                            <p className="text-[10px] font-medium text-slate-400">
+                              {item.label}
+                            </p>
+                            <p className="text-[12px] font-semibold text-slate-700 capitalize mt-0.5 truncate">
+                              {item.value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/40 shrink-0">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
+        {/* Sticky Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-white flex-shrink-0">
+          {/* Progress dots */}
           <div className="flex items-center gap-2">
-            {currentSectionIdx < SECTIONS.length - 1 && (
+            {SECTIONS.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setActiveSection(s.id)}
+                className={`transition-all duration-200 rounded-full ${
+                  s.id === activeSection
+                    ? "w-5 h-2 bg-indigo-500"
+                    : completed.has(s.id)
+                      ? "w-2 h-2 bg-emerald-400"
+                      : "w-2 h-2 bg-slate-200"
+                }`}
+                title={s.label}
+              />
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+              Cancel
+            </button>
+            {!isLastSection ? (
               <button
                 onClick={handleNext}
-                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"
+                className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
               >
-                Next
+                Continue
                 <ChevronRight size={14} />
               </button>
+            ) : (
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
+              >
+                <Check size={14} strokeWidth={2.5} />
+                {editParty ? "Update Party" : "Create Party"}
+              </button>
             )}
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
-            >
-              {editParty
-                ? "Update Party"
-                : isLastSection
-                  ? "Save Party"
-                  : "Next"}
-            </button>
           </div>
         </div>
       </div>

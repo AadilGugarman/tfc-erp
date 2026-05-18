@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { formatCurrency, todayStr } from "@/utils/formatters";
 import * as db from "@/db/db";
@@ -26,6 +26,10 @@ import { Card } from "@/components/ui/Card";
 import { cn } from "@/utils/cn";
 import { PartySelect } from "@/components/PartySelect";
 import { CreatePartyModal } from "@/components/CreatePartyModal";
+import { useDialog } from "@/components/ui/dialogs";
+import { useBatchPageData } from "@/hooks/usePageData";
+import { useDebouncedFilter } from "@/hooks/useDebounce";
+import { VirtualTable } from "@/components/VirtualList";
 
 type Row = {
   id: string;
@@ -67,17 +71,112 @@ const StringWrapper = ({ children }: { children: React.ReactNode }) => {
 
 export function VehicleArrivalRegisterPage() {
   const { t } = useTranslation();
-  const { parties, loadParties, currentCompanyId } = useAppStore();
+  const parties = useAppStore((state) => state.parties);
+  const vehicleRegisters = useAppStore((state) => state.vehicleRegisters);
+  const loadVehicleRegisters = useAppStore(
+    (state) => state.loadVehicleRegisters,
+  );
+  const currentCompanyId = useAppStore((state) => state.currentCompanyId);
+  const dialog = useDialog();
+
+  useBatchPageData(["parties", "vehicles"]);
 
   const [view, setView] = useState<"list" | "form">("list");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [registers, setRegisters] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [fruitFilter, setFruitFilter] = useState("all");
   const [selectedRegister, setSelectedRegister] = useState<any>(null);
   const [isCreatePartyModalOpen, setIsCreatePartyModalOpen] = useState(false);
   const [currentRowIdForParty, setCurrentRowIdForParty] = useState<
     string | null
   >(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const suppliers = useMemo(
+    () =>
+      parties.filter(
+        (p) => p.partyType === "supplier" || p.partyType === "both",
+      ),
+    [parties],
+  );
+
+  const filterVehicleRegisters = useCallback(
+    (item: any, query: string) => {
+      const q = query.trim().toLowerCase();
+      const matchesFruit =
+        fruitFilter === "all" || item.fruitTypeCategory === fruitFilter;
+      if (!matchesFruit) return false;
+
+      return (
+        item.vehicleNumber.toLowerCase().includes(q) ||
+        item.driverName.toLowerCase().includes(q) ||
+        item.entryNo.toLowerCase().includes(q)
+      );
+    },
+    [fruitFilter],
+  );
+
+  const {
+    query: searchQuery,
+    setQuery: setSearchQuery,
+    results: filteredRegisters,
+    isFiltering: isFilteringRegisters,
+  } = useDebouncedFilter(vehicleRegisters, filterVehicleRegisters, 250);
+
+  const vehicleColumns = useMemo(
+    () => [
+      {
+        header: "Date",
+        accessor: (item: any) => item.date,
+        width: 130,
+      },
+      {
+        header: "Vehicle No",
+        accessor: (item: any) => item.vehicleNumber,
+        width: 140,
+      },
+      {
+        header: "Day",
+        accessor: (item: any) => item.dayOfWeek || "-",
+        width: 120,
+      },
+      {
+        header: "Fruit",
+        accessor: (item: any) => item.fruitTypeCategory,
+        width: 120,
+      },
+      {
+        header: "Total Weight",
+        accessor: (item: any) =>
+          `${item.totalWeight?.toLocaleString() || 0} kg`,
+        width: 140,
+      },
+      {
+        header: "Consignment Value",
+        accessor: (item: any) => formatCurrency(item.grandTotal),
+        width: 160,
+      },
+      {
+        header: "Suppliers Involved",
+        accessor: (item: any) =>
+          item.rows?.map((row: any) => row.partyName).join(", ") || "-",
+        width: 260,
+      },
+      {
+        header: "Action",
+        width: 170,
+        render: (_value: any, item: any) => (
+          <Button
+            variant="mandi"
+            size="sm"
+            icon={<Clock className="w-3 h-3" />}
+            onClick={() => setSelectedRegister(item)}
+          >
+            {t("vehicleArrival.viewGrid")}
+          </Button>
+        ),
+      },
+    ],
+    [t],
+  );
 
   // Form State
   const [date, setDate] = useState(todayStr());
@@ -90,27 +189,6 @@ export function VehicleArrivalRegisterPage() {
   const [fruitTypeCategory, setFruitTypeCategory] = useState("Mango");
   const [notes, setNotes] = useState("");
   const [rows, setRows] = useState<Row[]>([blank("1")]);
-
-  useEffect(() => {
-    loadParties();
-    loadRegisters();
-  }, [loadParties, currentCompanyId]);
-
-  const suppliers = useMemo(() => {
-    return parties.filter(
-      (p) => p.partyType === "supplier" || p.partyType === "both",
-    );
-  }, [parties]);
-
-  const loadRegisters = async () => {
-    if (!currentCompanyId) return;
-    try {
-      const data = await db.getVehicleRegistersByCompany(currentCompanyId);
-      setRegisters(data);
-    } catch (error) {
-      console.error("Failed to load registers:", error);
-    }
-  };
 
   const dayOfWeek = useMemo(() => {
     if (!date) return "";
@@ -247,7 +325,7 @@ export function VehicleArrivalRegisterPage() {
       );
       resetForm();
       setView("list");
-      loadRegisters();
+      loadVehicleRegisters();
     } catch (error) {
       toast.error(
         (error as Error).message || "Failed to save vehicle register",
@@ -301,16 +379,6 @@ export function VehicleArrivalRegisterPage() {
     }
   };
 
-  const filteredRegisters = useMemo(() => {
-    if (!searchQuery.trim()) return registers;
-    const q = searchQuery.toLowerCase();
-    return registers.filter(
-      (r) =>
-        r.vehicleNumber.toLowerCase().includes(q) ||
-        r.driverName.toLowerCase().includes(q),
-    );
-  }, [registers, searchQuery]);
-
   const renderCellContent = (content: string | number | null | undefined) => {
     return String(content || "-");
   };
@@ -353,88 +421,40 @@ export function VehicleArrivalRegisterPage() {
                 {t("vehicleArrival.fruitFilter")}:
               </span>
               <Select
-                value=""
-                onChange={() => {}}
+                value={fruitFilter}
+                onChange={(e) => setFruitFilter(e.target.value)}
                 options={[
                   { value: "all", label: t("vehicleArrival.allFruits") },
-                ]} // Use custom Select
+                  { value: "Mango", label: "Mango" },
+                  { value: "Apple", label: "Apple" },
+                  { value: "Banana", label: "Banana" },
+                ]}
                 className="w-full sm:w-40"
               />
             </div>
           </div>
 
+          {isFilteringRegisters && (
+            <div className="px-4 py-2 text-xs text-slate-500 dark:text-slate-400">
+              Filtering vehicle entries...
+            </div>
+          )}
+
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-medium border-b border-slate-200 dark:border-slate-800">
-                <tr>
-                  <th className="px-6 py-4">Date</th>
-                  <th className="px-6 py-4">Vehicle No</th>
-                  <th className="px-6 py-4">Day</th>
-                  <th className="px-6 py-4">Fruit</th>
-                  <th className="px-6 py-4">Total Weight</th>
-                  <th className="px-6 py-4">Consignment Value</th>
-                  <th className="px-6 py-4">Suppliers Involved</th>
-                  <th className="px-6 py-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredRegisters.length > 0 ? (
-                  filteredRegisters.map((reg) => (
-                    <tr
-                      key={reg.id}
-                      className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
-                    >
-                      <td className="px-6 py-4 font-medium text-slate-600 dark:text-slate-300">
-                        {reg.date}
-                      </td>
-                      <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">
-                        {reg.vehicleNumber}
-                      </td>
-                      <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                        {reg.dayOfWeek || "-"}
-                      </td>
-                      <td className="px-6 py-4">
-                        <StringWrapper>
-                          {renderCellContent(reg.fruitTypeCategory)}
-                        </StringWrapper>
-                      </td>
-                      <td className="px-6 py-4 font-medium">
-                        {reg.totalWeight?.toLocaleString()} kg
-                      </td>
-                      <td className="px-6 py-4 font-bold">
-                        {formatCurrency(reg.grandTotal)}
-                      </td>
-                      <td className="px-6 py-4 text-slate-500 dark:text-slate-400 max-w-[200px] truncate">
-                        <StringWrapper>
-                          {String(
-                            reg.rows?.map((r: any) => r.partyName).join(", "),
-                          )}
-                        </StringWrapper>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Button
-                          variant="mandi"
-                          size="sm"
-                          icon={<Clock className="w-3 h-3" />}
-                          onClick={() => setSelectedRegister(reg)}
-                        >
-                          {t("vehicleArrival.viewGrid")}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={8}
-                      className="px-6 py-12 text-center text-slate-500"
-                    >
-                      No records found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            {filteredRegisters.length > 0 ? (
+              <VirtualTable
+                items={filteredRegisters}
+                columns={vehicleColumns}
+                itemHeight={72}
+                containerHeight={Math.min(filteredRegisters.length * 72, 520)}
+                className="min-w-full"
+                overscan={5}
+              />
+            ) : (
+              <div className="px-6 py-12 text-center text-slate-500">
+                No records found
+              </div>
+            )}
           </div>
         </Card>
 
@@ -888,12 +908,15 @@ function VehicleDetailModal({
             variant="outline"
             icon={<RotateCcw className="w-4 h-4" />}
             className="text-red-400 border-red-900/50 hover:bg-red-950/30"
-            onClick={() => {
-              if (
-                confirm(
-                  "Are you sure you want to rollback this entry? This will revert stock and ledger balances.",
-                )
-              ) {
+            onClick={async () => {
+              const confirmed = await dialog.warning({
+                title: "Rollback This Entry?",
+                description:
+                  "This will revert all stock movements and ledger balance adjustments associated with this vehicle arrival entry. This action cannot be undone.",
+                confirmLabel: "Rollback Entry",
+                cancelLabel: "Cancel",
+              });
+              if (confirmed) {
                 toast.info("Rollback feature coming soon");
               }
             }}

@@ -10,10 +10,11 @@ import { InvoiceViewer } from "@/components/InvoiceViewer";
 import { PurchaseViewer } from "@/components/PurchaseViewer";
 import type { Bill, Company, Purchase } from "@/db/schema";
 import { LoginPage } from "@/pages/Login";
+import { DialogProvider, DialogRoot } from "@/components/ui/dialogs";
+import { useAuth } from "@/hooks/useAuth";
 
 function AppContent() {
   const settings = useAppStore((state) => state.settings);
-  const refreshDataFromDb = useAppStore((state) => state.refreshDataFromDb);
   const loadCompanies = useAppStore((state) => state.loadCompanies);
   const setCurrentPage = useAppStore((state) => state.setCurrentPage);
   const modalOpen = useAppStore((state) => state.modalOpen);
@@ -21,31 +22,35 @@ function AppContent() {
   const modalData = useAppStore((state) => state.modalData);
   const closeModal = useAppStore((state) => state.closeModal);
   const currentCompany = useAppStore((state) => state.currentCompany);
-  const currentCompanyId = useAppStore((state) => state.currentCompanyId);
+
+  // Wait for auth session restore before loading any data that requires a token
+  const { isAuthenticated, isInitializing } = useAuth();
 
   const { commandPaletteOpen, closeCommandPalette } = useGlobalKeyboardManager({
     setCurrentPage,
   });
 
-  // Load data from database when app mounts
+  // Load companies only after auth is confirmed — prevents "missing token" errors
+  // on startup when the in-memory token hasn't been restored yet.
+  // NOTE: We NO LONGER load all data on startup. Instead, each page loads only
+  // the data it needs via usePageData hook. This significantly improves startup time.
   useEffect(() => {
+    if (isInitializing || !isAuthenticated) return;
+
     const initializeAppData = async () => {
       await loadCompanies();
+      // Do NOT call refreshDataFromDb() here - pages will load their own data
     };
     initializeAppData();
 
+    // Still subscribe to DB changes for real-time updates
+    // but only refresh currently visible page data, not everything
     const unsubscribe = db.subscribeDbChanges(() => {
-      refreshDataFromDb();
+      // Pages will handle their own data refresh if needed
+      // This prevents mass reload of all data when any data changes
     });
     return unsubscribe;
-  }, [refreshDataFromDb, loadCompanies]);
-
-  // Refresh data whenever company changes
-  useEffect(() => {
-    if (currentCompanyId) {
-      refreshDataFromDb();
-    }
-  }, [currentCompanyId, refreshDataFromDb]);
+  }, [isAuthenticated, isInitializing, loadCompanies]);
 
   useEffect(() => {
     const theme = settings.appearance.theme;
@@ -100,9 +105,13 @@ function AppContent() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <DialogProvider>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+      {/* Global dialog renderer — renders on top of everything */}
+      <DialogRoot />
+    </DialogProvider>
   );
 }
 

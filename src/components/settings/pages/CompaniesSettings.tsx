@@ -12,6 +12,7 @@ import {
   CardDescription,
   CardContent,
 } from "../BaseComponents";
+import { useDialog } from "@/components/ui/dialogs";
 
 export function CompaniesSettings() {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ export function CompaniesSettings() {
     currentCompany,
   } = useAppStore();
   const [loading, setLoading] = useState(false);
+  const dialog = useDialog();
 
   useEffect(() => {
     loadCompanies();
@@ -33,13 +35,16 @@ export function CompaniesSettings() {
   };
 
   const handleDelete = async (companyId: string) => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this company? This action cannot be undone.",
-      )
-    ) {
-      return;
-    }
+    const company = companies.find((c) => c.id === companyId);
+    const confirmed = await dialog.destructive({
+      title: `Delete "${company?.name ?? "Company"}"?`,
+      description:
+        "This will permanently remove the company and all associated data — invoices, parties, transactions, and settings. This action cannot be undone.",
+      confirmLabel: "Delete Company",
+      cancelLabel: "Keep Company",
+    });
+
+    if (!confirmed) return;
 
     try {
       setLoading(true);

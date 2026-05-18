@@ -16,6 +16,7 @@ fn main() {
     .invoke_handler(tauri::generate_handler![
       // Auth commands
       auth::login,
+      auth::logout,
       auth::has_users,
       auth::setup_initial_admin,
       auth::clear_users_for_setup,

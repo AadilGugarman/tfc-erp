@@ -1,5 +1,7 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
+import { useBatchPageData } from "@/hooks/usePageData";
+import { useDebouncedFilter } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Input, Select } from "@/components/ui/Input";
@@ -64,18 +66,15 @@ const createEmptyLineItem = (id = Date.now().toString()): LineItem => ({
 
 export function PurchasePage() {
   const { t } = useTranslation();
-  const {
-    parties,
-    purchases,
-    currentCompanyId,
-    loadParties,
-    loadPurchases,
-    showNotification,
-    openModal,
-  } = useAppStore();
+  const parties = useAppStore((state) => state.parties);
+  const purchases = useAppStore((state) => state.purchases);
+  const currentCompanyId = useAppStore((state) => state.currentCompanyId);
+  const loadPurchases = useAppStore((state) => state.loadPurchases);
+  const openModal = useAppStore((state) => state.openModal);
+
+  useBatchPageData(["parties", "purchases"]);
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [searchTerm, setSearchTerm] = useState("");
   const [isCreatePartyModalOpen, setIsCreatePartyModalOpen] = useState(false);
 
   // Form State
@@ -86,11 +85,6 @@ export function PurchasePage() {
   const [paymentMode, setPaymentMode] = useState("Credit");
   const [notes, setNotes] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    loadParties();
-    loadPurchases();
-  }, []);
 
   const suppliers = useMemo(() => {
     return parties.filter(
@@ -210,15 +204,21 @@ export function PurchasePage() {
     setNotes("");
   };
 
-  const filteredPurchases = useMemo(() => {
-    if (!searchTerm.trim()) return purchases;
-    const q = searchTerm.toLowerCase();
-    return purchases.filter(
-      (b) =>
-        b.purchaseNo.toLowerCase().includes(q) ||
-        b.supplierName.toLowerCase().includes(q),
-    );
-  }, [purchases, searchTerm]);
+  const {
+    query: searchQuery,
+    setQuery: setSearchQuery,
+    results: filteredPurchases,
+  } = useDebouncedFilter(
+    purchases,
+    (purchase, query) => {
+      const q = query.trim().toLowerCase();
+      return (
+        purchase.purchaseNo.toLowerCase().includes(q) ||
+        purchase.supplierName.toLowerCase().includes(q)
+      );
+    },
+    250,
+  );
 
   if (viewMode === "list") {
     return (
@@ -254,8 +254,8 @@ export function PurchasePage() {
               <input
                 type="text"
                 placeholder={t("purchaseBilling.searchPlaceholder")}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
               />
             </div>

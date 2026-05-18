@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useAppStore } from "@/stores/useAppStore";
-import { formatCurrency, formatDate } from "@/utils/formatters";
+import { formatCurrency } from "@/utils/formatters";
 import * as db from "@/db/db";
 import type { PageId } from "@/stores/useAppStore";
 import {
@@ -12,6 +12,9 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
+import { useBatchPageData } from "@/hooks/usePageData";
+import { useDebouncedSearch } from "@/hooks/useDebounce";
+import { VirtualList } from "@/components/VirtualList";
 
 interface SearchResult {
   id: string;
@@ -25,91 +28,104 @@ interface SearchResult {
 }
 
 export function SearchPage() {
-  const {
-    setCurrentPage,
-    parties,
-    vehicleRegisters,
-    loadParties,
-    loadVehicleRegisters,
-    currentCompanyId,
-  } = useAppStore();
-  const [query, setQuery] = useState("");
+  useBatchPageData(["parties", "vehicles"]);
+
+  const setCurrentPage = useAppStore((state) => state.setCurrentPage);
+  const parties = useAppStore((state) => state.parties);
+  const vehicleRegisters = useAppStore((state) => state.vehicleRegisters);
+  const currentCompanyId = useAppStore((state) => state.currentCompanyId);
+
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
-    loadParties();
-    loadVehicleRegisters();
   }, []);
 
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
+  const partyBalanceMap = useMemo(() => {
+    if (!currentCompanyId)
+      return new Map<
+        string,
+        { balance: number; type: "receivable" | "payable" }
+      >();
 
-    const allResults: SearchResult[] = [];
+    return new Map(
+      db
+        .getPartyBalancesByCompany(currentCompanyId)
+        .map((item) => [item.partyId, item] as const),
+    );
+  }, [currentCompanyId, parties.length]);
 
-    // Search parties
-    parties
-      .filter(
-        (item) =>
-          (item.name || "").toLowerCase().includes(q) ||
-          (item.phone || "").includes(q),
-      )
-      .forEach((party) => {
-        allResults.push({
-          id: `party-${party.id}`,
-          type: "party",
-          title: party.name,
-          description: `${party.partyType.toUpperCase()} • ${party.city} • ${party.phone}`,
-          value: formatCurrency(
-            db.getPartyBalance(currentCompanyId || "", party.id).balance,
-          ),
-          icon: Users,
-          color:
-            party.partyType === "customer"
-              ? "text-pink-600 dark:text-pink-400"
-              : party.partyType === "supplier"
-                ? "text-cyan-600 dark:text-cyan-400"
-                : "text-purple-600 dark:text-purple-400",
-        });
+  const getSearchResults = useCallback(
+    (searchQuery: string): SearchResult[] => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return [];
+
+      const results: SearchResult[] = [];
+      const partyIconColor = (type: string) =>
+        type === "customer"
+          ? "text-pink-600 dark:text-pink-400"
+          : type === "supplier"
+            ? "text-cyan-600 dark:text-cyan-400"
+            : "text-purple-600 dark:text-purple-400";
+
+      parties.forEach((party) => {
+        const name = party.name || "";
+        if (name.toLowerCase().includes(q) || (party.phone || "").includes(q)) {
+          const balanceInfo = partyBalanceMap.get(party.id);
+          results.push({
+            id: `party-${party.id}`,
+            type: "party",
+            title: name,
+            description: `${party.partyType.toUpperCase()} • ${party.city} • ${party.phone}`,
+            value: formatCurrency(balanceInfo?.balance ?? 0),
+            icon: Users,
+            color: partyIconColor(party.partyType),
+          });
+        }
       });
 
-    // Search vehicles
-    vehicleRegisters
-      .filter(
-        (item) =>
-          item.entryNo.toLowerCase().includes(q) ||
-          item.vehicleNumber.toLowerCase().includes(q) ||
-          item.driverName.toLowerCase().includes(q),
-      )
-      .forEach((vehicle) => {
-        allResults.push({
-          id: `vehicle-${vehicle.id}`,
-          type: "vehicle",
-          title: `Vehicle #${vehicle.entryNo}`,
-          description: `${vehicle.vehicleNumber} • ${vehicle.driverName}`,
-          value: formatCurrency(vehicle.grandTotal),
-          icon: Truck,
-          color: "text-blue-600 dark:text-blue-400",
-          page: "vehicle-register",
-        });
+      vehicleRegisters.forEach((vehicle) => {
+        if (
+          vehicle.entryNo.toLowerCase().includes(q) ||
+          vehicle.vehicleNumber.toLowerCase().includes(q) ||
+          vehicle.driverName.toLowerCase().includes(q)
+        ) {
+          results.push({
+            id: `vehicle-${vehicle.id}`,
+            type: "vehicle",
+            title: `Vehicle #${vehicle.entryNo}`,
+            description: `${vehicle.vehicleNumber} • ${vehicle.driverName}`,
+            value: formatCurrency(vehicle.grandTotal),
+            icon: Truck,
+            color: "text-blue-600 dark:text-blue-400",
+            page: "vehicle-register",
+          });
+        }
       });
 
-    return allResults;
-  }, [query, parties, vehicleRegisters]);
+      return results;
+    },
+    [parties, partyBalanceMap, vehicleRegisters],
+  );
+
+  const { query, setQuery, results, isSearching, clearCache } =
+    useDebouncedSearch<SearchResult>(getSearchResults, 250, 20);
+
+  useEffect(() => {
+    clearCache();
+  }, [currentCompanyId, parties.length, vehicleRegisters.length, clearCache]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    const total = results.length;
+    if (total === 0) return;
+
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev + 1) % Math.max(results.length, 1));
+      setSelectedIndex((prev) => (prev + 1) % total);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setSelectedIndex(
-        (prev) =>
-          (prev - 1 + Math.max(results.length, 1)) %
-          Math.max(results.length, 1),
-      );
+      setSelectedIndex((prev) => (prev - 1 + total) % total);
     } else if (e.key === "Enter" && results[selectedIndex]) {
       e.preventDefault();
       const result = results[selectedIndex];
@@ -156,53 +172,64 @@ export function SearchPage() {
               </div>
             ) : (
               <div className="divide-y divide-slate-200 dark:divide-[#1f2a43]">
-                {results.map((result, idx) => {
-                  const Icon = result.icon;
-                  const isSelected = idx === selectedIndex;
-                  return (
-                    <button
-                      key={result.id}
-                      onClick={() => result.page && setCurrentPage(result.page)}
-                      className={cn(
-                        "w-full px-4 py-3 flex items-center gap-3 text-left transition-colors duration-150",
-                        isSelected
-                          ? "bg-blue-50 dark:bg-blue-950/30 border-l-2 border-blue-600 dark:border-blue-500"
-                          : "hover:bg-slate-50 dark:hover:bg-[#172036]",
-                      )}
-                    >
-                      {/* Icon */}
-                      <div
+                {isSearching && (
+                  <div className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+                    Searching...
+                  </div>
+                )}
+                <VirtualList
+                  items={results}
+                  itemHeight={72}
+                  containerHeight={Math.min(results.length * 72, 520)}
+                  className="divide-y divide-slate-200 dark:divide-[#1f2a43]"
+                  overscan={5}
+                  renderItem={(result, idx) => {
+                    const Icon = result.icon;
+                    const isSelected = idx === selectedIndex;
+                    return (
+                      <button
+                        key={result.id}
+                        onClick={() =>
+                          result.page && setCurrentPage(result.page)
+                        }
                         className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-lg shrink-0",
-                          "bg-slate-100 dark:bg-slate-800 transition-colors",
-                          result.color,
+                          "w-full px-4 py-3 flex items-center gap-3 text-left transition-colors duration-150",
+                          isSelected
+                            ? "bg-blue-50 dark:bg-blue-950/30 border-l-2 border-blue-600 dark:border-blue-500"
+                            : "hover:bg-slate-50 dark:hover:bg-[#172036]",
                         )}
                       >
-                        <Icon className="h-5 w-5" />
-                      </div>
+                        <div
+                          className={cn(
+                            "flex h-10 w-10 items-center justify-center rounded-lg shrink-0",
+                            "bg-slate-100 dark:bg-slate-800 transition-colors",
+                            result.color,
+                          )}
+                        >
+                          <Icon className="h-5 w-5" />
+                        </div>
 
-                      {/* Content */}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                          {result.title}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                          {result.description}
-                        </p>
-                      </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                            {result.title}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                            {result.description}
+                          </p>
+                        </div>
 
-                      {/* Value & Indicator */}
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabnum">
-                          {result.value}
-                        </span>
-                        {isSelected && (
-                          <ChevronRight className="h-4 w-4 text-blue-600 dark:text-blue-500" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabnum">
+                            {result.value}
+                          </span>
+                          {isSelected && (
+                            <ChevronRight className="h-4 w-4 text-blue-600 dark:text-blue-500" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  }}
+                />
               </div>
             )}
           </div>

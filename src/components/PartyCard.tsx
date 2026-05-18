@@ -2,14 +2,63 @@ import React from "react";
 import {
   Mail,
   Phone,
+  Globe,
   MoreHorizontal,
+  TrendingUp,
+  TrendingDown,
+  ExternalLink,
   MapPin,
-  Building2,
-  User,
 } from "lucide-react";
 import type { Party } from "@/db/schema";
 import { formatCurrency } from "@/utils/formatters";
-import { cn } from "@/utils/cn";
+
+const TYPE_CONFIG = {
+  customer: {
+    label: "Customer",
+    bg: "bg-sky-50",
+    text: "text-sky-600",
+    dot: "bg-sky-400",
+  },
+  supplier: {
+    label: "Supplier",
+    bg: "bg-violet-50",
+    text: "text-violet-600",
+    dot: "bg-violet-400",
+  },
+  both: {
+    label: "Both",
+    bg: "bg-teal-50",
+    text: "text-teal-600",
+    dot: "bg-teal-400",
+  },
+};
+
+const STATUS_CONFIG = {
+  active: {
+    label: "Active",
+    bg: "bg-emerald-50",
+    text: "text-emerald-600",
+    dot: "bg-emerald-400",
+  },
+};
+
+// Deterministic avatar color from party id/name
+const AVATAR_COLORS = [
+  "#6366f1",
+  "#0ea5e9",
+  "#10b981",
+  "#f59e0b",
+  "#ec4899",
+  "#8b5cf6",
+];
+
+function getAvatarColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
 
 interface PartyCardProps {
   party: Party;
@@ -24,6 +73,8 @@ export const PartyCard: React.FC<PartyCardProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const typeConfig = TYPE_CONFIG[party.partyType] ?? TYPE_CONFIG.customer;
+  const avatarColor = getAvatarColor(party.id);
   const initials = party.name
     .split(" ")
     .slice(0, 2)
@@ -31,157 +82,157 @@ export const PartyCard: React.FC<PartyCardProps> = ({
     .join("")
     .toUpperCase();
 
-  // Color scheme based on party type
-  const typeConfig = {
-    customer: { bg: "bg-blue-50", text: "text-blue-600", dot: "bg-blue-400" },
-    supplier: {
-      bg: "bg-purple-50",
-      text: "text-purple-600",
-      dot: "bg-purple-400",
-    },
-    both: { bg: "bg-teal-50", text: "text-teal-600", dot: "bg-teal-400" },
-  };
-
-  const config = typeConfig[party.partyType] || typeConfig.customer;
-
-  // Determine balance color
   const isPositive = party.openingBalance >= 0;
-  const balanceColor = isPositive ? "text-emerald-600" : "text-rose-600";
-  const balanceBg = isPositive ? "bg-emerald-50" : "bg-rose-50";
 
   return (
     <div
-      className="group relative bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 overflow-hidden cursor-pointer"
+      className="card-hover group bg-white rounded-2xl border border-slate-100 shadow-sm shadow-slate-100/50 overflow-hidden cursor-pointer"
       onClick={() => onView(party)}
     >
-      {/* Top accent bar */}
-      <div className="h-1 w-full bg-gradient-to-r from-indigo-400 to-blue-400" />
+      {/* Card top accent */}
+      <div
+        className="h-0.5 w-full"
+        style={{
+          background: `linear-gradient(to right, ${avatarColor}40, ${avatarColor}10)`,
+        }}
+      />
 
-      <div className="p-4 sm:p-5">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-start gap-3 flex-1 min-w-0">
-            {/* Avatar */}
-            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white text-sm font-bold shadow-sm">
-              {initials}
-            </div>
+      <div className="p-5">
+        {/* Header row */}
+        <div className="flex items-start gap-3 mb-4">
+          {/* Avatar */}
+          <div
+            className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-sm"
+            style={{
+              backgroundColor: avatarColor,
+              boxShadow: `0 2px 8px ${avatarColor}40`,
+            }}
+          >
+            {initials}
+          </div>
 
-            {/* Name & Type */}
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-slate-900 truncate leading-tight">
-                {party.name}
-              </h3>
-              <div className="mt-2 flex items-center gap-2 flex-wrap">
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full",
-                    config.bg,
-                    config.text,
-                  )}
-                >
-                  <span
-                    className={cn("w-1.5 h-1.5 rounded-full", config.dot)}
-                  />
-                  {party.partyType.charAt(0).toUpperCase() +
-                    party.partyType.slice(1)}
+          {/* Name */}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-slate-800 truncate leading-snug">
+              {party.name}
+            </h3>
+            {party.gstin && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="text-[11px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-md border border-slate-100">
+                  {party.gstin}
                 </span>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Action menu */}
-          <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+          <div
+            className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(party);
-              }}
-              className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+              onClick={() => onEdit(party)}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
               title="Edit"
             >
-              <User size={16} />
+              <MoreHorizontal size={15} />
             </button>
-            <div className="relative group/menu">
-              <button
-                onClick={(e) => e.stopPropagation()}
-                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-              >
-                <MoreHorizontal size={16} />
-              </button>
-              <div className="absolute right-0 mt-1 w-32 bg-white rounded-lg shadow-lg border border-slate-200 hidden group-hover/menu:block z-10">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(party);
-                  }}
-                  className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 transition-colors"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(party);
-                  }}
-                  className="w-full px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 transition-colors border-t border-slate-100"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Contact Details */}
-        <div className="space-y-2 mb-4 pt-3 border-t border-slate-100">
+        {/* Type badge */}
+        <div className="flex items-center gap-1.5 mb-4">
+          <span
+            className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${typeConfig.bg} ${typeConfig.text}`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${typeConfig.dot}`} />
+            {typeConfig.label}
+          </span>
+        </div>
+
+        {/* Contact details */}
+        <div className="space-y-1.5 mb-4">
           {party.email && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <Mail size={14} className="flex-shrink-0 text-slate-400" />
+            <div className="flex items-center gap-2 text-slate-500">
+              <Mail size={11} className="flex-shrink-0 text-slate-300" />
               <span className="text-[12px] truncate">{party.email}</span>
             </div>
           )}
           {party.phone && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <Phone size={14} className="flex-shrink-0 text-slate-400" />
-              <span className="text-[12px] truncate">{party.phone}</span>
+            <div className="flex items-center gap-2 text-slate-500">
+              <Phone size={11} className="flex-shrink-0 text-slate-300" />
+              <span className="text-[12px]">{party.phone}</span>
             </div>
           )}
-          {party.address && (
-            <div className="flex items-start gap-2 text-slate-600">
-              <MapPin
-                size={14}
-                className="flex-shrink-0 text-slate-400 mt-0.5"
-              />
-              <span className="text-[12px] line-clamp-2">{party.address}</span>
+          {(party.city || party.state) && (
+            <div className="flex items-center gap-2 text-slate-500">
+              <MapPin size={11} className="flex-shrink-0 text-slate-300" />
+              <span className="text-[12px] truncate">
+                {[party.city, party.state].filter(Boolean).join(", ")}
+              </span>
             </div>
           )}
         </div>
 
-        {/* Balance & City Info */}
-        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
+        {/* Divider */}
+        <div className="border-t border-slate-50 mb-4" />
+
+        {/* Stats row */}
+        <div className="flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">
+            <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">
               Balance
             </div>
             <div
-              className={cn(
-                "text-sm font-bold px-2 py-1 rounded-lg",
-                balanceBg,
-                balanceColor,
-              )}
+              className={`text-sm font-bold mt-0.5 flex items-center gap-1 ${
+                isPositive ? "text-slate-700" : "text-rose-500"
+              }`}
             >
+              {party.openingBalance !== 0 &&
+                (isPositive ? (
+                  <TrendingUp size={11} className="text-emerald-500" />
+                ) : (
+                  <TrendingDown size={11} className="text-rose-400" />
+                ))}
               {formatCurrency(Math.abs(party.openingBalance), "INR")}
             </div>
           </div>
-          <div>
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">
-              City
+          <div className="text-right">
+            <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">
+              Credit Limit
             </div>
-            <div className="text-sm font-medium text-slate-700">
-              {party.city || party.state || "—"}
+            <div className="text-sm font-bold text-slate-700 mt-0.5">
+              {party.creditLimit > 0
+                ? formatCurrency(party.creditLimit, "INR")
+                : "—"}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">
+              Commission
+            </div>
+            <div className="text-[12px] font-semibold text-slate-600 mt-0.5">
+              {party.commissionPercent}%
             </div>
           </div>
         </div>
+
+        {/* Notes preview */}
+        {party.notes && (
+          <div className="mt-3 text-[11px] text-slate-400 bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-100 truncate">
+            {party.notes}
+          </div>
+        )}
+      </div>
+
+      {/* View detail footer */}
+      <div className="flex items-center justify-between px-5 py-3 bg-slate-50/60 border-t border-slate-100/80">
+        <span className="text-[11px] text-slate-400 font-medium">
+          {[party.city, party.state].filter(Boolean).join(", ") || "—"}
+        </span>
+        <span className="text-[11px] text-indigo-500 font-semibold flex items-center gap-1 group-hover:text-indigo-600 transition-colors">
+          View Details <ExternalLink size={10} />
+        </span>
       </div>
     </div>
   );

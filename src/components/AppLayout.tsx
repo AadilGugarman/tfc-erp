@@ -10,13 +10,8 @@ import { useAppStore } from "@/stores/useAppStore";
  * Syncs company context from URL
  */
 export function AppLayout() {
-  const {
-    sidebarOpen,
-    setCurrentCompanyId,
-    refreshDataFromDb,
-    companies,
-    loadCompanies,
-  } = useAppStore();
+  const { sidebarOpen, setCurrentCompanyId, companies, loadCompanies } =
+    useAppStore();
   const { companyId } = useParams<{ companyId: string }>();
 
   useEffect(() => {

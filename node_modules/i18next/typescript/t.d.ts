@@ -36,6 +36,7 @@ type _UnescapePrefix = TypeOptions['unescapePrefix'];
 type _UnescapeSuffix = TypeOptions['unescapeSuffix'];
 type _StrictKeyChecks = TypeOptions['strictKeyChecks'];
 type _EnableSelector = TypeOptions['enableSelector'];
+type _ParseInterpolation = TypeOptions['parseInterpolation'];
 type _InterpolationFormatTypeMap = TypeOptions['interpolationFormatTypeMap'];
 
 type $IsResourcesDefined = [keyof _Resources] extends [never] ? false : true;
@@ -168,8 +169,9 @@ type ParseActualValue<Ret> = Ret extends `${_UnescapePrefix}${infer ActualValue}
   : Ret;
 
 /** Parses interpolation entries as `[variableName, formatSpecifier | never]` tuples. */
-type ParseInterpolationEntries<Ret> =
-  Ret extends `${string}${_InterpolationPrefix}${infer Value}${_InterpolationSuffix}${infer Rest}`
+type ParseInterpolationEntries<Ret> = [_ParseInterpolation] extends [false]
+  ? never
+  : Ret extends `${string}${_InterpolationPrefix}${infer Value}${_InterpolationSuffix}${infer Rest}`
     ?
         | (Value extends `${infer ActualValue},${infer Format}`
             ? [ParseActualValue<ActualValue>, TrimSpaces<Format>]

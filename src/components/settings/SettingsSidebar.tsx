@@ -1,6 +1,6 @@
-import React from 'react';
+import React from "react";
 import { cn } from "@/utils/cn";
-import { SettingsCategory } from '@/db/schema';
+import { SettingsCategory } from "@/db/schema";
 import {
   Building2,
   Wallet,
@@ -29,33 +29,33 @@ export const SETTINGS_CATEGORIES: SettingsCategoryConfig[] = [
   },
   {
     id: "financial",
-    label: 'Financial',
-    icon: 'wallet',
-    description: 'Fiscal year, currency, and tax settings',
+    label: "Financial",
+    icon: "wallet",
+    description: "Fiscal year, currency, and tax settings",
   },
   {
-    id: 'invoice',
-    label: 'Invoice',
-    icon: 'file-text',
-    description: 'Invoice templates and defaults',
+    id: "invoice",
+    label: "Invoice",
+    icon: "file-text",
+    description: "Invoice templates and defaults",
   },
   {
-    id: 'backup',
-    label: 'Backup & Data',
-    icon: 'database',
-    description: 'Backup, restore, and database management',
+    id: "backup",
+    label: "Backup & Data",
+    icon: "database",
+    description: "Backup, restore, and database management",
   },
   {
-    id: 'appearance',
-    label: 'Appearance',
-    icon: 'palette',
-    description: 'Theme, colors, and display preferences',
+    id: "appearance",
+    label: "Appearance",
+    icon: "palette",
+    description: "Theme, colors, and display preferences",
   },
   {
-    id: 'security',
-    label: 'Security',
-    icon: 'shield',
-    description: 'Password, encryption, and access controls',
+    id: "security",
+    label: "Security",
+    icon: "shield",
+    description: "Password, encryption, and access controls",
   },
 ];
 
@@ -72,7 +72,7 @@ const iconMap: Record<string, React.ElementType> = {
   building: Building2,
   layers: Layers,
   wallet: Wallet,
-  'file-text': FileText,
+  "file-text": FileText,
   database: Database,
   palette: Palette,
   shield: Shield,
@@ -87,8 +87,8 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
   onMobileClose,
 }) => {
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') {
-      onSearchChange('');
+    if (e.key === "Escape") {
+      onSearchChange("");
     }
   };
 
@@ -96,18 +96,19 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
     <>
       {/* Mobile overlay */}
       {isMobileOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={onMobileClose}
         />
       )}
 
       {/* Sidebar */}
-      <aside 
+      <aside
         className={cn(
-          'fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800',
-          'transform transition-transform duration-300 ease-in-out lg:transform-none',
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          "fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 shadow-xl lg:shadow-none",
+          "transform transition-transform duration-300 ease-in-out",
+          "lg:sticky lg:top-0 lg:h-[calc(100vh-4rem)] lg:translate-x-0",
+          isMobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex flex-col h-full">
@@ -138,7 +139,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
               />
               {searchQuery && (
                 <button
-                  onClick={() => onSearchChange('')}
+                  onClick={() => onSearchChange("")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -162,16 +163,20 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
                         onMobileClose?.();
                       }}
                       className={cn(
-                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                         isActive
-                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
-                          : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-200'
+                          ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+                          : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-200",
                       )}
                     >
-                      <Icon className={cn(
-                        'w-5 h-5',
-                        isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400'
-                      )} />
+                      <Icon
+                        className={cn(
+                          "w-5 h-5",
+                          isActive
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-zinc-400",
+                        )}
+                      />
                       <span>{category.label}</span>
                     </button>
                   </li>
@@ -179,23 +184,6 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
               })}
             </ul>
           </nav>
-
-          {/* Footer */}
-          <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
-            <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
-                B
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">
-                  Billing Pro
-                </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  v2.0.0
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
       </aside>
     </>
@@ -218,11 +206,23 @@ export const SettingsMobileHeader: React.FC<SettingsMobileHeaderProps> = ({
       onClick={onMenuClick}
       className="p-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
     >
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M4 6h16M4 12h16M4 18h16"
+        />
       </svg>
     </button>
-    <h1 className="text-lg font-semibold text-zinc-900 dark:text-white">Settings</h1>
+    <h1 className="text-lg font-semibold text-zinc-900 dark:text-white">
+      Settings
+    </h1>
     <div className="w-10" />
   </div>
 );

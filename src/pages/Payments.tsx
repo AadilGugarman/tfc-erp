@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "@/stores/useAppStore";
+import { useBatchPageData } from "@/hooks/usePageData";
+import { useDebouncedFilter } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -29,14 +31,20 @@ import {
 } from "lucide-react";
 import type { PaymentMode } from "@/db/schema";
 import { useShortcutAction } from "@/keyboard/shortcutManager";
+import { useDialog } from "@/components/ui/dialogs";
 
 export function PaymentsPage() {
   const { t } = useTranslation();
-  const { parties, payments, currentCompanyId, loadParties, loadPayments } =
-    useAppStore();
+  const parties = useAppStore((state) => state.parties);
+  const payments = useAppStore((state) => state.payments);
+  const currentCompanyId = useAppStore((state) => state.currentCompanyId);
+  const loadParties = useAppStore((state) => state.loadParties);
+  const loadPayments = useAppStore((state) => state.loadPayments);
   const { toasts, removeToast, success, error } = useToast();
+  const dialog = useDialog();
+
+  useBatchPageData(["parties", "payments"]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const [fDate, setFDate] = useState(todayStr());
   const [fParty, setFParty] = useState("");
   const [fAmount, setFAmount] = useState(0);
@@ -47,19 +55,30 @@ export function PaymentsPage() {
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [selectedRowIndex, setSelectedRowIndex] = useState(0);
 
-  useEffect(() => {
-    loadParties();
-    loadPayments();
-  }, []);
-
-  const allParties = parties.map((p) => ({ id: p.id, name: p.name }));
-  const sortedPayments = [...payments].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
+  const allParties = useMemo(
+    () => parties.map((p) => ({ id: p.id, name: p.name })),
+    [parties],
   );
-  const filtered = sortedPayments.filter(
-    (p) =>
-      (p.partyName || "").toLowerCase().includes(search.toLowerCase()) ||
-      (p.referenceNo || "").toLowerCase().includes(search.toLowerCase()),
+
+  const sortedPayments = useMemo(
+    () => [...payments].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [payments],
+  );
+
+  const {
+    query: searchQuery,
+    setQuery: setSearchQuery,
+    results: filtered,
+  } = useDebouncedFilter(
+    sortedPayments,
+    (payment, query) => {
+      const q = query.trim().toLowerCase();
+      return (
+        (payment.partyName || "").toLowerCase().includes(q) ||
+        (payment.referenceNo || "").toLowerCase().includes(q)
+      );
+    },
+    250,
   );
 
   useEffect(() => {
@@ -116,23 +135,30 @@ export function PaymentsPage() {
       setFNotes("");
       setFParty("");
       loadParties();
+      loadPayments();
     } catch (err) {
       error("Failed to save payment", (err as Error).message);
     }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this payment?")) {
-      setDeleteLoading(id);
-      try {
-        db.deletePayment(id);
-        success("Payment Deleted", "Payment removed successfully");
-        loadParties();
-      } catch (err) {
-        error("Failed to delete payment", (err as Error).message);
-      } finally {
-        setDeleteLoading(null);
-      }
+  const handleDelete = async (id: string) => {
+    const confirmed = await dialog.destructive({
+      title: "Delete Payment?",
+      description:
+        "This payment record will be permanently removed. The associated ledger balance will be adjusted accordingly. This action cannot be undone.",
+      confirmLabel: "Delete Payment",
+      cancelLabel: "Cancel",
+    });
+    if (!confirmed) return;
+    setDeleteLoading(id);
+    try {
+      db.deletePayment(id);
+      success("Payment Deleted", "Payment removed successfully");
+      loadParties();
+    } catch (err) {
+      error("Failed to delete payment", (err as Error).message);
+    } finally {
+      setDeleteLoading(null);
     }
   };
 
@@ -286,6 +312,15 @@ export function PaymentsPage() {
 
           {/* Payments Table */}
           <Section title="Payment History">
+            <div className="mb-4 sm:flex sm:items-center sm:justify-between gap-4">
+              <PremiumInput
+                label="Search Payments"
+                placeholder="Search by party or reference"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="max-w-md"
+              />
+            </div>
             {filtered.length === 0 ? (
               <div className="text-center py-12">
                 <Search className="mx-auto h-12 w-12 text-slate-300 dark:text-slate-700 mb-3" />

@@ -11,6 +11,9 @@ use password_hash::{
 };
 use std::fs;
 use std::io::Write;
+use rand::RngCore;
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 
 fn get_jwt_secret() -> Vec<u8> {
     let base_dir = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
@@ -24,10 +27,9 @@ fn get_jwt_secret() -> Vec<u8> {
     }
 
     // Generate a new secure random secret if not found or invalid
-    let mut new_secret = [0u8; 32];
-    use rand::RngCore;
+    let mut new_secret = [0u8; 64];
     rand::thread_rng().fill_bytes(&mut new_secret);
-    
+
     if let Err(e) = fs::create_dir_all(&app_dir) {
         eprintln!("[Auth] Failed to create app directory for JWT secret: {}", e);
     }
@@ -42,8 +44,114 @@ fn get_jwt_secret() -> Vec<u8> {
             eprintln!("[Auth] Failed to create JWT secret file: {}", e);
         }
     }
-    
+
     new_secret.to_vec()
+}
+
+// ─── Refresh token DB helpers ─────────────────────────────────────────────────
+
+/// Ensure the refresh_tokens table exists (called from init_database).
+pub fn ensure_refresh_tokens_table(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS refresh_tokens (
+            id          TEXT PRIMARY KEY,
+            user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token_hash  TEXT NOT NULL UNIQUE,
+            expires_at  TEXT NOT NULL,
+            created_at  TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_rt_user ON refresh_tokens(user_id);
+        CREATE INDEX IF NOT EXISTS idx_rt_hash ON refresh_tokens(token_hash);",
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Hash a refresh token for safe DB storage using HMAC-SHA256 with the app's JWT secret.
+/// This is deterministic (same input → same output) so we can look it up,
+/// but one-way so a DB leak doesn't expose the raw token.
+fn hash_refresh_token(token: &str) -> String {
+    type HmacSha256 = Hmac<Sha256>;
+    let secret = get_jwt_secret();
+    let mut mac = HmacSha256::new_from_slice(&secret)
+        .expect("HMAC accepts any key length");
+    mac.update(token.as_bytes());
+    let result = mac.finalize().into_bytes();
+    result.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+/// Store a new refresh token in the database.
+fn store_refresh_token(conn: &Connection, user_id: &str, token: &str, expires_at: &str) -> Result<(), String> {
+    let id = Uuid::new_v4().to_string();
+    let token_hash = hash_refresh_token(token);
+    let now = Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![id, user_id, token_hash, expires_at, now],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Revoke a specific refresh token (used on rotation and logout).
+fn revoke_refresh_token(conn: &Connection, token: &str) -> Result<(), String> {
+    let token_hash = hash_refresh_token(token);
+    conn.execute(
+        "DELETE FROM refresh_tokens WHERE token_hash = ?1",
+        params![token_hash],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Revoke ALL refresh tokens for a user (used on logout).
+fn revoke_all_user_tokens(conn: &Connection, user_id: &str) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM refresh_tokens WHERE user_id = ?1",
+        params![user_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Validate that a refresh token exists in the DB and is not expired.
+fn validate_refresh_token_in_db(conn: &Connection, token: &str) -> Result<String, String> {
+    let token_hash = hash_refresh_token(token);
+    let now = Utc::now().to_rfc3339();
+    let result: Option<(String, String)> = conn
+        .query_row(
+            "SELECT user_id, expires_at FROM refresh_tokens WHERE token_hash = ?1",
+            params![token_hash],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+
+    match result {
+        None => Err("Refresh token not found or already revoked".to_string()),
+        Some((user_id, expires_at)) => {
+            if expires_at < now {
+                // Clean up expired token
+                let _ = conn.execute(
+                    "DELETE FROM refresh_tokens WHERE token_hash = ?1",
+                    params![token_hash],
+                );
+                Err("Refresh token has expired".to_string())
+            } else {
+                Ok(user_id)
+            }
+        }
+    }
+}
+
+/// Purge expired refresh tokens (housekeeping, called periodically).
+pub fn purge_expired_refresh_tokens(conn: &Connection) -> Result<(), String> {
+    let now = Utc::now().to_rfc3339();
+    conn.execute(
+        "DELETE FROM refresh_tokens WHERE expires_at < ?1",
+        params![now],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 fn verify_any_password(password: &str, stored_hash: &str) -> Result<bool, String> {
@@ -73,6 +181,18 @@ pub struct Claims {
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RefreshAccessTokenRequest {
+    #[serde(alias = "refreshToken")]
+    pub refresh_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LogoutRequest {
+    #[serde(alias = "refreshToken")]
+    pub refresh_token: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -124,10 +244,10 @@ pub fn generate_access_token(user_id: &str, username: &str, role: &str) -> Resul
     encode(&Header::default(), &claims, &secret).map_err(|e| e.to_string())
 }
 
-/// Generate JWT refresh token (7 days expiry)
+/// Generate JWT refresh token (30 days expiry)
 pub fn generate_refresh_token(user_id: &str, username: &str, role: &str) -> Result<String, String> {
     let now = Utc::now();
-    let expires_at = now + Duration::days(7);
+    let expires_at = now + Duration::days(30);
 
     let claims = Claims {
         sub: user_id.to_string(),
@@ -183,6 +303,11 @@ fn build_auth_response(
     let access_token = generate_access_token(user_id, username, role)?;
     let refresh_token = generate_refresh_token(user_id, username, role)?;
 
+    // Store the refresh token hash in the database for server-side validation
+    let conn = get_db_connection()?;
+    let expires_at = (Utc::now() + Duration::days(30)).to_rfc3339();
+    store_refresh_token(&conn, user_id, &refresh_token, &expires_at)?;
+
     Ok(AuthResponse {
         user_id: user_id.to_string(),
         username: username.to_string(),
@@ -193,7 +318,7 @@ fn build_auth_response(
         default_company_id,
         access_token,
         refresh_token,
-        expires_in: 900,
+        expires_in: 900, // 15 minutes
     })
 }
 
@@ -393,60 +518,73 @@ pub fn login(request: LoginRequest) -> Result<AuthResponse, String> {
     let company_ids: Vec<String> = serde_json::from_str(&company_ids_str)
         .unwrap_or_else(|_| vec![]);
 
-    // Generate tokens
-    let access_token = generate_access_token(&user_id, &request.username, &role)?;
-    let refresh_token = generate_refresh_token(&user_id, &request.username, &role)?;
-
-    Ok(AuthResponse {
-        user_id,
-        username: request.username,
-        email,
-        name,
-        role,
+    // Use build_auth_response which stores the refresh token in the DB
+    build_auth_response(
+        &user_id,
+        &request.username,
+        &name,
+        &email,
+        &role,
         company_ids,
         default_company_id,
-        access_token,
-        refresh_token,
-        expires_in: 900, // 15 minutes in seconds
-    })
+    )
 }
 
-/// Refresh access token using refresh token
+/// Refresh access token using refresh token — with rotation.
+///
+/// Security guarantees:
+///   1. Validates the JWT signature and expiry.
+///   2. Validates the token exists in the DB (not revoked).
+///   3. Verifies the user is still active in the DB.
+///   4. Atomically revokes the old refresh token and issues a new one
+///      (refresh token rotation — a stolen token can only be used once).
 #[tauri::command]
-pub fn refresh_access_token(refresh_token: String) -> Result<AuthResponse, String> {
-    // Verify refresh token
-    let claims = verify_token(&refresh_token)?;
+pub fn refresh_access_token(request: RefreshAccessTokenRequest) -> Result<AuthResponse, String> {
+    let refresh_token = request.refresh_token;
 
+    // Step 1: Verify JWT signature and expiry
+    let claims = verify_token(&refresh_token)?;
     if claims.token_type != "refresh" {
         return Err("Invalid token type".to_string());
     }
 
     let conn = get_db_connection()?;
-    
+
+    // Step 2: Validate token exists in DB (not revoked) and get user_id
+    let db_user_id = validate_refresh_token_in_db(&conn, &refresh_token)?;
+
+    // Sanity check: JWT sub must match DB record
+    if db_user_id != claims.sub {
+        // Token tampering detected — revoke everything for this user
+        let _ = revoke_all_user_tokens(&conn, &claims.sub);
+        return Err("Token validation failed".to_string());
+    }
+
+    // Step 3: Verify user is still active in the DB (backend validation)
     let (name, email, role, company_ids_str, default_company_id): (String, String, String, String, Option<String>) = conn
         .query_row(
-            "SELECT name, email, role, company_ids, default_company_id FROM users WHERE id = ? AND is_active = 1",
+            "SELECT name, email, role, company_ids, default_company_id FROM users WHERE id = ?1 AND is_active = 1",
             params![&claims.sub],
-            |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                ))
-            },
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
         )
         .optional()
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| "User not found".to_string())?;
+        .ok_or_else(|| "User not found or account disabled".to_string())?;
 
-    // Parse company IDs from JSON
-    let company_ids: Vec<String> = serde_json::from_str(&company_ids_str)
-        .unwrap_or_else(|_| vec![]);
+    // Step 4: Revoke the old refresh token (rotation — one-time use)
+    revoke_refresh_token(&conn, &refresh_token)?;
 
-    // Generate new access token
-    let access_token = generate_access_token(&claims.sub, &claims.username, &role)?;
+    // Step 5: Issue new access token + new refresh token
+    let company_ids: Vec<String> = serde_json::from_str(&company_ids_str).unwrap_or_default();
+    let new_access_token = generate_access_token(&claims.sub, &claims.username, &role)?;
+    let new_refresh_token = generate_refresh_token(&claims.sub, &claims.username, &role)?;
+
+    // Step 6: Store the new refresh token in DB
+    let expires_at = (Utc::now() + Duration::days(30)).to_rfc3339();
+    store_refresh_token(&conn, &claims.sub, &new_refresh_token, &expires_at)?;
+
+    // Housekeeping: purge any other expired tokens for this user
+    let _ = purge_expired_refresh_tokens(&conn);
 
     Ok(AuthResponse {
         user_id: claims.sub,
@@ -456,8 +594,8 @@ pub fn refresh_access_token(refresh_token: String) -> Result<AuthResponse, Strin
         role,
         company_ids,
         default_company_id,
-        access_token,
-        refresh_token, // Return same refresh token
+        access_token: new_access_token,
+        refresh_token: new_refresh_token, // Rotated — new token every refresh
         expires_in: 900,
     })
 }
@@ -506,6 +644,18 @@ pub fn verify_access_token(token: String) -> Result<User, String> {
         default_company_id,
         is_active: is_active != 0,
     })
+}
+
+/// Logout — revokes the refresh token server-side so it cannot be reused.
+/// Also purges all other expired tokens for the user as housekeeping.
+#[tauri::command]
+pub fn logout(request: LogoutRequest) -> Result<(), String> {
+    let conn = get_db_connection()?;
+    // Best-effort: revoke the specific token. If it's already gone, that's fine.
+    let _ = revoke_refresh_token(&conn, &request.refresh_token);
+    // Also purge any expired tokens globally
+    let _ = purge_expired_refresh_tokens(&conn);
+    Ok(())
 }
 
 fn get_user_internal(user_id: String) -> Result<User, String> {

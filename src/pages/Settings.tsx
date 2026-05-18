@@ -41,7 +41,9 @@ function applyTheme(theme: "light" | "dark" | "system") {
   } else if (theme === "light") {
     document.documentElement.classList.remove("dark");
   } else {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    ).matches;
     document.documentElement.classList.toggle("dark", prefersDark);
   }
 }
@@ -92,8 +94,7 @@ export function SettingsPage() {
   );
 
   const showCategory =
-    !searchQuery ||
-    filteredCategories.some((c) => c.id === activeCategory);
+    !searchQuery || filteredCategories.some((c) => c.id === activeCategory);
 
   const renderContent = () => {
     switch (activeCategory) {
@@ -116,7 +117,7 @@ export function SettingsPage() {
 
   return (
     <PageTransition>
-      <div className="flex min-h-[calc(100vh-5rem)] -mx-5 lg:-mx-6 relative">
+      <div className="flex min-h-[calc(100vh-4rem)] min-w-0 gap-6 px-4 py-4 lg:px-6 lg:py-5">
         <SettingsSidebar
           activeCategory={activeCategory}
           onCategoryChange={handleCategoryChange}
@@ -126,11 +127,11 @@ export function SettingsPage() {
           onMobileClose={() => setIsMobileMenuOpen(false)}
         />
 
-        <div className="flex flex-1 flex-col min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           <SettingsMobileHeader onMenuClick={() => setIsMobileMenuOpen(true)} />
 
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-5xl mx-auto p-4 md:p-8">
+          <main className="flex-1 min-w-0 overflow-y-auto">
+            <div className="mx-auto w-full max-w-6xl py-2 md:py-4">
               <div className="mb-8">
                 <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400 mb-2">
                   <SettingsIcon className="w-4 h-4" />
@@ -175,7 +176,7 @@ export function SettingsPage() {
                 </div>
               )}
             </div>
-          </div>
+          </main>
         </div>
       </div>
     </PageTransition>

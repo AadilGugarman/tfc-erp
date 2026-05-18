@@ -12,13 +12,6 @@ import {
 } from "./services/backup";
 
 async function bootstrap() {
-  try {
-    await initializeBackendStorage();
-  } catch (error) {
-    console.error("Failed to initialize backend storage:", error);
-  }
-
-  // Render the app immediately after storage init
   const rootElement = document.getElementById("root");
   if (!rootElement) {
     console.error("Root element not found");
@@ -31,18 +24,39 @@ async function bootstrap() {
     </StrictMode>,
   );
 
-  // Initialize cursor control to enforce strict cursor behavior
+  // Initialize cursor control immediately.
   initializeCursorControl();
-  try {
+
+  // Initialize backend storage in the background so the UI can render sooner.
+  void initializeBackendStorage().catch((error) => {
+    console.error("Failed to initialize backend storage:", error);
+  });
+
+  const scheduleBackupWork = () => {
     void (async () => {
-      await saveClientStateForBackups();
-      await createStartupBackup();
-      window.setInterval(() => {
-        void runAutoBackupIfDue();
-      }, 60_000);
+      try {
+        await saveClientStateForBackups();
+        await createStartupBackup();
+        window.setInterval(() => {
+          void runAutoBackupIfDue();
+        }, 60_000);
+      } catch (error) {
+        console.warn("[Backup] Startup backup failed:", error);
+      }
     })();
-  } catch {
-    // Backup operations should never block app startup.
+  };
+
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    (
+      window as unknown as {
+        requestIdleCallback: (
+          cb: () => void,
+          opts?: { timeout: number },
+        ) => number;
+      }
+    ).requestIdleCallback(scheduleBackupWork, { timeout: 2000 });
+  } else {
+    window.setTimeout(scheduleBackupWork, 1000);
   }
 }
 

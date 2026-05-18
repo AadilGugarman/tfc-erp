@@ -13,6 +13,7 @@ import { useAppStore } from "../../stores/useAppStore";
 import { authService } from "@/services/auth";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { NavigateFunction } from "react-router-dom";
+import { useDialog } from "@/components/ui/dialogs";
 
 function goToCompaniesSettings(
   navigate: NavigateFunction,
@@ -78,6 +79,7 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
   const { companyId } = useParams<{ companyId: string }>();
   const { createCompany, updateCompany, companies, showNotification } =
     useAppStore();
+  const dialog = useDialog();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<CompanyFormData>(INITIAL_DATA);
@@ -264,12 +266,15 @@ export const CompanyWizard: React.FC<CompanyWizardProps> = ({
     }
   };
 
-  const handleReset = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to reset the form? All entered data will be lost.",
-      )
-    ) {
+  const handleReset = async () => {
+    const confirmed = await dialog.warning({
+      title: "Reset Company Setup?",
+      description:
+        "This action will permanently remove all unsaved onboarding information and restore the setup wizard to its initial state. Your draft will be cleared from local storage.",
+      confirmLabel: "Reset Setup",
+      cancelLabel: "Keep Editing",
+    });
+    if (confirmed) {
       setFormData(INITIAL_DATA);
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       setCurrentStep(1);

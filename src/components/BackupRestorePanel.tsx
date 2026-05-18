@@ -28,6 +28,7 @@ import {
   type BackupConfig,
   type BackupHistoryItem,
 } from "@/services/backup";
+import { useDialog } from "@/components/ui/dialogs";
 
 interface BackupRestorePanelProps {
   onNotify: (message: string, type: "success" | "error" | "info") => void;
@@ -79,6 +80,7 @@ export function BackupRestorePanel({
   const [sortBy, setSortBy] = useState<
     "latest" | "oldest" | "largest" | "smallest"
   >("latest");
+  const dialog = useDialog();
 
   const reload = async () => {
     setLoading(true);
@@ -163,9 +165,12 @@ export function BackupRestorePanel({
   };
 
   const handleRestore = async (item: BackupHistoryItem) => {
-    const confirmed = confirm(
-      `Restore this backup?\n\n${item.file_name}\nThis will replace the current database and restart the app.`,
-    );
+    const confirmed = await dialog.destructive({
+      title: "Restore This Backup?",
+      description: `You are about to restore "${item.file_name}". This will replace your current database with the backup snapshot and restart the application. Any data created after this backup was made will be lost.`,
+      confirmLabel: "Restore & Restart",
+      cancelLabel: "Cancel",
+    });
     if (!confirmed) return;
 
     setActiveRestorePath(item.file_path);
@@ -218,7 +223,12 @@ export function BackupRestorePanel({
   };
 
   const handleDelete = async (item: BackupHistoryItem) => {
-    const confirmed = confirm(`Delete backup ${item.file_name}?`);
+    const confirmed = await dialog.destructive({
+      title: "Delete Backup?",
+      description: `"${item.file_name}" will be permanently removed from your backup history. This cannot be undone.`,
+      confirmLabel: "Delete Backup",
+      cancelLabel: "Cancel",
+    });
     if (!confirmed) return;
 
     try {

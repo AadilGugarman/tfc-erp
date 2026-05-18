@@ -14,6 +14,7 @@ import type {
   Company,
 } from "./schema";
 import { secureInvoke, getTauriInvoke } from "@/utils/tauri";
+import { hasValidAccessToken } from "@/utils/tokenRegistry";
 
 let dbCache: Database | null = null;
 let backendInitPromise: Promise<void> | null = null;
@@ -285,6 +286,35 @@ export function getLedgerEntriesByCompany(
     entries = entries.filter((e) => e.partyId === partyId);
   }
   return entries;
+}
+
+export function getPartyBalancesByCompany(companyId: string): Array<{
+  partyId: string;
+  balance: number;
+  type: "receivable" | "payable";
+}> {
+  if (!companyId) return [];
+
+  const parties = getPartiesByCompany(companyId);
+  const entries = getLedgerEntriesByCompany(companyId);
+  const balanceMap = new Map<string, number>();
+
+  for (const entry of entries) {
+    const current = balanceMap.get(entry.partyId) ?? 0;
+    balanceMap.set(
+      entry.partyId,
+      current + (entry.type === "debit" ? entry.amount : -entry.amount),
+    );
+  }
+
+  return parties.map((party) => {
+    const raw = balanceMap.get(party.id) ?? 0;
+    return {
+      partyId: party.id,
+      balance: Math.abs(raw),
+      type: raw >= 0 ? "receivable" : "payable",
+    };
+  });
 }
 
 export function addLedgerEntry(
@@ -864,6 +894,13 @@ export async function deleteCompany(id: string): Promise<boolean> {
 export async function getVehicleRegistersByCompany(
   company_id: string,
 ): Promise<VehicleRegister[]> {
+  if (!hasValidAccessToken()) {
+    console.debug(
+      "Skipping vehicle register load: no valid access token in memory.",
+    );
+    return [];
+  }
+
   try {
     // Note: Rust command is get_vehicle_registers and currently returns all
     // We should probably add filtering in Rust later.
